@@ -1,0 +1,32 @@
+{
+  "o2_hours": {
+    "value": 8,
+    "assumption": true,
+    "source": "mock"
+  },
+  "reserve_pct": {
+    "value": 20,
+    "assumption": true,
+    "source": "mock"
+  },
+  "battery_Wh": {
+    "value": 2000,
+    "assumption": true,
+    "source": "mock"
+  },
+  "base_power_W": {
+    "value": 150,
+    "assumption": true,
+    "source": "mock"
+  },
+  "walkback_m": {
+    "value": 10000,
+    "assumption": true,
+    "source": "ICES 2026 (to verify)"
+  },
+  "max_slope_deg": {
+    "value": 25.0,
+    "assumption": true,
+    "source": "mock"
+  }
+}

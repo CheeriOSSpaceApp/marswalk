@@ -1,0 +1,95 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.431351,
+          18.432259
+        ]
+      },
+      "properties": {
+        "id": "habitat",
+        "name": "Habitat",
+        "kind": "habitat",
+        "science_value": 1,
+        "notes": "mock",
+        "photo_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.455363,
+          18.465159
+        ]
+      },
+      "properties": {
+        "id": "depot",
+        "name": "Sample Depot (mock)",
+        "kind": "depot",
+        "science_value": 5,
+        "notes": "mock",
+        "photo_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.447359,
+          18.457567
+        ]
+      },
+      "properties": {
+        "id": "sci1",
+        "name": "Delta outcrop (mock)",
+        "kind": "science",
+        "science_value": 4,
+        "notes": "mock",
+        "photo_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.451094,
+          18.453012
+        ]
+      },
+      "properties": {
+        "id": "sci2",
+        "name": "Crater rim (mock)",
+        "kind": "science",
+        "science_value": 3,
+        "notes": "mock",
+        "photo_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.442023,
+          18.444913
+        ]
+      },
+      "properties": {
+        "id": "shelter1",
+        "name": "Shelter A (mock)",
+        "kind": "shelter",
+        "science_value": 1,
+        "notes": "mock",
+        "photo_id": null
+      }
+    }
+  ]
+}

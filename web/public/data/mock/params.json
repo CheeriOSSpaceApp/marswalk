@@ -1,0 +1,12 @@
+{
+  "mock": true,
+  "slope_caution_deg": 15.0,
+  "slope_forbidden_deg": 25.0,
+  "rough_caution_m": 0.25,
+  "rough_forbidden_m": 0.6,
+  "w_slope": 1.0,
+  "w_rough": 1.0,
+  "w_nocomms": 0.2,
+  "base_speed_ms": 1.0,
+  "gcr_mSv_per_h": 0.028
+}

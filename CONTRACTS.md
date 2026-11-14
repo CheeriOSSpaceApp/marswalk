@@ -1,0 +1,39 @@
+# CONTRACTS.md
+
+Everything lives in `web/public/data/<site>/` where `<site>` is `mock` or `jezero`.
+If you need to change a format: announce in #general FIRST, then update this file.
+
+## Global conventions
+- Mars 2000 planetocentric coords, longitude 0–360°E, latitude north positive
+- Grid is equirectangular over the AOI; **row 0 = north, col 0 = west**
+- Flat index: `i = row * width + col`
+- Binaries are **little-endian**, raw (no header): `.f32` = Float32, `.u8` = Uint8, size = width × height
+- 1° latitude on Mars ≈ 59.27 km (radius 3,396.19 km)
+
+## Data files
+| File | Format | Owner | Used by | Due |
+|---|---|---|---|---|
+| meta.json | `{site, bbox:[lonMin,latMin,lonMax,latMax], width, height, cell_m, habitat:[lon,lat]}` | Gabriel (mock: Eric) | All | 18:00 |
+| elevation.f32 | Float32, meters | Gabriel | Eric, Marco | 20:30 |
+| slope.f32 | Float32, degrees | Gabriel | Eric, Ana | 20:30 |
+| roughness.f32 | Float32, meters (local std dev 5×5) | Gabriel | Eric, Ana | 20:30 |
+| hazard.u8 | Uint8: 0 free, 1 caution, 2 forbidden | Gabriel + Ana (thresholds) | Eric | 20:30 |
+| viewshed.u8 | Uint8: 1 = line of sight to habitat | Marco | Eric, Santiago | 23:00 |
+| hillshade.png, ortho.png, slope.png | PNG, same bbox, display only | Gabriel | Santiago | 20:30 |
+| targets.geojson | Points: id, name, kind (habitat\|depot\|science\|shelter), science_value 1–5, notes, photo_id | Dana + Gabriel | Eric, Santiago | 20:30 |
+| photos.json | `[{id, lon, lat, sol, camera, url, caption}]` | Dana | Santiago | 23:00 |
+| rover_traverse.geojson | LineString of real traverse clipped to AOI | Marco | Marco, Santiago | 20:30 |
+| env.json | per local hour 0–23 and scenario (clear, dusty, storm): temp_K, pressure_Pa, wind_ms, tau | Gabriel + Ana | Ana, Santiago | 23:00 |
+| suit.json | o2_hours, reserve_pct, battery_Wh, base_power_W, walkback_m, max_slope_deg — each `{value, source, assumption}` | Marco | Ana, Eric | 19:00 |
+| alerts.json | `[{id, type (SPE\|dust\|suit), effect:{dose_x, o2_x, visibility}, action (return\|shelter)}]` | Marco + Ana | Eric, Santiago | 23:00 |
+| params.json | model weights & constants, with source | Ana | Eric | 19:00 |
+
+## Code contracts (JavaScript, `web/src/`)
+| Module | Signature | Owner | Used by |
+|---|---|---|---|
+| data.js | `loadSite(site) -> {meta, layers:{elevation, slope, roughness, hazard, viewshed}, targets, suit, params, alerts}` | Eric | All |
+| cost.js | `cellCost(i, layers, params, state) -> O2-equivalent minutes or Infinity` | Ana | Eric |
+| planner.worker.js | `plan({start, stops[], goal, params, state}) -> {path: GeoJSON LineString, stats, segments[]}` | Eric | Santiago |
+| stats | `{distance_m, duration_min, o2_used_pct, dose_mSv, max_slope_deg, walkback_ok, comms_pct}` | Eric + Ana | Santiago |
+| replan | `replan(currentCell, alert) -> new plan from current position` | Eric | Santiago |
+| bus.js | `BroadcastChannel('marswalk')`: `{type: 'plan'\|'alert'\|'position', payload}` | Santiago | All |
