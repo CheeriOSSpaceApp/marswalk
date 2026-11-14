@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Planner test — Eric</title>
+  <style>
+    body { margin: 0; display: flex; gap: 16px; font: 14px system-ui; background: #111; color: #eee; padding: 12px; }
+    canvas { cursor: crosshair; image-rendering: pixelated; width: 800px; height: 800px; }
+    pre { background: #222; padding: 8px; width: 320px; white-space: pre-wrap; }
+    button { margin: 4px 4px 4px 0; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1000" height="1000"></canvas>
+  <div>
+    <b>Click 1 = start, click 2 = goal.</b> Red = forbidden, yellow = caution.<br />
+    <label><input id="suit" type="checkbox" /> Suit failure (O₂ ×1.5)</label><br />
+    <label><input id="dust" type="checkbox" /> Dust (visibility 0.3)</label><br />
+    <button id="eva">Habitat → depot → science → habitat</button>
+    <pre id="out">loading…</pre>
+  </div>
+  <script type="module">
+    import { createPlanner } from './src/plannerClient.js';
+    import { loadSite, lonLatToCell } from './src/data.js';
+
+    const SITE = new URLSearchParams(location.search).get('site') || 'mock';
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d'), out = document.getElementById('out');
+    const planner = createPlanner();
+    const [site, _] = await Promise.all([loadSite(SITE), planner.init(SITE)]);
+    const { meta } = site, W = meta.width, H = meta.height;
+
+    // background: hillshade + hazard tint
+    const img = new Image(); img.src = `/data/${SITE}/hillshade.png`; await img.decode();
+    const bg = document.createElement('canvas'); bg.width = W; bg.height = H;
+    const b = bg.getContext('2d'); b.drawImage(img, 0, 0, W, H);
+    const px = b.getImageData(0, 0, W, H);
+    for (let i = 0; i < W * H; i++) {
+      const hz = site.layers.hazard[i];
+      if (hz === 2) { px.data[4 * i] = 200; px.data[4 * i + 1] *= 0.4; px.data[4 * i + 2] *= 0.4; }
+      else if (hz === 1) { px.data[4 * i + 2] *= 0.6; }
+    }
+    b.putImageData(px, 0, 0);
+
+    const toLonLat = (x, y) => { const [a, s, c, n] = meta.bbox; return [a + (x + 0.5) / W * (c - a), n - (y + 0.5) / H * (n - s)]; };
+    const toXY = ([lon, lat]) => { const { row, col } = lonLatToCell(meta, lon, lat); return [col, row]; };
+
+    function draw(res, pts) {
+      ctx.drawImage(bg, 0, 0);
+      if (res?.path) {
+        ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 3; ctx.beginPath();
+        res.path.geometry.coordinates.forEach((p, k) => { const [x, y] = toXY(p); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#fff';
+      for (const f of site.targets.features) { const [x, y] = toXY(f.geometry.coordinates); ctx.fillRect(x - 5, y - 5, 10, 10); ctx.fillText(f.properties.name, x + 8, y + 4); }
+      ctx.fillStyle = '#0f0'; for (const p of pts) { const [x, y] = toXY(p); ctx.beginPath(); ctx.arc(x, y, 7, 0, 7); ctx.fill(); }
+    }
+    const state = () => ({
+      ...(document.getElementById('suit').checked ? { o2_x: 1.5 } : {}),
+      ...(document.getElementById('dust').checked ? { visibility: 0.3 } : {}),
+    });
+
+    let clicks = [];
+    async function run(req) {
+      out.textContent = 'planning…';
+      const t = performance.now();
+      const res = await planner.plan({ ...req, state: state() });
+      const roundTrip = Math.round(performance.now() - t);
+      draw(res, [req.start, ...(req.stops || []), req.goal]);
+      out.textContent = res.error ? 'ERROR ' + JSON.stringify(res, null, 1)
+        : JSON.stringify({ round_trip_ms: roundTrip, ...res.timing_ms, ...res.stats }, null, 1);
+    }
+
+    cv.onclick = (e) => {
+      const r = cv.getBoundingClientRect();
+      const p = toLonLat(Math.floor((e.clientX - r.left) * W / r.width), Math.floor((e.clientY - r.top) * H / r.height));
+      clicks.push(p);
+      if (clicks.length === 1) { draw(null, clicks); out.textContent = 'now click the goal'; }
+      else { run({ start: clicks[0], goal: clicks[1] }); clicks = []; }
+    };
+    const T = Object.fromEntries(site.targets.features.map((f) => [f.properties.id, f.geometry.coordinates]));
+    document.getElementById('eva').onclick = () => run({ start: T.habitat, stops: [T.depot, T.sci1, T.sci2], goal: T.habitat });
+
+    draw(null, []);
+    out.textContent = `site: ${SITE}, ${W}×${H}, cell ${meta.cell_m} m. Click to plan.`;
+  </script>
+</body>
+</html>
