@@ -48,6 +48,13 @@ Re-plan after an alert: 11–65 ms. Full numbers and method: [docs/PLANNER.md](d
 - **Models (Ana).** Pandolf metabolic cost on Mars gravity, Tobler speed capped at 2.2 mph, GCR dose, task times. Every
   constant with its source: [Models](#models) below.
 - **Data pipeline** and caches (Gabriel). Converts HiRISE DTM into elevation, slope, detrended roughness, hazard and map images; climate comes from MCD. Greedy k-center uses the planner's oxygen costs to place up to three caches in an 800 m operating area, covering EVA-1 targets while keeping supplies near Wildcat. The planner retains its 1770 m walkback limit. Exports stations.geojson, CSV metrics and a before/after figure. At 800 m, worst-case cost falls from 34.47 to 28.70 nominal O₂-min; the 10-minute target remains unmet. The 120 O₂-min per cache is a declared scenario assumption (a quarter of the 8 h supply).
+- **Extension: weather-station siting (Gabriel, not used by the planner).** `pipeline/weateher_stations.py` proposes three
+  surface weather stations inside the same 800 m walkable area: an open-terrain reference (WS-1, 190 m from the habitat),
+  a low-terrain site (WS-2) and a high-terrain site (WS-3), to measure wind, temperature, pressure and dust where the crew
+  walks. Candidates must be installable (slope ≤ 5°, roughness ≤ 0.25 m, free hazard, ≥ 15 m flat clearance) and are
+  ranked with the VIKOR multi-criteria method (Opricovic & Tzeng 2004, doi:10.1016/S0377-2217(03)00020-1) on slope,
+  roughness, O₂ cost to service them from the habitat and local relief; the criterion weights are team assumptions.
+  Output: `pipeline/validation/weather_stations.geojson` + figures. Future work: feed their readings into `env.json`.
 - **Life support, comms and validation (Marco).** Suit limits with NASA sources (`web/public/data/common/suit.json`);
   line-of-sight viewshed from the habitat antenna; the rover traverse as validation. The EVA-1 route is compared with the
   real Perseverance traverse: 50.6% of checked vertices are within 20 m, with a 19.8 m median distance. Rover-corridor
@@ -66,7 +73,7 @@ Re-plan after an alert: 11–65 ms. Full numbers and method: [docs/PLANNER.md](d
 - `pipeline/` — Python: NASA data → contract layers (`export_jezero.py`, `process_rover_traverse.py`, `process_viewshed.py`, `mock_site.py`, `calcstations.py` O₂ caches); `pipeline/validation/` rover validation scripts
 - `web/src/` — planner (`planner.js`, `heap.js`, worker, client), cost model (`cost.js`, `radiation.js`), UI (`console.js`, `tablet.js`, …), `report.js`
 - `web/public/data/jezero/` real site · `common/` suit, model params, alerts · `mock/` synthetic test terrain
-- `docs/` — [PLANNER](docs/PLANNER.md) · [INTEGRATION](docs/INTEGRATION.md) (frontend ↔ planner) · [HAND_CHECK](docs/HAND_CHECK.md) · [MANUAL_TEST](docs/MANUAL_TEST.md)
+- `docs/` — [PROJECT_PAGE](docs/PROJECT_PAGE.md) (submission text) · [PLANNER](docs/PLANNER.md) · [INTEGRATION](docs/INTEGRATION.md) (frontend ↔ planner) · [HAND_CHECK](docs/HAND_CHECK.md) · [MANUAL_TEST](docs/MANUAL_TEST.md)
 - `CONTRACTS.md` — every file format, API and team decision (with time). `AI_USAGE.md` — AI use log (Space Apps rule).
 
 ## Tests
