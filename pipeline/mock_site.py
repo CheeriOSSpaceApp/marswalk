@@ -186,7 +186,8 @@ def main():
         {"type": "Feature",
          "geometry": {"type": "Point", "coordinates": cell_to_lonlat(r, c)},
          "properties": {"id": i, "name": n, "kind": k, "science_value": v,
-                        "notes": "mock", "photo_id": None}}
+                        "notes": "mock", "photo_id": None,
+                        **({"radiation_shelter": True} if k == "shelter" else {})}}
         for i, n, k, v, (r, c) in targets]})
 
     write_json("photos.json", [])

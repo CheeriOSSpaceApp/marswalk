@@ -9,3 +9,4 @@ Format: `- [HH:MM] Name — Tool — What for — What we kept / changed`
 - [19:20] Eric — Claude — replan (alert → shelter/habitat, stacking state), snap-to-walkable, 20 tests, alert buttons in test page.
 - [20:01] Ana - Claude - Help with "pruebas.mjs" to test radiation.js
 - [20:10] Eric — Claude — Fixed speedAt crash, enforced suit.json rules, data validator, e2e demo test, CLAUDE.md.
+- [20:40] Eric — Claude — Checked Marco's Jezero targets/photos (distances verified 283–548 m), moved them from mock/ to jezero/, added task time per target, radiation_shelter rule for SPE, out-of-map guard; 31 tests.

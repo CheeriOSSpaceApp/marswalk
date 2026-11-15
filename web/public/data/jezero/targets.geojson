@@ -1,0 +1,241 @@
+{
+  "type": "FeatureCollection",
+  "name": "targets_EVA1",
+  "crs_note": "Mars 2000 planetocéntrico, lon 0-360 E, lat +N, orden [lon, lat]. Coordenadas de fuentes referidas al mosaico HiRISE controlado (Fergason et al. 2020).",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.41359752,
+          18.45369687
+        ]
+      },
+      "properties": {
+        "id": "habitat-threeforks-lz",
+        "name": "Three Forks Habitat - Certified MSR Landing Site",
+        "kind": "habitat",
+        "science_value": 1,
+        "notes": "Hábitat de la EVA-1 en el centro del sitio de aterrizaje del SRL certificado por JPL (Williams et al. LPSC 2023): círculo de 60 m de radio, pendientes <10° a escala de 2 m, roca más alta medida de 0.16 m y 0.6-0.8% de área cubierta por rocas, la menor de cualquier sitio de aterrizaje evaluado en Marte. Elev. -2548.7 m (geoide MOLA). Se diseñó a más de 200 m del depot para que el chorro de los motores no afecte los tubos, lo que protege las muestras de contaminación. Todos los targets quedan a 283-548 m en línea recta, dentro de walkback_m = 1770 m (suit.json de Marco). Science value 1: es un punto logístico, sin objetivo científico.",
+        "photo_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.40845187,
+          18.45335876
+        ]
+      },
+      "properties": {
+        "id": "depot-tf-dz13",
+        "name": "Three Forks Depot - Drop Zone 13",
+        "kind": "depot",
+        "science_value": 5,
+        "notes": "Zona de caída certificada #13 (radio 0.7 m, elev. -2545.06 m, geoide MOLA), Williams et al. LPSC 2023, Tabla 1. Contiene uno de los 10 tubos del depot (Roubion M2020-164-2, Montdenier M2020-190-3, Coulettes M2020-271-6, Malay M2020-337-8, Atsah M2020-377-10, Skyland M2020-495-12, Bearwallow M2020-516-15, Mageik M2020-579-17, WB3 M2020-584-18, Crosswind Lake M2020-639-21). Asignación tubo-zona PENDIENTE de verificar con el mapa PIA25682. EVA: localizar el tubo, fotografiarlo in situ, inspeccionar el sello, recolectarlo y etiquetarlo.",
+        "photo_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.40861382,
+          18.45305613
+        ]
+      },
+      "properties": {
+        "id": "depot-tf-dz16",
+        "name": "Three Forks Depot - Drop Zone 16",
+        "kind": "depot",
+        "science_value": 5,
+        "notes": "Zona de caída certificada #16 (radio 0.95 m, elev. -2545.23 m, geoide MOLA), Williams et al. LPSC 2023, Tabla 1. Contiene uno de los 10 tubos del depot (Roubion M2020-164-2, Montdenier M2020-190-3, Coulettes M2020-271-6, Malay M2020-337-8, Atsah M2020-377-10, Skyland M2020-495-12, Bearwallow M2020-516-15, Mageik M2020-579-17, WB3 M2020-584-18, Crosswind Lake M2020-639-21). Asignación tubo-zona PENDIENTE de verificar con el mapa PIA25682. EVA: localizar el tubo, fotografiarlo in situ, inspeccionar el sello, recolectarlo y etiquetarlo.",
+        "photo_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.40850874,
+          18.45302517
+        ]
+      },
+      "properties": {
+        "id": "depot-tf-dz17",
+        "name": "Three Forks Depot - Drop Zone 17",
+        "kind": "depot",
+        "science_value": 5,
+        "notes": "Zona de caída certificada #17 (radio 0.95 m, elev. -2545.16 m, geoide MOLA), Williams et al. LPSC 2023, Tabla 1. Contiene uno de los 10 tubos del depot (Roubion M2020-164-2, Montdenier M2020-190-3, Coulettes M2020-271-6, Malay M2020-337-8, Atsah M2020-377-10, Skyland M2020-495-12, Bearwallow M2020-516-15, Mageik M2020-579-17, WB3 M2020-584-18, Crosswind Lake M2020-639-21). Asignación tubo-zona PENDIENTE de verificar con el mapa PIA25682. EVA: localizar el tubo, fotografiarlo in situ, inspeccionar el sello, recolectarlo y etiquetarlo.",
+        "photo_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.40825046,
+          18.45282019
+        ]
+      },
+      "properties": {
+        "id": "depot-tf-dz18",
+        "name": "Three Forks Depot - Drop Zone 18",
+        "kind": "depot",
+        "science_value": 5,
+        "notes": "Zona de caída certificada #18 (radio 0.7 m, elev. -2545.28 m, geoide MOLA), Williams et al. LPSC 2023, Tabla 1. Contiene uno de los 10 tubos del depot (Roubion M2020-164-2, Montdenier M2020-190-3, Coulettes M2020-271-6, Malay M2020-337-8, Atsah M2020-377-10, Skyland M2020-495-12, Bearwallow M2020-516-15, Mageik M2020-579-17, WB3 M2020-584-18, Crosswind Lake M2020-639-21). Asignación tubo-zona PENDIENTE de verificar con el mapa PIA25682. EVA: localizar el tubo, fotografiarlo in situ, inspeccionar el sello, recolectarlo y etiquetarlo.",
+        "photo_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.40831719,
+          18.45273305
+        ]
+      },
+      "properties": {
+        "id": "depot-tf-dz19",
+        "name": "Three Forks Depot - Drop Zone 19",
+        "kind": "depot",
+        "science_value": 5,
+        "notes": "Zona de caída certificada #19 (radio 0.7 m, elev. -2545.36 m, geoide MOLA), Williams et al. LPSC 2023, Tabla 1. Contiene uno de los 10 tubos del depot (Roubion M2020-164-2, Montdenier M2020-190-3, Coulettes M2020-271-6, Malay M2020-337-8, Atsah M2020-377-10, Skyland M2020-495-12, Bearwallow M2020-516-15, Mageik M2020-579-17, WB3 M2020-584-18, Crosswind Lake M2020-639-21). Asignación tubo-zona PENDIENTE de verificar con el mapa PIA25682. EVA: localizar el tubo, fotografiarlo in situ, inspeccionar el sello, recolectarlo y etiquetarlo.",
+        "photo_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.40818728,
+          18.4527171
+        ]
+      },
+      "properties": {
+        "id": "depot-tf-dz20",
+        "name": "Three Forks Depot - Drop Zone 20",
+        "kind": "depot",
+        "science_value": 5,
+        "notes": "Zona de caída certificada #20 (radio 0.95 m, elev. -2545.36 m, geoide MOLA), Williams et al. LPSC 2023, Tabla 1. Contiene uno de los 10 tubos del depot (Roubion M2020-164-2, Montdenier M2020-190-3, Coulettes M2020-271-6, Malay M2020-337-8, Atsah M2020-377-10, Skyland M2020-495-12, Bearwallow M2020-516-15, Mageik M2020-579-17, WB3 M2020-584-18, Crosswind Lake M2020-639-21). Asignación tubo-zona PENDIENTE de verificar con el mapa PIA25682. EVA: localizar el tubo, fotografiarlo in situ, inspeccionar el sello, recolectarlo y etiquetarlo.",
+        "photo_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.40807742,
+          18.45278117
+        ]
+      },
+      "properties": {
+        "id": "depot-tf-dz21",
+        "name": "Three Forks Depot - Drop Zone 21",
+        "kind": "depot",
+        "science_value": 5,
+        "notes": "Zona de caída certificada #21 (radio 0.95 m, elev. -2545.28 m, geoide MOLA), Williams et al. LPSC 2023, Tabla 1. Contiene uno de los 10 tubos del depot (Roubion M2020-164-2, Montdenier M2020-190-3, Coulettes M2020-271-6, Malay M2020-337-8, Atsah M2020-377-10, Skyland M2020-495-12, Bearwallow M2020-516-15, Mageik M2020-579-17, WB3 M2020-584-18, Crosswind Lake M2020-639-21). Asignación tubo-zona PENDIENTE de verificar con el mapa PIA25682. EVA: localizar el tubo, fotografiarlo in situ, inspeccionar el sello, recolectarlo y etiquetarlo.",
+        "photo_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.40804345,
+          18.45267194
+        ]
+      },
+      "properties": {
+        "id": "depot-tf-dz22",
+        "name": "Three Forks Depot - Drop Zone 22",
+        "kind": "depot",
+        "science_value": 5,
+        "notes": "Zona de caída certificada #22 (radio 0.95 m, elev. -2545.36 m, geoide MOLA), Williams et al. LPSC 2023, Tabla 1. Contiene uno de los 10 tubos del depot (Roubion M2020-164-2, Montdenier M2020-190-3, Coulettes M2020-271-6, Malay M2020-337-8, Atsah M2020-377-10, Skyland M2020-495-12, Bearwallow M2020-516-15, Mageik M2020-579-17, WB3 M2020-584-18, Crosswind Lake M2020-639-21). Asignación tubo-zona PENDIENTE de verificar con el mapa PIA25682. EVA: localizar el tubo, fotografiarlo in situ, inspeccionar el sello, recolectarlo y etiquetarlo.",
+        "photo_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.40783165,
+          18.45252828
+        ]
+      },
+      "properties": {
+        "id": "depot-tf-dz25",
+        "name": "Three Forks Depot - Drop Zone 25",
+        "kind": "depot",
+        "science_value": 5,
+        "notes": "Zona de caída certificada #25 (radio 0.95 m, elev. -2545.42 m, geoide MOLA), Williams et al. LPSC 2023, Tabla 1. Contiene uno de los 10 tubos del depot (Roubion M2020-164-2, Montdenier M2020-190-3, Coulettes M2020-271-6, Malay M2020-337-8, Atsah M2020-377-10, Skyland M2020-495-12, Bearwallow M2020-516-15, Mageik M2020-579-17, WB3 M2020-584-18, Crosswind Lake M2020-639-21). Asignación tubo-zona PENDIENTE de verificar con el mapa PIA25682. EVA: localizar el tubo, fotografiarlo in situ, inspeccionar el sello, recolectarlo y etiquetarlo.",
+        "photo_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.40776224,
+          18.45264516
+        ]
+      },
+      "properties": {
+        "id": "depot-tf-dz26",
+        "name": "Three Forks Depot - Drop Zone 26",
+        "kind": "depot",
+        "science_value": 5,
+        "notes": "Zona de caída certificada #26 (radio 0.95 m, elev. -2545.28 m, geoide MOLA), Williams et al. LPSC 2023, Tabla 1. Contiene uno de los 10 tubos del depot (Roubion M2020-164-2, Montdenier M2020-190-3, Coulettes M2020-271-6, Malay M2020-337-8, Atsah M2020-377-10, Skyland M2020-495-12, Bearwallow M2020-516-15, Mageik M2020-579-17, WB3 M2020-584-18, Crosswind Lake M2020-639-21). Asignación tubo-zona PENDIENTE de verificar con el mapa PIA25682. EVA: localizar el tubo, fotografiarlo in situ, inspeccionar el sello, recolectarlo y etiquetarlo.",
+        "photo_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.4055481,
+          18.4589106
+        ]
+      },
+      "properties": {
+        "id": "sci-wildcat-ridge",
+        "name": "Wildcat Ridge - Lakebed Mudstone Outcrop (Delta Front)",
+        "kind": "science",
+        "science_value": 4,
+        "notes": "Frente del delta, Hogwallow Flats (Hawksbill Gap, fm. Shenandoah). Lodolita con sulfatos, de grano fino y laminada, depositada en un lago salino que se evaporaba; aquí SHERLOC hizo la mayor detección de orgánicos de la misión. Origen de Bearwallow (en el depot) y de Hazeltop. Coordenada = sitio de perforación publicado (figura de orbital context, Hogwallow Flats/Yori Pass, sobre HiRISE de Fergason et al. 2020). EVA: estratigrafía con escala, fotos de abrasión y perforación. Science value 4: ya fue muestreado; la EVA aporta contexto.",
+        "photo_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.406876,
+          18.455872
+        ]
+      },
+      "properties": {
+        "id": "shelter-hawksbill-01",
+        "name": "Hawksbill Gap Safe Point - Mid-Route Muster Site",
+        "kind": "shelter",
+        "science_value": 1,
+        "notes": "Punto medio geométrico entre el depot y Wildcat Ridge: 195 m de cada uno y ~400 m del hábitat. Punto operativo de espera y reagrupación ante alerta (polvo, SPE, falla del traje). NO es un refugio con protección radiológica demostrada; ante un SPE la acción real es volver al hábitat. Pendiente y rocas sin verificar: validar en el DTM y moverlo si cae en talud o en una duna.",
+        "photo_id": null
+      }
+    }
+  ]
+}

@@ -114,6 +114,25 @@ if (targets && L.slope && L.hazard && params) {
     else (d <= wb ? ok : warn)(`${p.id} "${p.name}" (${p.kind}): ${Math.round(d)} m walking from habitat${d > wb ? ` > walkback ${wb} m` : ''}`);
   }
   for (const k of ['habitat', 'depot', 'science', 'shelter']) if (!kinds.has(k)) warn(`no target of kind "${k}"`);
+  const habs = targets.features.filter((f) => f.properties?.kind === 'habitat');
+  if (habs.length !== 1) warn(`${habs.length} habitat targets (expected 1)`);
+  else {
+    const [a, b] = habs[0].geometry.coordinates, d = Math.hypot((a - hx) * 59270 * Math.cos(latC), (b - hy) * 59270);
+    (d < 2 * meta.cell_m ? ok : err)(`meta.habitat vs habitat target: ${d.toFixed(1)} m apart`);
+  }
+  const rad = targets.features.filter((f) => f.properties?.kind === 'shelter' && f.properties.radiation_shelter === true);
+  if (!rad.length) warn('no shelter with radiation_shelter: true -> SPE alerts will always return to the habitat');
+  const noTask = targets.features.filter((f) => ['depot', 'science'].includes(f.properties?.kind) && f.properties.task_min == null && params.task_min?.[f.properties.kind] == null);
+  if (noTask.length) warn(`${noTask.length} depot/science targets have no task time (properties.task_min or params.task_min[kind]) -> EVA duration underestimated`);
+  if (has('photos.json')) {
+    const photos = json('photos.json') || [], ids = new Set(photos.map((p) => p.id));
+    const out = photos.filter((p) => p.lon < lonMin || p.lon > lonMax || p.lat < latMin || p.lat > latMax);
+    (out.length ? warn : ok)(`photos.json: ${photos.length} photos${out.length ? `, ${out.length} outside bbox` : ''}`);
+    const linked = targets.features.filter((f) => f.properties?.photo_id);
+    const broken = linked.filter((f) => !ids.has(f.properties.photo_id));
+    if (broken.length) err(`photo_id not found in photos.json: ${broken.map((f) => f.properties.photo_id)}`);
+    if (!linked.length && photos.length) warn('no target has photo_id set -> tablet can\'t show POV photos per waypoint');
+  }
 }
 
 console.log(`\n${errors} error(s), ${warns} warning(s)\n`);

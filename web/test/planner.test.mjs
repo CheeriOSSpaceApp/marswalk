@@ -117,4 +117,22 @@ const fp = [meta.bbox[0] + ((forb % W) + 0.5) / W * (meta.bbox[2] - meta.bbox[0]
 r = plan(S, { start: fp, goal: T.habitat });
 check('start on a rock gets snapped', !r.error);
 
+// 11. Points outside the map are rejected (Marco's Jezero targets inside the mock map would do this)
+r = plan(S, { start: [77.4136, 18.4537], goal: T.habitat });
+check('point outside bbox -> error, not garbage', r.error === 'point_outside_map');
+
+// 12. Task time at stops counts in duration, O2 and the O2 return rule
+const noTask = plan(S, { start: T.habitat, stops: [T.shelter1], goal: T.habitat, task_min: [0, 0] });
+const withTask = plan(S, { start: T.habitat, stops: [T.shelter1], goal: T.habitat, task_min: [60, 0] });
+check('task time adds to duration', withTask.stats.duration_min - noTask.stats.duration_min === 60, `${noTask.stats.duration_min} -> ${withTask.stats.duration_min} min`);
+check('task time adds O2 (60 min at P_nom = 12.5%)', Math.abs((withTask.stats.o2_used_pct - noTask.stats.o2_used_pct) - 12.5) < 0.15, `+${(withTask.stats.o2_used_pct - noTask.stats.o2_used_pct).toFixed(2)}%`);
+check('task time reduces O2 margin by 60 min', Math.abs((noTask.stats.o2_margin_min - withTask.stats.o2_margin_min) - 60) < 0.2, `${noTask.stats.o2_margin_min} -> ${withTask.stats.o2_margin_min}`);
+const long = plan(S, { start: T.habitat, stops: [T.shelter1], goal: T.habitat, task_min: [400, 0] });
+check('400 min of work at a target -> O2 rule fails', long.stats.o2_return_ok === false, `margin ${long.stats.o2_margin_min}`);
+
+// 13. SPE never sends you to a shelter that doesn't protect from radiation
+const noRad = { ...S, targets: { ...S.targets, features: S.targets.features.map((f) => ({ ...f, properties: { ...f.properties, radiation_shelter: false } })) } };
+rp = replan(noRad, { current: mid, alert: A.SPE });
+check('SPE ignores non-radiation shelter -> habitat', rp.replan.destination === 'Habitat', `-> ${rp.replan.destination}`);
+
 process.exit(fails ? 1 : 0);

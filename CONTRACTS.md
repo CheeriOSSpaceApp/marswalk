@@ -3,6 +3,13 @@
 Everything lives in `web/public/data/<site>/` where `<site>` is `mock` or `jezero`.
 If you need to change a format: announce in #general FIRST, then update this file.
 
+## Decisions log
+- 18:45 `cellCost` = O₂-min per meter (Eric + Ana). 19:50 1 O₂-min = 1 min at 1200 BTU/h = 351.7 W (Marco, confirmed by Ana).
+- 20:30 suit.json format `{value, source, assumption}` approved (Eric); code reads `suit.<param>.value`.
+- 20:30 Jezero habitat = `habitat-threeforks-lz` (Marco). Targets 283–548 m from habitat → walkback (1770 m) is not the active limit for EVA-1; task time is.
+- 20:30 Marco's Jezero targets/photos live in `jezero/`, never in `mock/` (they're outside the mock bbox).
+- PENDING: reserve 15 % vs 18 % (95th percentile crew). Only `suit.reserve_pct.value` changes.
+
 ## Global conventions
 - Mars 2000 planetocentric coords, longitude 0–360°E, latitude north positive
 - Grid is equirectangular over the AOI; **row 0 = north, col 0 = west**
@@ -20,13 +27,13 @@ If you need to change a format: announce in #general FIRST, then update this fil
 | hazard.u8 | Uint8: 0 free, 1 caution, 2 forbidden | Gabriel + Ana (thresholds) | Eric | 20:30 |
 | viewshed.u8 | Uint8: 1 = line of sight to habitat | Marco | Eric, Santiago | 23:00 |
 | hillshade.png, ortho.png, slope.png | PNG, same bbox, display only | Gabriel | Santiago | 20:30 |
-| targets.geojson | Points: id, name, kind (habitat\|depot\|science\|shelter), science_value 1–5, notes, photo_id | Dana + Gabriel | Eric, Santiago | 20:30 |
+| targets.geojson | Points: id, name, kind (habitat\|depot\|science\|shelter), science_value 1–5, notes, photo_id. Optional: `task_min` (work minutes at this target), `radiation_shelter: true` (only then an SPE can send the crew there; otherwise SPE → habitat). Exactly 1 habitat, at the same point as `meta.habitat`. **All targets must be inside `meta.bbox`.** | Dana + Gabriel (Jezero v1: Marco, 20:30) | Eric, Santiago | 20:30 |
 | photos.json | `[{id, lon, lat, sol, camera, url, caption}]` | Dana | Santiago | 23:00 |
 | rover_traverse.geojson | LineString of real traverse clipped to AOI | Marco | Marco, Santiago | 20:30 |
 | env.json | per local hour 0–23 and scenario (clear, dusty, storm): temp_K, pressure_Pa, wind_ms, tau | Gabriel + Ana | Ana, Santiago | 23:00 |
 | suit.json | o2_hours, reserve_pct, battery_Wh, base_power_W, walkback_m, max_slope_deg — each `{value, source, assumption}`. Planner enforces: slope > max_slope_deg → impassable; O₂ rule with reserve; walkback distance; battery (base_power_W is suit electronics, NOT metabolism) | Marco | Ana, Eric | 19:00 |
 | alerts.json | `[{id, type (SPE\|dust\|suit), effect:{dose_x, o2_x, visibility}, action (return\|shelter)}]` | Marco + Ana | Eric, Santiago | 23:00 |
-| params.json | model weights & constants, with source | Ana | Eric | 19:00 |
+| params.json | model weights & constants, with source. Also `task_min: {depot, science, shelter, habitat}` (default work minutes per kind, if a target has no `task_min`) and optional `task_W` (metabolic W while working; default P_nom) | Ana | Eric | 19:00 (task_min: ASAP) |
 
 ## Code contracts (JavaScript, `web/src/`)
 
@@ -46,8 +53,8 @@ Do NOT return per-cell cost (time to cross the cell × M): it would be off by a 
 |---|---|---|---|
 | data.js | `loadSite(site) -> {meta, layers:{elevation, slope, roughness, hazard, viewshed}, targets, suit, params, alerts}` | Eric | All |
 | cost.js | `cellCost(i, layers, params, state) -> O2-equivalent MINUTES PER METER walked through cell i, or Infinity (impassable)`. Also exports `speedAt(i, layers) -> m/s` | Ana | Eric |
-| planner.worker.js | `plan({start, stops[], goal, params, state}) -> {path: GeoJSON LineString, stats, segments[]}` | Eric | Santiago |
-| stats | `{distance_m, duration_min, o2_used_pct, dose_mSv, max_slope_deg, comms_pct, o2_return_ok, o2_margin_min, walkback_ok, walkback_max_m, battery_used_pct, safe}` + top-level `turnaround_point` ([lon,lat] or null), `o2_worst_point` | Eric + Ana | Santiago |
+| planner.worker.js | `plan({start, stops[], goal, params, state, task_min?[] , o2_used_min?}) -> {path: GeoJSON LineString, stats, segments[]}` or `{error: 'point_outside_map'\|'point_in_forbidden_zone'\|'unreachable', ...}`. Task O₂ is spent AT the stop, and the O₂ return rule is checked after it | Eric | Santiago |
+| stats | `{distance_m, walk_min, task_min, duration_min (= walk + task), o2_used_pct, dose_mSv, max_slope_deg, comms_pct, o2_return_ok, o2_margin_min, walkback_ok, walkback_max_m, battery_used_pct, safe}` + top-level `turnaround_point` ([lon,lat] or null), `o2_worst_point` | Eric + Ana | Santiago |
 | safety rules | **O₂ rule:** at every point, O₂ used so far + cheapest return (costToHome) ≤ usable O₂ (`o2_hours·60·(1−reserve)`, 408 min) → `o2_return_ok`; first failing point → `turnaround_point`. **Walkback rule (ICES-2026-127):** at every point, walking distance home ≤ `walkback_m` (1770 m) → `walkback_ok`. `safe` = both + battery ≤ 100% | Eric + Marco | Santiago, Dana |
 | plannerClient.js | `createPlanner()` -> `{init(site), plan(req), costToHome(req), terminate()}` (all Promises) | Eric | Santiago |
 | costToHome | `planner.costToHome({state}) -> {costToHome: Float32Array (O2-min home), distToHome: Float32Array (meters home), usable_o2_min, walkback_m}` (Infinity = unreachable). Tablet: cell i is beyond no-return if `costToHome[i] > O2 remaining` | Eric | Santiago |

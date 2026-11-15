@@ -169,7 +169,7 @@ export function usableO2min(suit) {
 //   O2 already used up to k + costToHome[k] <= usable O2
 // margin = worst (smallest) slack along the route, in O2-minutes.
 // Marco's viability rule. turnaround = last point before the rule first fails (-1 if never fails).
-export function walkbackCheck(cells, grid, costToHome, usable) {
+export function walkbackCheck(cells, grid, costToHome, usable, extraO2 = new Map()) {
   const W = grid.W;
   let used = 0, margin = Infinity, worstIdx = 0, turnaround = -1;
   for (let k = 0; k < cells.length; k++) {
@@ -179,6 +179,7 @@ export function walkbackCheck(cells, grid, costToHome, usable) {
       const diag = Math.floor(p / W) !== Math.floor(i / W) && p % W !== i % W;
       used += 0.5 * (grid.o2[p] + grid.o2[i]) * (diag ? SQRT2 : 1) * grid.cellM; // physical O2
     }
+    used += extraO2.get(k) || 0; // task done at this stop: must still be able to get home AFTER it
     const slack = usable - (used + costToHome[i]);
     if (slack < margin) { margin = slack; worstIdx = k; }
     if (slack < 0 && turnaround === -1) turnaround = Math.max(0, k - 1);
@@ -244,19 +245,40 @@ export function plan(site, req) {
   const tCost = performance.now();
 
   const pts = [req.start, ...(req.stops || []), req.goal];
+  // Points outside the map would map to garbage cell indices -> reject explicitly
+  const [lonMin, latMin, lonMax, latMax] = site.meta.bbox;
+  const outside = pts.findIndex(([lon, lat]) => !(lon >= lonMin && lon <= lonMax && lat >= latMin && lat <= latMax));
+  if (outside >= 0) return { error: 'point_outside_map', point: pts[outside], bbox: site.meta.bbox };
   // Snap clicks/GPS positions that land on a forbidden cell (e.g. a rock) to the nearest walkable one
   const cellsOf = pts.map(([lon, lat]) => snapToPassable(grid, lonLatToCell(site.meta, lon, lat).i));
   if (cellsOf.some((c) => c < 0)) return { error: 'point_in_forbidden_zone' };
-  const all = [], segments = [];
+
+  // Work time at each stop/goal (the real limit of EVA-1 per Marco): minutes standing at a target
+  // doing the task. Source, in priority: req.task_min[k-1] > target.properties.task_min > params.task_min[kind].
+  const taskMin = pts.map((p, k) => (k === 0 ? 0 : taskMinutesAt(site, params, p, req.task_min?.[k - 1])));
+  const taskO2 = taskMin.map((m) => m * ((params.task_W ?? params.P_nom ?? 351.7) / (params.P_nom ?? 351.7)) * (state.o2_x ?? 1));
+
+  const all = [], segments = [], extraO2 = new Map(); // path index -> task O2 spent there
   for (let k = 0; k < cellsOf.length - 1; k++) {
     const leg = astar(grid, cellsOf[k], cellsOf[k + 1]);
     if (!leg) return { error: 'unreachable', leg: k, from: pts[k], to: pts[k + 1] };
-    segments.push({ from: pts[k], to: pts[k + 1], stats: pathStats(leg, site, grid, params, state) });
+    const legStats = pathStats(leg, site, grid, params, state);
+    legStats.task_min = taskMin[k + 1];
+    segments.push({ from: pts[k], to: pts[k + 1], stats: legStats });
     all.push(...(k === 0 ? leg : leg.slice(1)));
+    if (taskO2[k + 1] > 0) extraO2.set(all.length - 1, taskO2[k + 1]);
   }
   const stats = pathStats(all, site, grid, params, state);
+  const taskTotal = taskMin.reduce((a, b) => a + b, 0);
+  const taskO2Total = taskO2.reduce((a, b) => a + b, 0);
+  const o2Total = (site.suit?.o2_hours?.value ?? 8) * 60;
+  stats.walk_min = stats.duration_min;
+  stats.task_min = Math.round(taskTotal);
+  stats.duration_min = Math.round(stats.walk_min + taskTotal);
+  stats.o2_used_pct = +(stats.o2_used_pct + (100 * taskO2Total) / o2Total).toFixed(1);
+  stats.dose_mSv = +((params.gcr_mSv_per_h ?? 0.028) * (stats.duration_min / 60) * (state.dose_x ?? 1)).toFixed(4);
   // req.o2_used_min: O2 already spent before this plan starts (used by replan mid-EVA)
-  const wb = walkbackCheck(all, grid, costToHome, usableO2min(site.suit) - (req.o2_used_min || 0));
+  const wb = walkbackCheck(all, grid, costToHome, usableO2min(site.suit) - (req.o2_used_min || 0), extraO2);
   // Rule 1 (O2): used so far + cheapest return <= usable O2, at every point
   stats.o2_return_ok = wb.ok;
   stats.o2_margin_min = wb.margin_min;
@@ -282,6 +304,21 @@ export function plan(site, req) {
     segments,
     timing_ms: { cost_grid: Math.round(tCost - t0), astar: Math.round(performance.now() - tCost) },
   };
+}
+
+// Task minutes at a point: matches a target within ~2 cells.
+export function taskMinutesAt(site, params, [lon, lat], override) {
+  if (typeof override === 'number') return override;
+  const tol = 2.5 * site.meta.cell_m;
+  const mPerDegLat = 59270, mPerDegLon = mPerDegLat * Math.cos((lat * Math.PI) / 180);
+  for (const f of site.targets?.features || []) {
+    const [tl, ta] = f.geometry.coordinates;
+    if (Math.hypot((tl - lon) * mPerDegLon, (ta - lat) * mPerDegLat) <= tol) {
+      const p = f.properties || {};
+      return p.task_min ?? params.task_min?.[p.kind] ?? 0;
+    }
+  }
+  return 0;
 }
 
 // Nearest walkable cell within `maxR` cells (square rings outward). -1 if none.
@@ -330,12 +367,15 @@ export function replan(site, req) {
 
   let candidates;
   if (req.alert.action === 'shelter') {
+    // SPE: only places that actually protect from radiation. A shelter must declare
+    // properties.radiation_shelter === true (Marco's muster point does NOT -> SPE goes to the habitat).
     candidates = site.targets.features
-      .filter((f) => f.properties.kind === 'shelter' || f.properties.kind === 'habitat')
+      .filter((f) => f.properties.kind === 'habitat' || (f.properties.kind === 'shelter' && f.properties.radiation_shelter === true))
       .map((f) => ({ name: f.properties.name, coords: f.geometry.coordinates }));
   } else {
     candidates = [{ name: 'Habitat', coords: habitat }];
   }
+  if (!candidates.length) candidates = [{ name: 'Habitat', coords: habitat }];
 
   let best = null;
   for (const c of candidates) {
