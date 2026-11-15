@@ -7,6 +7,7 @@
       "o2_x": 1.0,
       "visibility": 1.0
     },
+    "source": "NASA solar particle event operational hazard; multiplier is a MarsWalk planning assumption.",
     "action": "shelter"
   },
   {
@@ -17,6 +18,7 @@
       "o2_x": 1.1,
       "visibility": 0.3
     },
+    "source": "MarsWalk dust-visibility and oxygen multiplier assumption; validate against local weather/environment data.",
     "action": "safe_point"
   },
   {
@@ -27,6 +29,7 @@
       "o2_x": 1.5,
       "visibility": 1.0
     },
+    "source": "MarsWalk suit-failure contingency assumption; multiplier represents degraded suit efficiency.",
     "action": "return"
   }
 ]

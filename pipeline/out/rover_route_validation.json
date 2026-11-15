@@ -1,0 +1,45 @@
+{
+  "site": "jezero",
+  "corridor_radius_m": 20,
+  "waypoints": {
+    "from": "habitat-threeforks-lz",
+    "to": "sci-wildcat-ridge"
+  },
+  "area": {
+    "slope": {
+      "0-5_deg": 57.8,
+      "5-10_deg": 26.2,
+      "10-15_deg": 8.7,
+      "15+_deg": 7.3,
+      "samples": 1000000
+    },
+    "hazard": {
+      "hazard_0": 82.7,
+      "hazard_1": 10.0,
+      "hazard_2": 7.3,
+      "samples": 1000000
+    }
+  },
+  "rover_20m_corridor": {
+    "slope": {
+      "0-5_deg": 67.3,
+      "5-10_deg": 24.1,
+      "10-15_deg": 6.9,
+      "15+_deg": 1.7,
+      "samples": 37934
+    },
+    "hazard": {
+      "hazard_0": 91.2,
+      "hazard_1": 7.1,
+      "hazard_2": 1.7,
+      "samples": 37934
+    },
+    "cells": 37934
+  },
+  "marswalk_route_vs_rover": {
+    "route_vertices": 247,
+    "within_20m_pct": 50.6,
+    "median_distance_m": 19.8,
+    "max_distance_m": 89.7
+  }
+}

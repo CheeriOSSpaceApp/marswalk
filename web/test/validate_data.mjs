@@ -93,6 +93,7 @@ if (alerts) for (const a of alerts) {
   if (!['SPE', 'dust', 'suit'].includes(a.type)) err(`alert ${a.id}: type ${a.type}`);
   if (!['return', 'shelter', 'safe_point'].includes(a.action)) err(`alert ${a.id}: action ${a.action}`);
   if (!a.effect) err(`alert ${a.id}: no effect`);
+  if (!a.source) warn(`alert ${a.id}: no source/assumption note`);
 }
 if (alerts) ok(`alerts.json: ${alerts.map((a) => `${a.type}→${a.action}`).join(', ')}`);
 const targets = has('targets.geojson') ? json('targets.geojson') : (err('targets.geojson missing'), null);
@@ -115,6 +116,8 @@ if (targets && L.slope && L.hazard && params) {
   const kinds = new Set();
   for (const f of targets.features) {
     const p = f.properties || {}; kinds.add(p.kind);
+    if (!Number.isInteger(p.science_value) || p.science_value < 1 || p.science_value > 5)
+      err(`${p.id}: science_value must be an integer from 1 to 5`);
     const [lo, la] = f.geometry.coordinates;
     if (lo < lonMin || lo > lonMax || la < latMin || la > latMax) { err(`${p.id} "${p.name}" outside bbox`); continue; }
     const c0 = lonLatToCell(meta, lo, la).i, c = snapToPassable(grid, c0), d = c >= 0 ? dist[c] : Infinity;

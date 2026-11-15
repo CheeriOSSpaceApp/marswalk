@@ -99,6 +99,9 @@ The expected EVA-1 result on the current Jezero data is approximately:
 These are validation values, not promises that every future data or parameter
 change will produce exactly the same result.
 
+For the rover-validation evidence and the presentation graphic, see
+[docs/ROVER_VALIDATION.md](ROVER_VALIDATION.md).
+
 ### If the live demo fails
 
 Use the mock site or the prepared screenshots/video capture. The mock site
