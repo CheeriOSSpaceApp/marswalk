@@ -1,0 +1,86 @@
+{
+  "waypoints": {
+    "start": {
+      "lon": 77.40865141,
+      "lat": 18.45682814,
+      "source": "fin del manejo del sol 538"
+    },
+    "end": {
+      "lon": 77.40491107,
+      "lat": 18.45027532,
+      "source": "fin del manejo del sol 543"
+    }
+  },
+  "rover_sols": [
+    539,
+    541,
+    542,
+    543
+  ],
+  "planner_endpoint_offset_m": {
+    "start_m": 0.8823335575300466,
+    "end_m": 1.8156084231219831
+  },
+  "length_m": {
+    "rover": 482.77324627417516,
+    "planner": 473.98715168452094,
+    "straight": 441.69680305443103
+  },
+  "rover_vs_planner": {
+    "pct": 99.74514558373932,
+    "length_m": 482.773246274175,
+    "mean_m": 6.380658322627826,
+    "median_m": 5.036081291729943,
+    "p90_m": 14.343912123023017,
+    "max_m": 20.179362324801108
+  },
+  "planner_vs_rover": {
+    "pct": 97.89739883659601,
+    "length_m": 473.9871516845212,
+    "mean_m": 6.513425537248188,
+    "median_m": 5.219355117683194,
+    "p90_m": 14.975621792713696,
+    "max_m": 21.846592135512577
+  },
+  "hausdorff_m": 21.846592135512612,
+  "threshold_m": 20.0,
+  "cost": {
+    "planner": {
+      "cost_grid_min": 14.801103216872363,
+      "cost_line_min": 14.801175048022548,
+      "chain_cells": 130,
+      "chain_length_m": 473.98484809834997,
+      "infinite_cells": []
+    },
+    "rover": {
+      "cost_grid_min": 17.577166296722016,
+      "cost_line_min": 16.387715953526506,
+      "chain_cells": 141,
+      "chain_length_m": 518.1686142824236,
+      "infinite_cells": []
+    }
+  },
+  "cost_ratio": {
+    "definition": "cost_planner / cost_rover; numerador = ruta calculada, denominador = rover",
+    "value": 0.9031871854501757,
+    "value_grid_rule": 0.8420642421544726,
+    "comparable": true
+  },
+  "planner_engine": "REFERENCIA Dijkstra (contrato del planner); NO es planner.js de Eric",
+  "planner_stats": {
+    "cost_min_O2_nominal": 14.801103186991456,
+    "distance_m": 473.98715168422063,
+    "max_slope_deg": 4.8214430809021,
+    "caution_cells": 0,
+    "comms_pct": 100.0,
+    "n_cells": 130,
+    "start_cell": [
+      453,
+      518
+    ],
+    "goal_cell": [
+      582,
+      448
+    ]
+  }
+}
