@@ -141,6 +141,18 @@ O₂ used during a task is its duration times a work metabolic factor of 1.0, i.
 - Dust storms are modeled with a fixed visibility of 0.3 (`alerts.json`); low visibility only raises the routing cost of steep and rough cells, it does not change O₂ beyond the alert's `o2_x`.
 - The hand check verifies that the planner computes its statistics correctly from these equations; it does not validate the model itself. That is done against the real rover traverse.
 
+## References
+- Ogilvie et al. (2026). ICES-2026-127, NASA JSC. https://ntrs.nasa.gov/citations/20260003038 (paper); https://ntrs.nasa.gov/citations/20260005410 (presentation). 
+- Kim et al. (2024). Improving Metabolic Workload Estimation Accuracy for Planning and Analyzing Exploration Traverses. IEEE EMBC. NTRS 20240001423.
+- Pandolf, K. B., Givoni, B., Goldman, R. F. (1977). *J. Appl. Physiol.* 43(4).
+- Soule, R. G., Goldman, R. F. (1972). *J. Appl. Physiol.* 32(5). 
+- Tobler, W. (1993). Three presentations on geographical analysis and modeling. NCGIA Technical Report 93-1. 
+- Hassler, D. M. et al. (2014). *Science* 343(6169). doi:10.1126/science.1244797
+- Zeitlin, C. et al. (2018). Analysis of the Radiation Hazard Observed by RAD on the Surface of Mars During the September 2017 Solar Particle Event. *Geophys. Res. Lett.*
+- Hassler, D. M. et al. (2018). Space Weather on the Surface of Mars: Impact of the September 2017 Events. *Space Weather* 16(11).
+- Rafkin, S. C. R. et al. (2014). *J. Geophys. Res. Planets* 119, 1345-1358. doi:10.1002/2013JE004525
+- Guo, J. et al. (2017). *J. Geophys. Res. Planets* 122, 329-341. doi:10.1002/2016JE005206
+
 ### Planner limitations
 Unsigned slope, 3 m cells, stop order given (not optimised), greedy re-planning, single astronaut: see
 [docs/PLANNER.md §9](docs/PLANNER.md#9-limitations-and-future-work).
