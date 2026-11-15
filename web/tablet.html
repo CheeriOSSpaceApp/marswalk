@@ -46,8 +46,12 @@
       <div class="card task" id="taskCard">
         <div class="lbl">Task <b id="taskTimer">–</b></div>
         <div id="taskName" class="tname">–</div>
-        <ul id="checklist" class="checklist"></ul>
-        <button id="doneBtn" disabled>✓ Task done</button>
+        <div id="taskTodo" class="todo"></div>
+        <button id="doneBtn" class="complete">✓ Complete task</button>
+        <div id="confirmBox" class="confirm" hidden>
+          <div class="q">Confirm the task is complete?</div>
+          <div class="row"><button id="confirmYes">Confirm</button><button id="confirmNo">Cancel</button></div>
+        </div>
         <div id="queue" class="queue">–</div>
       </div>
 
@@ -57,6 +61,16 @@
           <div><span id="o2Lasts">–</span><small>O₂ lasts</small></div>
           <div><span id="comms">–</span><small id="commsSub">comms</small></div>
         </div>
+      </div>
+
+      <div class="card" id="envCard" hidden>
+        <div class="lbl">Environment <b id="envTime">–</b></div>
+        <div class="trio">
+          <div><span id="envT">–</span><small>temperature</small></div>
+          <div><span id="envW">–</span><small>wind</small></div>
+          <div><span id="envTau">–</span><small>dust τ</small></div>
+        </div>
+        <div class="note" id="envNote"></div>
       </div>
 
       <div class="card">

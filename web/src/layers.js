@@ -34,7 +34,14 @@ export function buildLayers(site, name, bounds, onAddStop) {
     pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 7, weight: 2, color: '#000', fillColor: KIND_COLOR[f.properties.kind] || '#fff', fillOpacity: 1, bubblingMouseEvents: false }),
     onEachFeature: (f, l) => {
       const p = f.properties, box = document.createElement('div');
-      box.innerHTML = `<b>${p.name}</b><br>${p.kind} · science value ${p.science_value}/5<br>${p.notes || ''}<br>`;
+      let los = '';
+      if (layers.viewshed) {                      // line of sight to the habitat at this target (same idea as pipeline/check_targets_los.py)
+        const [x0, y0, x1, y1] = meta.bbox, [lon, lat] = f.geometry.coordinates;
+        const col = Math.floor((lon - x0) / (x1 - x0) * meta.width), row = Math.floor((y1 - lat) / (y1 - y0) * meta.height);
+        const v = row >= 0 && col >= 0 && row < meta.height && col < meta.width ? layers.viewshed[row * meta.width + col] : 0;
+        los = v ? '<span style="color:#2e9e5b">● comms: line of sight</span><br>' : '<span style="color:#c0392b">○ comms: NO line of sight</span><br>';
+      }
+      box.innerHTML = `<b>${p.name}</b><br>${p.kind} · science value ${p.science_value}/5<br>${los}${p.notes || ''}<br>`;
       if (p.kind !== 'habitat') {
         const b = document.createElement('button'); b.textContent = 'Add as stop';
         b.onclick = () => { onAddStop(f.geometry.coordinates, p.name, p.photo_id, p.kind); l.closePopup(); };
