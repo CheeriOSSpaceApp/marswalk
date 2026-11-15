@@ -293,7 +293,7 @@ function consideredHtml(list = []) {
   return '<div class="opts"><div class="opts-h">Options considered (walking time):</div>' + list.map(c =>
     `<div class="opt ${c.chosen ? 'chosen' : c.eligible ? 'ok' : 'no'}"><b>${c.chosen ? '➜' : c.eligible ? '✓' : '✗'}</b>` +
     `<span>${c.name}</span><em>${c.minutes != null ? c.minutes + ' min' : '–'}</em>` +
-    `<small>${c.chosen ? 'chosen: fastest eligible' : c.why === 'candidate' ? 'eligible, slower' : c.why}</small></div>`).join('') + '</div>';
+    `<small>${c.chosen ? `chosen: ${c.why === 'candidate' ? 'fastest eligible' : c.why === 'direct' ? 'straight home (repair there)' : c.why}` : c.why === 'candidate' ? 'eligible, slower' : c.why}</small></div>`).join('') + '</div>';
 }
 const shortConsidered = (list = []) => list.slice(0, 4).map(c => `${c.name.split(' - ')[0]} ${c.minutes ?? '–'} min ${c.chosen ? '✓' : c.eligible ? '' : '✗'}`.trim()).join(' · ');
 const head = (cls, html) => { const h = document.createElement('div'); h.className = 'prio ' + cls; h.innerHTML = html; alertBox.appendChild(h); };

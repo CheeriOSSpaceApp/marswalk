@@ -18,8 +18,8 @@
   },
   {
    "id": "mock-leak",
-   "name": "Mock: O2 leak \u2192 cache rescue",
-   "description": "O\u2082 leak after the crater rim task \u2192 O2 Cache 1 (mock).",
+   "name": "Mock: O2 leak → cache rescue",
+   "description": "Tank at 55 %. O₂ leak after the crater rim task: habitat ✗ not enough O₂ → O2 Cache 1 (mock) ✓ refill, then home.",
    "cfg": {
     "site": "mock",
     "stops": [
@@ -33,7 +33,7 @@
      }
     ],
     "start_hour": 9,
-    "o2_start_min": 300,
+    "o2_start_min": 265,
     "script": [
      {
       "on": "task_done",

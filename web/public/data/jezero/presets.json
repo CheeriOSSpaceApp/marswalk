@@ -1,5 +1,5 @@
 {
- "note": "Built-in demo scenarios (Santiago, frontend). Loaded by console.html (Saved presets card, marked built-in); console.html?demo=1 loads the first one, ?demo=<id> a given one. cfg = same object as the test bench 'Send to console' (docs: src/presets.js) + optional script: [{on: 'arrive'|'task_done', stop: <index in cfg.stops>, alert: <alerts.json id>}] that the console injects automatically. Numbers checked with the planner on the real terrain (15:15 LMST run).",
+ "note": "Built-in demo scenarios (Santiago, frontend). Loaded by console.html (Saved presets card, marked built-in); console.html?demo=1 loads the first one, ?demo=<id> a given one. cfg = same object as the test bench 'Send to console' (docs: src/presets.js) + optional script: [{on: 'arrive'|'task_done', stop: <index in cfg.stops>, alert: <alerts.json id>}] that the console injects automatically. Numbers re-checked 15:45 with Gabriel's stations (14:34) and Eric's leak rule (home directly when the margin is >= 30 min).",
  "presets": [
   {
    "id": "eva1-nominal",
