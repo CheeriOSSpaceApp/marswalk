@@ -33,7 +33,7 @@
   "gcr_uncertainty_mSv_per_day": 0.12,
   "gcr_uncertainty_source": "Hassler et al. 2014 as cited in SWSC 2016 reports 0.67 +/- 0.12 mSv/day, applied here to the 0.67 mSv/day rate as an approximation (our assumption)",
 
-    "task_minutes": {
+    "task_min": {
     "depot_per_tube": { "value": 8, "source": "Apollo 16: ~3 min per documented sample + seal check, packing and label (team estimate)", "assumption": true },
     "depot_setup": { "value": 10, "source": "Team estimate (context photos and preparation)", "assumption": true },
     "science": { "value": 45, "source": "Apollo 15 station 2: ~51 min; no coring or drilling", "assumption": true },

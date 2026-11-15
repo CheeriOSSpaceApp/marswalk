@@ -143,4 +143,14 @@ const scaled = getGrid(S, S.params, { o2_x: 1.5 }).costToHome;
 let maxErr = 0; for (let i = 0; i < direct.length; i++) if (direct[i] < Infinity) maxErr = Math.max(maxErr, Math.abs(direct[i] - scaled[i]) / Math.max(1, direct[i]));
 check('scaled costToHome == recomputed (o2_x 1.5)', maxErr < 1e-5, `max rel err ${maxErr.toExponential(1)}`);
 
+// 15. Ana's task model (params.task_min): egress + depot setup once + per tube + science + ingress
+const TM = S.params.task_min, v = (x) => x.value;
+r = plan(S, { start: T.habitat, stops: [T.depot, T.sci2], goal: T.habitat });
+const expTask = v(TM.habitat_egress) + v(TM.depot_setup) + v(TM.depot_per_tube) + v(TM.science) + v(TM.habitat_ingress);
+check('EVA task time = egress + depot setup + 1 tube + science + ingress', r.stats.task_min === expTask, `${r.stats.task_min} min (expected ${expTask})`);
+const r2 = plan(S, { start: T.habitat, stops: [T.depot, T.depot], goal: T.habitat });
+check('depot setup charged once for 2 tubes', r2.stats.task_min === v(TM.habitat_egress) + v(TM.depot_setup) + 2 * v(TM.depot_per_tube) + v(TM.habitat_ingress), `${r2.stats.task_min} min`);
+const walkDose = S.params.gcr_mSv_per_h * (r.stats.walk_min + r.stats.task_min - v(TM.habitat_egress) - v(TM.habitat_ingress)) / 60;
+check('airlock time (egress/ingress) has no dose', Math.abs(r.stats.dose_mSv - walkDose) < 0.0006, `${r.stats.dose_mSv} vs ${walkDose.toFixed(4)} mSv`);
+
 process.exit(fails ? 1 : 0);

@@ -18,3 +18,4 @@ Format: `- [HH:MM] Name — Tool — What for — What we kept / changed`
 - [00:21] Ana - Claude - Help with creation of code for the HUD of the tablet based on design made by Ana.
 - [00:35] Eric — Claude — Reorganized data folders (common/ + site), restored mock meta.json and moved Jezero meta to jezero/, integrated Ana's radiation.js, hand-check script + docs/HAND_CHECK.md (found and fixed 2 bugs: cache ignored terrain, double rounding).
 - [00:50] Eric — Claude — Replan speed-up (base O2 cached per terrain, alert scaling proven exact by test), 32 unit tests + 14 browser tests passing.
+- [01:05] Eric — Claude — Integration pass after everyone pushed: adapted planner to Ana's task_min structure (+ airlock no-dose assumption), ran Marco's traverse script, wrote pipeline/export_jezero.py on top of Gabriel's Elevation.py (detrended roughness, verified on synthetic planes), validator/CONTRACTS updates; 35 tests.

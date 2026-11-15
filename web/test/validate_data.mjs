@@ -96,6 +96,11 @@ if (alerts) for (const a of alerts) {
 }
 if (alerts) ok(`alerts.json: ${alerts.map((a) => `${a.type}→${a.action}`).join(', ')}`);
 const targets = has('targets.geojson') ? json('targets.geojson') : (err('targets.geojson missing'), null);
+if (has('rover_traverse.geojson')) {
+  const rt = json('rover_traverse.geojson');
+  const ok2 = rt?.type === 'FeatureCollection' && rt.features.every((f) => ['LineString', 'MultiLineString'].includes(f.geometry?.type));
+  (ok2 ? ok : err)(`rover_traverse.geojson: ${rt?.features?.length} features (FeatureCollection of LineStrings, one per drive)`);
+}
 for (const f of ['hillshade.png', 'ortho.png', 'slope.png', 'photos.json', 'rover_traverse.geojson', 'env.json'])
   if (!has(f)) warn(`${f} missing (needed by the app, not by the planner)`);
 
@@ -126,7 +131,9 @@ if (targets && L.slope && L.hazard && params) {
   }
   const rad = targets.features.filter((f) => f.properties?.kind === 'shelter' && f.properties.radiation_shelter === true);
   if (!rad.length) warn('no shelter with radiation_shelter: true -> SPE alerts will always return to the habitat');
-  const noTask = targets.features.filter((f) => ['depot', 'science'].includes(f.properties?.kind) && f.properties.task_min == null && params.task_min?.[f.properties.kind] == null);
+  const TM = params.task_min || {};
+  const hasDefault = (k) => (k === 'depot' ? (TM.depot_per_tube ?? TM.depot) : TM[k]) != null;
+  const noTask = targets.features.filter((f) => ['depot', 'science'].includes(f.properties?.kind) && f.properties.task_min == null && !hasDefault(f.properties.kind));
   if (noTask.length) warn(`${noTask.length} depot/science targets have no task time (properties.task_min or params.task_min[kind]) -> EVA duration underestimated`);
   if (has('photos.json')) {
     const photos = json('photos.json') || [], ids = new Set(photos.map((p) => p.id));
