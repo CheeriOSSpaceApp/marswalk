@@ -13,16 +13,27 @@
   "coordinate_frame": "row,column pixel-center coordinates",
   "selection": {
     "center": [
+      566.0,
+      454.0
+    ],
+    "rim": [
+      482.6666666666667,
+      454.0
+    ],
+    "reference": [
+      459.9339828220179,
+      560.0660171779821
+    ]
+  },
+  "previous_selection": {
+    "center": [
       721.2741935483871,
       137.4032258064516
     ],
     "rim": [
       14.01612903225805,
       470.46774193548373
-    ],
-    "reference": [
-      0.0,
-      999.0
     ]
-  }
+  },
+  "selection_method": "automatic_crater_like_depression"
 }

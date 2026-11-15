@@ -2,33 +2,41 @@
   "type": "FeatureCollection",
   "metadata": {
     "source": "pipeline/weateher_stations.py VIKOR terrain-screened proposal",
-    "complete": false,
+    "complete": true,
     "selection": {
-      "center": [
-        721.2741935483871,
-        137.4032258064516
+      "mode": "full-area",
+      "habitat_cell": [
+        515,
+        610
       ],
-      "rim": [
-        14.01612903225805,
-        470.46774193548373
-      ],
-      "reference": [
-        0.0,
-        999.0
-      ]
+      "max_walking_distance_m": 800.0
     },
-    "crater": {
-      "radius_m": 2345.274712170475,
-      "floor_median_m": -2510.6328125,
-      "north_rim_median_m": -2475.51416015625,
-      "midpoint_elevation_m": -2493.073486328125,
+    "search_area": {
+      "search_mode": "full-area",
+      "selection_method": "full_walkable_area_with_role_preferences",
       "definitions": {
-        "WS-1": "Exterior NE; r ≥ 3049 m; excluye el borde norte.",
-        "WS-2": "Centro: r ≤ 1290 m; z ≤ -2493.1 m.",
-        "WS-3": "Norte ±60°; r 1993–3518 m; z ≥ -2493.1 m."
+        "WS-1": "Área completa; prefiere entorno uniforme.",
+        "WS-2": "Área completa; prefiere terreno bajo local.",
+        "WS-3": "Área completa; prefiere terreno alto local."
       },
-      "reference_anchor_is_soft_preference": true,
-      "cell_m": 3.0
+      "operational_clipping_m": 800.0,
+      "cell_m": 3.0,
+      "local_window_cells": 101,
+      "local_window_m": 303.0,
+      "terrain_position_definition": "elevation minus valid-data local mean",
+      "local_relief_definition": "local elevation standard deviation at the context scale; distinct from roughness.f32",
+      "zone_cells_inside_operation": {
+        "WS-1": 151753,
+        "WS-2": 151753,
+        "WS-3": 151753
+      },
+      "same_complete_footprint_for_all_roles": true,
+      "requires_terrain_role_visual_review": true,
+      "zone_cells_before_operation": {
+        "WS-1": 151753,
+        "WS-2": 151753,
+        "WS-3": 151753
+      }
     },
     "assumptions": {
       "team_configurable": true,
@@ -37,132 +45,287 @@
       "setback_m": 15.0,
       "setback_metric": "Euclidean distance to nearest non-installable cell center; does not certify subpixel clearance",
       "max_shortest_walking_distance_m": 800.0,
-      "weights": "Equal among varying criteria by default: w_j=1/n_active; constant criteria get zero. These are team preferences, not weights learned from NASA weather data.",
+      "candidate_mode": "top",
+      "max_alternatives_per_role": 10,
+      "automatic_depression_search": {
+        "radii_m": [
+          30,
+          45,
+          65,
+          90,
+          125,
+          175,
+          250,
+          350
+        ],
+        "minimum_detrended_depth_m": 1.0,
+        "minimum_raised_ring_sectors": 6,
+        "total_ring_sectors": 8,
+        "ordering": "feasible roles descending, raised sectors descending, depth/radius descending, worst closest-to-habitat O2 cost ascending",
+        "enabled": false
+      },
+      "weights": "By default the role-specific terrain preference gets role_weight and the four common criteria share 1-role_weight equally. Constant criteria are removed and weights renormalized. This is a configurable team assumption, not a learned NASA weather model. Explicit --weights overrides this policy per role.",
       "v": 0.5,
       "operation_grid": "8 neighbors, meta.cell_m; nominal-energy-equivalent O2 minutes from the planner's exported cost_grid.f32",
-      "georeferencing": "north-up equirectangular bbox matching the terrain exporter; output uses pixel centers"
+      "georeferencing": "north-up equirectangular bbox matching the terrain exporter; output uses pixel centers",
+      "zone_mode": "full-area",
+      "all_roles_use_complete_operation_area": true,
+      "local_terrain_window_m": 303.0,
+      "automatic_combination": "Distinct cells; minimize worst ordinal rank, then sum of ranks, then role-order tie break. Q values are not compared between roles.",
+      "default_requested_role_weight": 0.5
     },
     "roles": {
       "WS-1": {
         "filter_counts": {
-          "zona": 0,
-          "alcanzable": 0,
-          "radio": 0,
-          "hazard0": 0,
-          "pendiente": 0,
-          "rugosidad": 0,
-          "margen": 0
-        },
-        "first_empty_filter": "zona",
-        "candidate_cells": 0,
-        "status": "no_feasible_candidate"
-      },
-      "WS-2": {
-        "filter_counts": {
-          "zona": 316736,
-          "alcanzable": 305323,
-          "radio": 46260,
-          "hazard0": 43048,
-          "pendiente": 28025,
-          "rugosidad": 28025,
-          "margen": 9855
+          "zona": 151753,
+          "alcanzable": 151753,
+          "radio": 151753,
+          "hazard0": 142831,
+          "pendiente": 112793,
+          "rugosidad": 112793,
+          "margen": 65310
         },
         "first_empty_filter": null,
-        "candidate_cells": 9855,
+        "candidate_cells": 65310,
         "status": "proposal",
         "vikor": {
           "v": 0.5,
           "weights": {
-            "slope_deg": 0.16666666666666666,
-            "roughness_m": 0.16666666666666666,
-            "oxygen_to_habitat_min": 0.16666666666666666,
-            "clearance_m": 0.16666666666666666,
-            "role_distance_m": 0.16666666666666666,
-            "elevation_m": 0.16666666666666666
+            "slope_deg": 0.125,
+            "roughness_m": 0.125,
+            "oxygen_to_habitat_min": 0.125,
+            "clearance_m": 0.125,
+            "local_relief_m": 0.5
           },
           "weight_audit": [
             {
               "criterion": "slope_deg",
               "direction": "cost",
-              "minimum": 0.01922483928501606,
-              "maximum": 4.978276252746582,
+              "minimum": 0.009325414896011353,
+              "maximum": 4.997525215148926,
               "active": true,
-              "raw_weight": 1.0,
-              "weight": 0.16666666666666666,
-              "method": "equal_active"
+              "raw_weight": 0.125,
+              "weight": 0.125,
+              "method": "role_priority_active_normalized"
             },
             {
               "criterion": "roughness_m",
               "direction": "cost",
-              "minimum": 0.010390328243374825,
-              "maximum": 0.1457369327545166,
+              "minimum": 0.00444395886734128,
+              "maximum": 0.15707653760910034,
               "active": true,
-              "raw_weight": 1.0,
-              "weight": 0.16666666666666666,
-              "method": "equal_active"
+              "raw_weight": 0.125,
+              "weight": 0.125,
+              "method": "role_priority_active_normalized"
             },
             {
               "criterion": "oxygen_to_habitat_min",
               "direction": "cost",
-              "minimum": 8.654314575904987,
-              "maximum": 28.162293326952476,
+              "minimum": 0.0,
+              "maximum": 30.863821201851856,
               "active": true,
-              "raw_weight": 1.0,
-              "weight": 0.16666666666666666,
-              "method": "equal_active"
+              "raw_weight": 0.125,
+              "weight": 0.125,
+              "method": "role_priority_active_normalized"
             },
             {
               "criterion": "clearance_m",
               "direction": "benefit",
               "minimum": 15.0,
-              "maximum": 83.67795408588812,
+              "maximum": 174.72263734273244,
               "active": true,
-              "raw_weight": 1.0,
-              "weight": 0.16666666666666666,
-              "method": "equal_active"
+              "raw_weight": 0.125,
+              "weight": 0.125,
+              "method": "role_priority_active_normalized"
             },
             {
-              "criterion": "role_distance_m",
+              "criterion": "local_relief_m",
               "direction": "cost",
-              "minimum": 829.2541992990757,
-              "maximum": 1289.8950487278298,
+              "minimum": 0.7860167020606666,
+              "maximum": 16.771443003481135,
               "active": true,
-              "raw_weight": 1.0,
-              "weight": 0.16666666666666666,
-              "method": "equal_active"
-            },
-            {
-              "criterion": "elevation_m",
-              "direction": "cost",
-              "minimum": -2549.05419921875,
-              "maximum": -2518.255615234375,
-              "active": true,
-              "raw_weight": 1.0,
-              "weight": 0.16666666666666666,
-              "method": "equal_active"
+              "raw_weight": 0.5,
+              "weight": 0.5,
+              "method": "role_priority_active_normalized"
             }
           ],
           "acceptable_advantage": true,
-          "acceptable_stability": false,
-          "DQ": 0.00010148163182463974,
-          "compromise_candidates": 2,
-          "uninformative": false
+          "acceptable_stability": true,
+          "DQ": 1.531182532269672e-05,
+          "compromise_candidates": 1,
+          "uninformative": false,
+          "weight_policy": "role_priority_active_normalized",
+          "requested_role_weight": 0.5
         },
-        "reported_alternatives": 5
+        "reported_alternatives": 10
+      },
+      "WS-2": {
+        "filter_counts": {
+          "zona": 151753,
+          "alcanzable": 151753,
+          "radio": 151753,
+          "hazard0": 142831,
+          "pendiente": 112793,
+          "rugosidad": 112793,
+          "margen": 65310
+        },
+        "first_empty_filter": null,
+        "candidate_cells": 65310,
+        "status": "proposal",
+        "vikor": {
+          "v": 0.5,
+          "weights": {
+            "slope_deg": 0.125,
+            "roughness_m": 0.125,
+            "oxygen_to_habitat_min": 0.125,
+            "clearance_m": 0.125,
+            "depth_below_context_m": 0.5
+          },
+          "weight_audit": [
+            {
+              "criterion": "slope_deg",
+              "direction": "cost",
+              "minimum": 0.009325414896011353,
+              "maximum": 4.997525215148926,
+              "active": true,
+              "raw_weight": 0.125,
+              "weight": 0.125,
+              "method": "role_priority_active_normalized"
+            },
+            {
+              "criterion": "roughness_m",
+              "direction": "cost",
+              "minimum": 0.00444395886734128,
+              "maximum": 0.15707653760910034,
+              "active": true,
+              "raw_weight": 0.125,
+              "weight": 0.125,
+              "method": "role_priority_active_normalized"
+            },
+            {
+              "criterion": "oxygen_to_habitat_min",
+              "direction": "cost",
+              "minimum": 0.0,
+              "maximum": 30.863821201851856,
+              "active": true,
+              "raw_weight": 0.125,
+              "weight": 0.125,
+              "method": "role_priority_active_normalized"
+            },
+            {
+              "criterion": "clearance_m",
+              "direction": "benefit",
+              "minimum": 15.0,
+              "maximum": 174.72263734273244,
+              "active": true,
+              "raw_weight": 0.125,
+              "weight": 0.125,
+              "method": "role_priority_active_normalized"
+            },
+            {
+              "criterion": "depth_below_context_m",
+              "direction": "benefit",
+              "minimum": 0.0,
+              "maximum": 9.29038606719779,
+              "active": true,
+              "raw_weight": 0.5,
+              "weight": 0.5,
+              "method": "role_priority_active_normalized"
+            }
+          ],
+          "acceptable_advantage": true,
+          "acceptable_stability": true,
+          "DQ": 1.531182532269672e-05,
+          "compromise_candidates": 1,
+          "uninformative": false,
+          "weight_policy": "role_priority_active_normalized",
+          "requested_role_weight": 0.5
+        },
+        "reported_alternatives": 10
       },
       "WS-3": {
         "filter_counts": {
-          "zona": 139001,
-          "alcanzable": 126233,
-          "radio": 0,
-          "hazard0": 0,
-          "pendiente": 0,
-          "rugosidad": 0,
-          "margen": 0
+          "zona": 151753,
+          "alcanzable": 151753,
+          "radio": 151753,
+          "hazard0": 142831,
+          "pendiente": 112793,
+          "rugosidad": 112793,
+          "margen": 65310
         },
-        "first_empty_filter": "radio",
-        "candidate_cells": 0,
-        "status": "no_feasible_candidate"
+        "first_empty_filter": null,
+        "candidate_cells": 65310,
+        "status": "proposal",
+        "vikor": {
+          "v": 0.5,
+          "weights": {
+            "slope_deg": 0.125,
+            "roughness_m": 0.125,
+            "oxygen_to_habitat_min": 0.125,
+            "clearance_m": 0.125,
+            "height_above_context_m": 0.5
+          },
+          "weight_audit": [
+            {
+              "criterion": "slope_deg",
+              "direction": "cost",
+              "minimum": 0.009325414896011353,
+              "maximum": 4.997525215148926,
+              "active": true,
+              "raw_weight": 0.125,
+              "weight": 0.125,
+              "method": "role_priority_active_normalized"
+            },
+            {
+              "criterion": "roughness_m",
+              "direction": "cost",
+              "minimum": 0.00444395886734128,
+              "maximum": 0.15707653760910034,
+              "active": true,
+              "raw_weight": 0.125,
+              "weight": 0.125,
+              "method": "role_priority_active_normalized"
+            },
+            {
+              "criterion": "oxygen_to_habitat_min",
+              "direction": "cost",
+              "minimum": 0.0,
+              "maximum": 30.863821201851856,
+              "active": true,
+              "raw_weight": 0.125,
+              "weight": 0.125,
+              "method": "role_priority_active_normalized"
+            },
+            {
+              "criterion": "clearance_m",
+              "direction": "benefit",
+              "minimum": 15.0,
+              "maximum": 174.72263734273244,
+              "active": true,
+              "raw_weight": 0.125,
+              "weight": 0.125,
+              "method": "role_priority_active_normalized"
+            },
+            {
+              "criterion": "height_above_context_m",
+              "direction": "benefit",
+              "minimum": 0.0,
+              "maximum": 9.132175546897976,
+              "active": true,
+              "raw_weight": 0.5,
+              "weight": 0.5,
+              "method": "role_priority_active_normalized"
+            }
+          ],
+          "acceptable_advantage": true,
+          "acceptable_stability": true,
+          "DQ": 1.531182532269672e-05,
+          "compromise_candidates": 1,
+          "uninformative": false,
+          "weight_policy": "role_priority_active_normalized",
+          "requested_role_weight": 0.5
+        },
+        "reported_alternatives": 10
       }
     },
     "example_synthetic": false,
@@ -176,42 +339,137 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          77.407173118,
-          18.450905854000002
+          77.41581679,
+          18.451462586
+        ]
+      },
+      "properties": {
+        "station_id": "WS-1",
+        "candidate_id": "WS-1-I",
+        "label": "1I",
+        "name": "Referencia abierta",
+        "alternative": "I",
+        "rank": 9,
+        "longitude": 77.41581679,
+        "latitude": 18.451462586,
+        "row": 559,
+        "column": 652,
+        "compromise": false,
+        "slope_deg": 0.32267701625823975,
+        "roughness_m": 0.04764750227332115,
+        "oxygen_to_habitat_min": 5.7825815508691605,
+        "clearance_m": 117.15374513859982,
+        "local_relief_m": 1.7298330933568622,
+        "walking_distance_m": 184.1909088590101,
+        "Si": 0.14122899346688178,
+        "Ri": 0.04505379854250202,
+        "Qi": 0.01575846911175978,
+        "elevation_m": -2553.232666015625,
+        "terrain_position_m": -0.536707061118392,
+        "depth_below_context_m": 0.536707061118392,
+        "height_above_context_m": 0.0,
+        "selected": true,
+        "id": "WS-1",
+        "kind": "weather_station",
+        "station_type": "reference",
+        "purpose": "Baseline wind, temperature, pressure and dust",
+        "source": "pipeline/weateher_stations.py VIKOR terrain-screened proposal",
+        "selection_method": "user_selected_ranked_alternative",
+        "requires_visual_review": true,
+        "requires_planner_validation": true,
+        "notes": "Terrain-screened proposal; local low/high ground is a preference, not a confirmed crater classification. No measured wind, dust or unobstructed sensor exposure is inferred from the DEM."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.41741747,
+          18.457282966
         ]
       },
       "properties": {
         "station_id": "WS-2",
-        "candidate_id": "WS-2-A",
-        "label": "2A",
-        "name": "Fondo del cráter",
-        "alternative": "A",
-        "rank": 1,
-        "longitude": 77.407173118,
-        "latitude": 18.450905854000002,
-        "row": 570,
-        "column": 490,
-        "compromise": true,
-        "slope_deg": 0.03110414184629917,
-        "roughness_m": 0.039186809211969376,
-        "oxygen_to_habitat_min": 13.0956653222125,
-        "clearance_m": 51.088159097779204,
-        "role_distance_m": 1151.032276371388,
-        "elevation_m": -2546.181396484375,
-        "walking_distance_m": 428.3452377915597,
-        "Si": 0.2848628439021823,
-        "Ri": 0.11642406351620534,
-        "Qi": 0.1358873384552926,
+        "candidate_id": "WS-2-B",
+        "label": "2B",
+        "name": "Terreno bajo / fondo candidato",
+        "alternative": "B",
+        "rank": 2,
+        "longitude": 77.41741747,
+        "latitude": 18.457282966,
+        "row": 444,
+        "column": 682,
+        "compromise": false,
+        "slope_deg": 1.1731853485107422,
+        "roughness_m": 0.040862787514925,
+        "oxygen_to_habitat_min": 9.777436935819502,
+        "clearance_m": 17.4928556845359,
+        "depth_below_context_m": 7.933867256427071,
+        "walking_distance_m": 304.22748878546923,
+        "Si": 0.2946456659892707,
+        "Ri": 0.12304907453476152,
+        "Qi": 0.027264516086494987,
+        "elevation_m": -2547.986572265625,
+        "local_relief_m": 14.78150623350853,
+        "terrain_position_m": -7.933867256427071,
+        "height_above_context_m": 0.0,
         "selected": true,
         "id": "WS-2",
         "kind": "weather_station",
-        "station_type": "crater_floor",
+        "station_type": "low_terrain_candidate",
         "purpose": "Compare crater-floor temperature and possible local circulation",
         "source": "pipeline/weateher_stations.py VIKOR terrain-screened proposal",
-        "selection_method": "lowest_Qi",
+        "selection_method": "user_selected_ranked_alternative",
         "requires_visual_review": true,
         "requires_planner_validation": true,
-        "notes": "Terrain-screened proposal; no measured wind, dust or unobstructed sensor exposure is inferred from the DEM."
+        "notes": "Terrain-screened proposal; local low/high ground is a preference, not a confirmed crater classification. No measured wind, dust or unobstructed sensor exposure is inferred from the DEM."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.420405406,
+          18.446705058000003
+        ]
+      },
+      "properties": {
+        "station_id": "WS-3",
+        "candidate_id": "WS-3-A",
+        "label": "3A",
+        "name": "Terreno alto / borde candidato",
+        "alternative": "A",
+        "rank": 1,
+        "longitude": 77.420405406,
+        "latitude": 18.446705058000003,
+        "row": 653,
+        "column": 738,
+        "compromise": true,
+        "slope_deg": 0.7642496228218079,
+        "roughness_m": 0.06638848036527634,
+        "oxygen_to_habitat_min": 21.595922832236607,
+        "clearance_m": 15.0,
+        "height_above_context_m": 9.132175546897976,
+        "walking_distance_m": 573.0580079512677,
+        "Si": 0.28211240056695003,
+        "Ri": 0.125,
+        "Qi": 0.0020478124820425036,
+        "elevation_m": -2533.639892578125,
+        "local_relief_m": 4.82304155583775,
+        "terrain_position_m": 9.132175546897976,
+        "depth_below_context_m": 0.0,
+        "selected": true,
+        "id": "WS-3",
+        "kind": "weather_station",
+        "station_type": "high_terrain_candidate",
+        "purpose": "Compare wind exposure at higher and lower elevations",
+        "source": "pipeline/weateher_stations.py VIKOR terrain-screened proposal",
+        "selection_method": "automatic_distinct_rank_choice",
+        "requires_visual_review": true,
+        "requires_planner_validation": true,
+        "notes": "Terrain-screened proposal; local low/high ground is a preference, not a confirmed crater classification. No measured wind, dust or unobstructed sensor exposure is inferred from the DEM."
       }
     }
   ]
