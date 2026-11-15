@@ -58,7 +58,7 @@ node test/jezero_eva.mjs            # EVA-1 and every alert on real terrain
 ```
 Regenerate data: `python pipeline/export_jezero.py` (Jezero, needs internet) · `python pipeline/mock_site.py` (synthetic test site).
 
-## Models (Ana)
+## Models
 The models turn NASA-derived terrain layers into the numbers the crew sees: cost per meter for the route planner, O₂ use, radiation dose and alert effects. Every constant is listed with its source in Constants, anything we could not source is marked as an assumption.
 
 ### Walking speed
@@ -140,6 +140,7 @@ O₂ used during a task is its duration times a work metabolic factor of 1.0, i.
 - The GCR rate was measured at Gale Crater and is applied at Jezero.
 - Dust storms are modeled with a fixed visibility of 0.3 (`alerts.json`); low visibility only raises the routing cost of steep and rough cells, it does not change O₂ beyond the alert's `o2_x`.
 - The hand check verifies that the planner computes its statistics correctly from these equations; it does not validate the model itself. That is done against the real rover traverse.
+- The dependence of GCR dose on atmospheric pressure (Rafkin et al. 2014; Guo et al. 2017) is not modeled; a constant rate is used.
 
 ## References
 - Ogilvie et al. (2026). ICES-2026-127, NASA JSC. https://ntrs.nasa.gov/citations/20260003038 (paper); https://ntrs.nasa.gov/citations/20260005410 (presentation). 
