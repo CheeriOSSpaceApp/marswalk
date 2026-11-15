@@ -111,7 +111,7 @@ Time spent on tasks is added to the walking time, so it counts toward O₂ use a
 | Habitat egress / ingress | 15 each |
 | Cache refill (O₂ top-off at a surface cache) | 10 |
 
-Task time counts toward O₂ use and dose, except habitat egress and ingress, which are assumed to happen in a shielded airlock (they cost O₂ and time, not dose). O₂ used during a task is its duration times a metabolic factor times the active alert's `o2_x`. Work at the depot and science stops uses `work_metabolic_factor` (1.0 × P_nom). Standing or sitting tasks (habitat egress and ingress, cache refill, shelter, hold) use `rest_metabolic_factor` (0.5 × P_nom, about 176 W), the top of the range reported for suited subjects at rest; both factors are team assumptions.
+Task time counts toward O₂ use and dose, except habitat egress and ingress, which are assumed to happen in a shielded airlock (they cost O₂ and time, not dose). O₂ used during a task is its duration times a metabolic factor times the active alert's `o2_x`. Work at the depot and science stops uses `work_metabolic_factor` (1.0 × P_nom). Standing or sitting tasks (habitat egress and ingress, cache refill, shelter, hold) use `rest_metabolic_factor` (0.5 × P_nom, i.e. 600 BTU/h or about 176 W), the top of the range reported for suited subjects at rest; both factors are team assumptions.
 
 At a cache stop the crew tops up its oxygen: the refill task takes cache_refill minutes, and in the O₂ return rule the O₂ used so far is reduced by the amount stored in that cache (a property of the cache in `targets.geojson`, not of `params.json`).
 
