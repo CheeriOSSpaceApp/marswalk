@@ -8,6 +8,7 @@
 // terrain factor eta from local roughness (Soule & Goldman 1972),
 // walking speed from Tobler's hiking function topped at 0.98 m/s (2.2 mph, ICES-2026-127).
 // Mars gravity: power scaled by 0.38 (our assumption).
+//base term only (no correction or delay factor)
 
 
 export function cellCost(i, layers, params, state) {
