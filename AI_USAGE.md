@@ -12,3 +12,5 @@ Format: `- [HH:MM] Name — Tool — What for — What we kept / changed`
 - [20:20] Gabriel- ChatGPT- Create table using matplotlib in pyhton and saving changes in a .json file, checked by hand
 
 - [20:40] Eric — Claude — Checked Marco's Jezero targets/photos (distances verified 283–548 m), moved them from mock/ to jezero/, added task time per target, radiation_shelter rule for SPE, out-of-map guard; 31 tests.
+
+- [20:52] Ana - Claude - Checked "radiation.js" to validate that it functions correctly.
