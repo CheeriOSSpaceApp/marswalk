@@ -18,7 +18,7 @@
     <label><input id="dust" type="checkbox" /> Dust (visibility 0.3)</label><br />
     <label><input id="ring" type="checkbox" /> No-return ring</label>
     <input id="o2" type="range" min="0" max="400" value="120" /> O₂ left: <span id="o2v">120</span> min<br />
-    <button id="eva">Habitat → depot → science → habitat</button><br />
+    <button id="eva">EVA: habitat → depot → science → habitat</button><br />
     <b>Inject alert</b> (astronaut at 40% of current route):<br />
     <span id="alerts"></span>
     <pre id="out">loading…</pre>
@@ -127,7 +127,9 @@
       else { run({ start: clicks[0], goal: clicks[1] }); clicks = []; }
     };
     const T = Object.fromEntries(site.targets.features.map((f) => [f.properties.id, f.geometry.coordinates]));
-    document.getElementById('eva').onclick = () => run({ start: T.habitat, stops: [T.depot, T.sci1, T.sci2], goal: T.habitat });
+    // Generic EVA (works for any site): habitat -> every depot -> every science target -> habitat
+    const byKind = (k) => site.targets.features.filter((f) => f.properties.kind === k).map((f) => f.geometry.coordinates);
+    document.getElementById('eva').onclick = () => run({ start: site.meta.habitat, stops: [...byKind('depot'), ...byKind('science')], goal: site.meta.habitat });
 
     const refreshRing = async () => {
       document.getElementById('o2v').textContent = document.getElementById('o2').value;

@@ -454,6 +454,9 @@ export function replan(site, req) {
   const state = applyAlert(req.state, req.alert);
   const base = { start: req.current, stops: [], params: req.params, state, o2_used_min: req.o2_used_min };
   const habitat = site.meta.habitat;
+  // Same identity for the habitat whatever the alert (UI should use destination_id / destination_kind, not the name)
+  const habF = site.targets?.features?.find((f) => f.properties?.kind === 'habitat');
+  const habitatCandidate = { id: habF?.properties.id ?? 'habitat', kind: 'habitat', name: habF?.properties.name ?? 'Habitat', coords: habitat };
 
   let candidates;
   if (req.alert.action === 'shelter') {
@@ -461,11 +464,11 @@ export function replan(site, req) {
     // properties.radiation_shelter === true (Marco's muster point does NOT -> SPE goes to the habitat).
     candidates = site.targets.features
       .filter((f) => f.properties.kind === 'habitat' || (f.properties.kind === 'shelter' && f.properties.radiation_shelter === true))
-      .map((f) => ({ name: f.properties.name, coords: f.geometry.coordinates }));
+      .map((f) => ({ id: f.properties.id, kind: f.properties.kind, name: f.properties.name, coords: f.geometry.coordinates }));
   } else {
-    candidates = [{ name: 'Habitat', coords: habitat }];
+    candidates = [habitatCandidate];
   }
-  if (!candidates.length) candidates = [{ name: 'Habitat', coords: habitat }];
+  if (!candidates.length) candidates = [habitatCandidate];
 
   let best = null;
   for (const c of candidates) {
@@ -479,7 +482,8 @@ export function replan(site, req) {
     state, // the tablet keeps this and sends it back on the next replan (alerts stack)
     replan: {
       alert: req.alert.id, type: req.alert.type, action: req.alert.action,
-      destination: best.target.name, candidates: candidates.length,
+      destination: best.target.name, destination_id: best.target.id, destination_kind: best.target.kind,
+      candidates: candidates.length,
       total_ms: Math.round(performance.now() - t0),
     },
   };

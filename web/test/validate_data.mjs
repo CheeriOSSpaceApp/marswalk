@@ -2,7 +2,7 @@
 // Run from web/:  node test/validate_data.mjs mock     |     node test/validate_data.mjs jezero
 // Exit code 1 if any ERROR. WARN = works, but a human should look at it.
 import fs from 'node:fs';
-import { buildCostGrid, dijkstraFrom, unitGrid } from '../src/planner.js';
+import { buildCostGrid, dijkstraFrom, unitGrid, snapToPassable } from '../src/planner.js';
 import { lonLatToCell } from '../src/data.js';
 
 const site = process.argv[2] || 'mock';
@@ -117,9 +117,12 @@ if (targets && L.slope && L.hazard && params) {
     const p = f.properties || {}; kinds.add(p.kind);
     const [lo, la] = f.geometry.coordinates;
     if (lo < lonMin || lo > lonMax || la < latMin || la > latMax) { err(`${p.id} "${p.name}" outside bbox`); continue; }
-    const c = lonLatToCell(meta, lo, la).i, d = dist[c];
-    if (!(grid.cost[c] < Infinity)) warn(`${p.id} "${p.name}" sits on an impassable cell (planner will snap ≤10 cells)`);
-    if (d === Infinity) err(`${p.id} "${p.name}" UNREACHABLE from habitat`);
+    const c0 = lonLatToCell(meta, lo, la).i, c = snapToPassable(grid, c0), d = c >= 0 ? dist[c] : Infinity;
+    if (c >= 0 && c !== c0) {
+      const dr = Math.floor(c / meta.width) - Math.floor(c0 / meta.width), dc = (c % meta.width) - (c0 % meta.width);
+      ok(`${p.id}: point is on an impassable cell (slope ${L.slope[c0].toFixed(1)}°); planner stops ${(Math.hypot(dr, dc) * meta.cell_m).toFixed(0)} m away (snap), slope there ${L.slope[c].toFixed(1)}°`);
+    }
+    if (d === Infinity) err(`${p.id} "${p.name}" UNREACHABLE from habitat${c < 0 ? ' (no walkable cell within 10 cells)' : ''}`);
     else (d <= wb ? ok : warn)(`${p.id} "${p.name}" (${p.kind}): ${Math.round(d)} m walking from habitat${d > wb ? ` > walkback ${wb} m` : ''}`);
   }
   for (const k of ['habitat', 'depot', 'science', 'shelter']) if (!kinds.has(k)) warn(`no target of kind "${k}"`);

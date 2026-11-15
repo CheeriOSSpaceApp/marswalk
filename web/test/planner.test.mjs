@@ -99,7 +99,7 @@ check('SPE -> starts at current position', near(rp.path.geometry.coordinates[0],
 check('SPE -> dose multiplied', rp.state.dose_x === A.SPE.effect.dose_x);
 
 rp = replan(S, { current: mid, alert: A.dust });
-check('dust -> returns to habitat', !rp.error && rp.replan.destination === 'Habitat' && near(end(rp), T.habitat), `${rp.replan.total_ms} ms`);
+check('dust -> returns to habitat', !rp.error && rp.replan.destination_kind === 'habitat' && near(end(rp), T.habitat), `${rp.replan.total_ms} ms`);
 
 const r0 = plan(S, { start: mid, goal: T.habitat });
 rp = replan(S, { current: mid, alert: A.suit });
@@ -134,7 +134,7 @@ check('400 min of work at a target -> O2 rule fails', long.stats.o2_return_ok ==
 // 13. SPE never sends you to a shelter that doesn't protect from radiation
 const noRad = { ...S, targets: { ...S.targets, features: S.targets.features.map((f) => ({ ...f, properties: { ...f.properties, radiation_shelter: false } })) } };
 rp = replan(noRad, { current: mid, alert: A.SPE });
-check('SPE ignores non-radiation shelter -> habitat', rp.replan.destination === 'Habitat', `-> ${rp.replan.destination}`);
+check('SPE ignores non-radiation shelter -> habitat', rp.replan.destination_kind === 'habitat', `-> ${rp.replan.destination}`);
 
 // 14. Speed trick is exact: scaled costToHome (×o2_x) == Dijkstra recomputed on the ×o2_x grid
 const gx = buildCostGrid(S.layers, meta, S.params, { o2_x: 1.5 }, undefined, S.suit);

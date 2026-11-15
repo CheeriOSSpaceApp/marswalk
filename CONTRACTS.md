@@ -15,6 +15,8 @@ If you need to change a format: announce in #general FIRST, then update this fil
 - 00:35 Hand check (docs/HAND_CHECK.md): 12/12 stats match; fixed cache-per-terrain bug and double rounding of O₂ %.
 - 00:45 Replan speed: base O₂ cached per terrain, alerts only scale it (costToHome × o2_x is exact; test 14). Replan 300 → 30 ms in Node, SPE click-to-route ~380 ms in browser.
 - 01:00 Integration pass: Ana's task_min (in old `mock/params.json`) merged into `common/params.json`; rover traverse generated from Marco's script → `jezero/rover_traverse.geojson`; FeatureCollection format approved; detrended roughness; `pipeline/export_jezero.py` writes Jezero layers using Gabriel's `Elevation.map` + `elevcalc` (needs internet: run on a laptop, the DTM host is blocked in CI).
+- 01:25 Jezero terrain generated (export_jezero.py on Eric's laptop): 82.7 % free, 10.0 % caution, 7.3 % forbidden. Wildcat Ridge point sits on the delta-front scarp (16°); planner stops 3 m away at its base (14.3°) — intended. EVA-1 on real terrain: 1430 m, 190 min, O₂ 45 %, safe (docs/INTEGRATION.md §7).
+- 01:30 replan returns `destination_id` + `destination_kind` (UI logic must use these, not the name). Frontend wiring guide: docs/INTEGRATION.md.
 - PENDING: reserve 15 % vs 18 % (95th percentile crew). Only `suit.reserve_pct.value` changes.
 
 ## Global conventions
@@ -65,5 +67,5 @@ Do NOT return per-cell cost (time to cross the cell × M): it would be off by a 
 | safety rules | **O₂ rule:** at every point, O₂ used so far + cheapest return (costToHome) ≤ usable O₂ (`o2_hours·60·(1−reserve)`, 408 min) → `o2_return_ok`; first failing point → `turnaround_point`. **Walkback rule (ICES-2026-127):** at every point, walking distance home ≤ `walkback_m` (1770 m) → `walkback_ok`. `safe` = both + battery ≤ 100% | Eric + Marco | Santiago, Dana |
 | plannerClient.js | `createPlanner()` -> `{init(site), plan(req), costToHome(req), terminate()}` (all Promises) | Eric | Santiago |
 | costToHome | `planner.costToHome({state}) -> {costToHome: Float32Array (O2-min home), distToHome: Float32Array (meters home), usable_o2_min, walkback_m}` (Infinity = unreachable). Tablet: cell i is beyond no-return if `costToHome[i] > O2 remaining` | Eric | Santiago |
-| replan | `planner.replan({current:[lon,lat], alert, state?, o2_used_min?}) -> plan + {state, replan:{alert, action, destination, total_ms}}`. SPE/`shelter` → nearest shelter **by walking time** (habitat counts); dust/suit/`return` → habitat. Keep returned `state` and send it on the next call (alerts stack multiplicatively). Position is lon/lat (same as the `position` bus message), not a cell index. | Eric | Santiago |
-| bus.js | `BroadcastChannel('marswalk')`: `{type: 'plan'\|'alert'\|'position', payload}` | Santiago | All |
+| replan | `planner.replan({current:[lon,lat], alert, state?, o2_used_min?}) -> plan + {state, replan:{alert, action, destination, destination_id, destination_kind, total_ms}}`. SPE/`shelter` → nearest shelter **by walking time** (habitat counts); dust/suit/`return` → habitat. Keep returned `state` and send it on the next call (alerts stack multiplicatively). Position is lon/lat (same as the `position` bus message), not a cell index. | Eric | Santiago |
+| bus.js | `BroadcastChannel('marswalk')`: `{type: 'plan'\|'alert'\|'position', payload}` — payloads in docs/INTEGRATION.md §5 | Santiago | All |

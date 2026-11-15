@@ -16,7 +16,8 @@ Concept: global costmap + global planner (like ROS Nav2). Deadline: Sun Nov 15, 
 ## Data folders (web/public/data/)
 - `common/` suit.json (Marco), params.json (Ana), alerts.json (Marco+Ana) — shared by all sites
 - `mock/` synthetic terrain for testing (Eric). NEVER put real data here.
-- `jezero/` real site: meta.json (Gabriel), targets.geojson + photos.json (Marco), rasters (Gabriel, pending)
+- `jezero/` real site: meta.json (Gabriel), targets.geojson + photos.json + rover_traverse.geojson (Marco), rasters via pipeline/export_jezero.py (Gabriel's DTM read)
+- Frontend wiring: docs/INTEGRATION.md. GitHub: Santiago = CajadeCarton, Dana = Danatotis
 
 ## Source of truth
 `CONTRACTS.md` defines every file format and code API. Read it before changing anything.
@@ -38,6 +39,8 @@ Changing a contract = announce in #general first, then update CONTRACTS.md in th
 node test/planner.test.mjs [mock|jezero]    # unit tests (must all PASS before any PR)
 node test/validate_data.mjs [mock|jezero]   # checks a data folder against CONTRACTS.md
 node test/hand_check.mjs                    # planner stats vs hand calculation (docs/HAND_CHECK.md)
+node test/jezero_eva.mjs                    # EVA-1 + alerts on the real Jezero terrain
+python pipeline/export_jezero.py            # (repo root, needs internet) DTM -> jezero/ layers
 npx vite                                    # dev server -> /planner-test.html
 node test/e2e_demo.mjs                      # browser test of the demo (needs: npm i -D playwright && npx playwright install chromium)
 python ../pipeline/mock_site.py             # regenerate synthetic site (from repo root: python pipeline/mock_site.py)
