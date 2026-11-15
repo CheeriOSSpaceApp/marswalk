@@ -6,8 +6,8 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          77.41154831,
-          18.459408670000002
+          77.405198946,
+          18.461281314
         ]
       },
       "properties": {
@@ -19,11 +19,12 @@
         "supplies": {
           "o2_min": {
             "value": 120,
-            "source": "Marco"
+            "source": "EVA-1 scenario design assumption: 120 nominal O2-min per cache; technical reference pending confirmation from Marco.",
+            "assumption": true
           }
         },
         "source": "pipeline/calcstations.py greedy k-center",
-        "notes": "Greedy k-center, k=1; worst case before/after: 78.28/73.88 nominal O2 min. Final worst case: 64.98; threshold: 10.00; threshold_met: false."
+        "notes": "Greedy k-center, k=1; zone: radio operativo 800 m; worst case before/after: 34.47/31.46 nominal O2 min. Final worst case: 28.70; threshold: 10.00; threshold_met: false."
       }
     },
     {
@@ -31,8 +32,8 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          77.390152554,
-          18.47155555
+          77.423660122,
+          18.44422507
         ]
       },
       "properties": {
@@ -44,11 +45,12 @@
         "supplies": {
           "o2_min": {
             "value": 120,
-            "source": "Marco"
+            "source": "EVA-1 scenario design assumption: 120 nominal O2-min per cache; technical reference pending confirmation from Marco.",
+            "assumption": true
           }
         },
         "source": "pipeline/calcstations.py greedy k-center",
-        "notes": "Greedy k-center, k=2; worst case before/after: 73.88/69.16 nominal O2 min. Final worst case: 64.98; threshold: 10.00; threshold_met: false."
+        "notes": "Greedy k-center, k=2; zone: radio operativo 800 m; worst case before/after: 31.46/29.10 nominal O2 min. Final worst case: 28.70; threshold: 10.00; threshold_met: false."
       }
     },
     {
@@ -56,8 +58,8 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          77.391379742,
-          18.43258431
+          77.403384842,
+          18.44447813
         ]
       },
       "properties": {
@@ -69,11 +71,12 @@
         "supplies": {
           "o2_min": {
             "value": 120,
-            "source": "Marco"
+            "source": "EVA-1 scenario design assumption: 120 nominal O2-min per cache; technical reference pending confirmation from Marco.",
+            "assumption": true
           }
         },
         "source": "pipeline/calcstations.py greedy k-center",
-        "notes": "Greedy k-center, k=3; worst case before/after: 69.16/64.98 nominal O2 min. Final worst case: 64.98; threshold: 10.00; threshold_met: false."
+        "notes": "Greedy k-center, k=3; zone: radio operativo 800 m; worst case before/after: 29.10/28.70 nominal O2 min. Final worst case: 28.70; threshold: 10.00; threshold_met: false."
       }
     }
   ]

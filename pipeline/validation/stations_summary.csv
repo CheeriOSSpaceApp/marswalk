@@ -1,5 +1,5 @@
-k,worst_o2_min,threshold_o2_min,threshold_met,station_id,row,column
-0,78.27875456704525,10.0,False,,,
-1,73.88033282993565,10.0,False,cache-1,402,572
-2,69.15778191433404,10.0,False,cache-2,162,171
-3,64.97744327248459,10.0,False,cache-3,932,194
+k,worst_o2_min,threshold_o2_min,threshold_met,station_id,row,column,evaluation_zone
+0,34.47021929177653,10.0,False,,,,radio operativo 800 m
+1,31.46162830499294,10.0,False,cache-1,365,453,radio operativo 800 m
+2,29.0957042920171,10.0,False,cache-2,702,799,radio operativo 800 m
+3,28.700040668266926,10.0,False,cache-3,697,419,radio operativo 800 m

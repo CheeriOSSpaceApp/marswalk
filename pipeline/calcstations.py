@@ -1,11 +1,14 @@
 """Selecciona cachés de O2 con greedy k-center y exporta GeoJSON, CSV y PNG.
 
 Uso principal desde la raíz del repo:
-    .venv/bin/python pipeline/calcstations.py --validate
+    .venv/bin/python pipeline/calcstations.py --walkback 800 --validate --clean-binaries
 
 Lee pipeline/validation/cost_grid.f32, exportado con el cost.js real.
 Usa ocho vecinos y distancias de celda de meta.json.
 El costo acumulado está en minutos equivalentes al consumo nominal de O2.
+El radio operativo predeterminado es 800 m; no cambia el límite de walkback
+de 1770 m que comprueba el planner. --o2-source permite registrar la referencia
+técnica de Marco para la capacidad de las cachés; siempre se marca assumption=true.
 
 Variante SEV, como propuesta separada: --eva-targets <geojson_de_targets_del_EVA>
 Esta variante requiere targets seleccionados explícitamente, pone radiation_shelter
@@ -32,6 +35,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SITE = ROOT / "web/public/data/jezero"
 DEFAULT_REPORTS = ROOT / "pipeline/validation"
 SOURCE = "pipeline/calcstations.py greedy k-center"
+DEFAULT_O2_SOURCE = "EVA-1 scenario design assumption: 120 nominal O2-min per cache; technical reference pending confirmation from Marco."
 
 
 def read_json(path):
@@ -159,7 +163,7 @@ def greedy_stations(cost_grid, coverage_zone, habitat, cell_m, max_stations=3, t
     return stations, history, before, field
 
 
-def save_stations(path, stations, history, meta, threshold, radiation_shelter=False):
+def save_stations(path, stations, history, meta, threshold, radiation_shelter=False, o2_source=DEFAULT_O2_SOURCE, zone_label="radio operativo 800 m"):
     document = {"type": "FeatureCollection", "features": []}
     if Path(path).is_file():
         document = read_json(path)
@@ -184,7 +188,7 @@ def save_stations(path, stations, history, meta, threshold, radiation_shelter=Fa
         station_name = f"Refugio SEV {number}" if radiation_shelter else f"Cache {number}"
         previous = history[step - 1]["worst_o2_min"]
         current = history[step]["worst_o2_min"]
-        notes = f"Greedy k-center, k={step}; worst case before/after: {previous:.2f}/{current:.2f} nominal O2 min. Final worst case: {final_worst:.2f}; threshold: {threshold:.2f}; threshold_met: {str(met).lower()}."
+        notes = f"Greedy k-center, k={step}; zone: {zone_label}; worst case before/after: {previous:.2f}/{current:.2f} nominal O2 min. Final worst case: {final_worst:.2f}; threshold: {threshold:.2f}; threshold_met: {str(met).lower()}."
         if radiation_shelter:
             notes += " Variante SEV: propuesta para coordinar con Marco."
         feature = {
@@ -196,7 +200,7 @@ def save_stations(path, stations, history, meta, threshold, radiation_shelter=Fa
                 "kind": "shelter",
                 "station_type": "cache",
                 "radiation_shelter": bool(radiation_shelter),
-                "supplies": {"o2_min": {"value": 120, "source": "Marco"}},
+                "supplies": {"o2_min": {"value": 120, "source": o2_source, "assumption": True}},
                 "source": SOURCE,
                 "notes": notes,
             },
@@ -209,10 +213,10 @@ def save_stations(path, stations, history, meta, threshold, radiation_shelter=Fa
     return generated
 
 
-def save_summary(path, history, stations, features, threshold):
+def save_summary(path, history, stations, features, threshold, zone_label="radio operativo 800 m"):
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(path.name + ".tmp")
-    columns = ["k", "worst_o2_min", "threshold_o2_min", "threshold_met", "station_id", "row", "column"]
+    columns = ["k", "worst_o2_min", "threshold_o2_min", "threshold_met", "station_id", "row", "column", "evaluation_zone"]
     with temporary.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=columns)
         writer.writeheader()
@@ -220,12 +224,12 @@ def save_summary(path, history, stations, features, threshold):
             k = entry["k"]
             row, col = stations[k - 1] if k else ("", "")
             station_id = features[k - 1]["properties"]["id"] if k else ""
-            record = {"k": k, "worst_o2_min": entry["worst_o2_min"], "threshold_o2_min": threshold, "threshold_met": entry["worst_o2_min"] <= threshold, "station_id": station_id, "row": row, "column": col}
+            record = {"k": k, "worst_o2_min": entry["worst_o2_min"], "threshold_o2_min": threshold, "threshold_met": entry["worst_o2_min"] <= threshold, "station_id": station_id, "row": row, "column": col, "evaluation_zone": zone_label}
             writer.writerow(record)
     temporary.replace(path)
 
 
-def save_comparison(path, before, after, coverage_zone, habitat, stations, features, threshold):
+def save_comparison(path, before, after, coverage_zone, habitat, stations, features, threshold, zone_label="radio operativo 800 m"):
     cmap = LinearSegmentedColormap.from_list("access_purple", ["#F1E6FF", "#BA80E6", "#692399"]).with_extremes(bad="black")
     norm = Normalize(vmin=0, vmax=max(float(before[coverage_zone].max()), 1e-9))
     fig, axes = plt.subplots(1, 2, figsize=(15, 7), constrained_layout=True)
@@ -248,13 +252,26 @@ def save_comparison(path, before, after, coverage_zone, habitat, stations, featu
         ax.legend(loc="upper right")
     fig.colorbar(image, ax=axes.tolist(), label="Minutos equivalentes de O2 al lugar seguro más cercano")
     result = "CUMPLIDO" if float(after[coverage_zone].max()) <= threshold else "NO CUMPLIDO"
-    fig.suptitle(f"Cobertura greedy k-center; umbral {threshold:g} min: {result}")
+    fig.suptitle(f"Greedy k-center; {zone_label}; umbral {threshold:g} min: {result}")
     fig.supxlabel("Negro: fuera de la zona evaluada o no transitable. Ambos paneles comparten la misma escala.")
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(path.name + ".tmp")
     fig.savefig(temporary, format="png", dpi=160)
     plt.close(fig)
     temporary.replace(path)
+
+
+def clean_generated_binaries(root):
+    filenames = ["pipeline/validation/cost_grid.f32", "pipeline/validation/Copia de cost_grid.f32"]
+    subprocess.run(["git", "rm", "--cached", "--ignore-unmatch", "--", *filenames], cwd=root, check=True)
+    ignore_path = root / ".gitignore"
+    content = ignore_path.read_text(encoding="utf-8") if ignore_path.is_file() else ""
+    rule = "pipeline/validation/*.f32"
+    if rule not in content.splitlines():
+        separator = "" if not content or content.endswith("\n") else "\n"
+        ignore_path.write_text(content + separator + rule + "\n", encoding="utf-8")
+    subprocess.run(["git", "add", "--", ".gitignore"], cwd=root, check=True)
+    print("Generated validation .f32 files removed from Git index; local copies preserved and .gitignore updated.")
 
 
 def main():
@@ -265,14 +282,19 @@ def main():
     parser.add_argument("--output", type=Path)
     parser.add_argument("--max-stations", type=int, default=None)
     parser.add_argument("--threshold", type=float, default=10.0)
-    parser.add_argument("--walkback", type=float, default=1770.0)
+    parser.add_argument("--walkback", "--operation-radius", dest="walkback", type=float, default=800.0, help="Radio operativo para ubicar cachés; el límite de walkback del planner sigue siendo 1770 m.")
+    parser.add_argument("--o2-source", default=DEFAULT_O2_SOURCE, help="Referencia técnica exacta para los 120 min de reposición; por defecto queda explícita como supuesto pendiente de Marco.")
     parser.add_argument("--eva-targets", type=Path, help="GeoJSON que contiene solamente los targets seleccionados del EVA; activa la propuesta SEV.")
     parser.add_argument("--validate", action="store_true", help="Ejecuta node test/validate_data.mjs jezero desde web.")
+    parser.add_argument("--clean-binaries", action="store_true", help="Quita los dos cost_grid.f32 del índice Git, conserva los archivos locales y añade la regla de .gitignore.")
     args = parser.parse_args()
     is_sev = args.eva_targets is not None
     max_stations = args.max_stations if args.max_stations is not None else (1 if is_sev else 3)
     if max_stations < 0 or not np.isfinite([args.threshold, args.walkback]).all() or args.threshold < 0 or args.walkback < 0:
         parser.error("max-stations, threshold y walkback deben ser no negativos y finitos.")
+    o2_source = args.o2_source.strip()
+    if not o2_source or o2_source.lower() == "marco":
+        parser.error("o2-source debe describir una referencia o supuesto identificable; un nombre solo no es una fuente.")
     stem = "stations_sev" if is_sev else "stations"
     default_output = args.report_dir / "stations_sev.geojson" if is_sev else args.site_dir / "stations.geojson"
     output = args.output if args.output is not None else default_output
@@ -287,28 +309,34 @@ def main():
     distance_m = walking_distances(cost_grid, habitat, cell_m)
     reachable = np.isfinite(distance_m)
     coverage_zone = load_eva_zone(args.eva_targets, meta, distance_m) if is_sev else (reachable & (distance_m <= args.walkback))
+    zone_label = "targets seleccionados del EVA" if is_sev else f"radio operativo {args.walkback:g} m"
     print(f"Habitat cell (row, column): {habitat}")
     print(f"Walkable cells: {np.count_nonzero(np.isfinite(cost_grid))}")
     print(f"Reachable cells: {np.count_nonzero(reachable)}")
     print(f"Cells in evaluation zone: {np.count_nonzero(coverage_zone)}")
     stations, history, before, after = greedy_stations(cost_grid, coverage_zone, habitat, cell_m, max_stations, args.threshold)
-    features = save_stations(output, stations, history, meta, args.threshold, radiation_shelter=is_sev)
+    features = save_stations(output, stations, history, meta, args.threshold, radiation_shelter=is_sev, o2_source=o2_source, zone_label=zone_label)
     summary_path = args.report_dir / f"{stem}_summary.csv"
     figure_path = args.report_dir / f"{stem}_before_after.png"
-    save_summary(summary_path, history, stations, features, args.threshold)
-    save_comparison(figure_path, before, after, coverage_zone, habitat, stations, features, args.threshold)
+    save_summary(summary_path, history, stations, features, args.threshold, zone_label)
+    save_comparison(figure_path, before, after, coverage_zone, habitat, stations, features, args.threshold, zone_label)
     for entry in history:
         print(f"k={entry['k']}: {entry['worst_o2_min']:.2f} nominal O2 min")
     for cell, feature in zip(stations, features):
         print(f"{feature['properties']['id']}: cell={cell}, coordinates={feature['geometry']['coordinates']}")
     met = history[-1]["worst_o2_min"] <= args.threshold
     print(f"Threshold met: {met}; threshold={args.threshold:g} nominal O2 min; caches added={len(stations)}")
+    print(f"Evaluation zone: {zone_label}; the planner's 1770 m walkback limit is unchanged.")
+    if o2_source == DEFAULT_O2_SOURCE:
+        print("Capacity provenance pending: the 120 min refill is explicitly a scenario assumption until Marco supplies the technical reference.")
     print(f"GeoJSON: {output.resolve()}")
     print(f"Table: {summary_path.resolve()}")
     print(f"Figure: {figure_path.resolve()}")
     if args.validate:
         subprocess.run(["node", "test/validate_data.mjs", "jezero"], cwd=ROOT / "web", check=True)
         print("Planner data validation passed.")
+    if args.clean_binaries:
+        clean_generated_binaries(ROOT)
 
 
 if __name__ == "__main__":
