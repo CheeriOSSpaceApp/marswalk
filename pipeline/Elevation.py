@@ -101,18 +101,5 @@ def elevcalc(elevation, dx_m, dy_m):
     slope_deg[~np.isfinite(z)] = np.nan
     return slope_deg
 
-def roughcalc(elevation):
-    z = elevation.astype(np.float64).filled(np.nan)
-
-    padded = np.pad(z, 2, mode="symmetric")
-
-    windows = np.lib.stride_tricks.sliding_window_view(
-        padded, (5, 5)
-    )
-
-    roughness = np.std(windows, axis=(-2, -1))
-
-    return roughness
-
 if __name__ == "__main__":
     main()
