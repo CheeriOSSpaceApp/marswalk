@@ -1,5 +1,4 @@
 {
-  "mock": true,
   "slope_caution_deg": 15.0,
   "slope_forbidden_deg": 25.0,
   "rough_caution_m": 0.25,
@@ -8,5 +7,25 @@
   "w_rough": 1.0,
   "w_nocomms": 0.2,
   "base_speed_ms": 1.0,
-  "gcr_mSv_per_h": 0.028
+  "gcr_mSv_per_h": 0.028,
+  "V_cap": 0.98,
+  "V_source": "ICES-2026-127 slide 9: 2.2 mph, maximum nominal Apollo walking speed",
+  "W": 82,
+  "W_source": "ICES-2026-127: average male crewmember, 180 lbm",
+  "L": 126.7,
+  "L_source": "104 kg suit (229 lbm max Mars suit) + 22.7 kg tools/samples (50 lbm), ICES-2026-127",
+  "eta_source": "Soule & Goldman 1972: dirt road 1.1, loose sand 2.1. Mapping from roughness to eta and rough_ref = 0.5 m are our assumption",
+  "gRatio": 0.38,
+  "gRatio_source": "Mars gravity = 3/8 g, scaling Pandolf by 0.38 is our assumption",
+  "cell_m": 3,
+  "cell_m_source": "mock grid cell size, the real value comes from meta.json",
+  "P_nom": 351.7,
+  "P_nom_source": "ICES-2026-127: 1200 BTU/hr x 0.29307 W per BTU/hr",
+  "eta_min": 1.1,
+  "eta_max": 2.1,
+  "rough_ref": 0.5,
+  "tobler_a": 6,
+  "tobler_b": 3.5,
+  "tobler_offset": 0.05,
+  "tobler_source": "Tobler 1993 hiking function (km/h). Designed for unsuited hikers, we use it only to slow down on steep slopes. Our assumption for suited Mars EVA"
 }
