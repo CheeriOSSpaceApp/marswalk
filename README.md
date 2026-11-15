@@ -71,7 +71,7 @@ with a = 6 km/h, b = 3.5, c = 0.05 and V_cap = 0.98 m/s (2.2 mph, ICES-2026-127)
 ### Metabolic cost (Pandolf)
 Metabolic power on Mars, in watts, uses the Pandolf load-carriage equation:
 
-M = g_r · [ 1.5·W + 2·(W + L)·(L/W)² + η·(W + L)·(1.5·V² + 0.35·V·G) ]
+M = g_r · [ 1.5·W + 2·(W + L)·(L/W)² + η·(W + L)·(1.5·V² + 0.35·V·G) ] (Pandolf et al. 1977, as presented in Kim et al. 2024.)
 
 - W: body mass (kg). 
 - L: suit plus tools and samples (kg).
