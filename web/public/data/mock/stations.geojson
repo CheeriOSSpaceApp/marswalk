@@ -1,0 +1,59 @@
+{
+  "type": "FeatureCollection",
+  "name": "stations_mock",
+  "note": "MOCK stations for UI development (Santiago) until Gabriel's jezero/stations.geojson exists. Same format as the contract.",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.444691,
+          18.44795
+        ]
+      },
+      "properties": {
+        "id": "cache-mock-1",
+        "name": "O2 Cache 1 (mock)",
+        "kind": "shelter",
+        "station_type": "cache",
+        "radiation_shelter": false,
+        "supplies": {
+          "o2_min": {
+            "value": 120,
+            "source": "MOCK value for UI testing",
+            "assumption": true
+          }
+        },
+        "source": "mock",
+        "notes": "pre-positioned O2 top-off point"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.45803,
+          18.460098
+        ]
+      },
+      "properties": {
+        "id": "cache-mock-2",
+        "name": "O2 Cache 2 (mock)",
+        "kind": "shelter",
+        "station_type": "cache",
+        "radiation_shelter": false,
+        "supplies": {
+          "o2_min": {
+            "value": 60,
+            "source": "MOCK value for UI testing",
+            "assumption": true
+          }
+        },
+        "source": "mock",
+        "notes": "smaller cache near the depot"
+      }
+    }
+  ]
+}

@@ -154,6 +154,8 @@ That's how a judge SEES that the system looks for the nearest refuge and why it 
 Alert actions: `shelter` (SPE, radiation-safe only) · `safe_point` (dust, nearest of habitat or any safe point) · `return` (suit, habitat only).
 
 ## 8.8 Emergency caches / stations (Tier 2, 13:00) — planner DONE
+**Develop the UI now with `?site=mock`:** `data/mock/stations.geojson` has 2 mock caches (120 and 60 O₂-min).
+In the browser: `suit → resupply` (O₂ leak) goes via "O2 Cache 1", dust may pick a cache as safe point. Gabriel's real file will be `data/jezero/stations.geojson` (same format).
 - Stations come from `data/<site>/stations.geojson` (Gabriel). `loadSite` merges them into `site.targets` (`properties.station: true`).
   **Your `site.js` loads targets separately: also fetch `stations.geojson` (optional) and draw them** — icon by `station_type` (cache / relay / shelter).
 - **Inventory panel (console):** one row per cache: name, `supplies.o2_min` − used = left. Keep `cacheUsed = {}`; after every plan/replan/adapt
