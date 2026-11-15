@@ -234,7 +234,29 @@
         "kind": "shelter",
         "science_value": 1,
         "notes": "Punto medio geométrico entre el depot y Wildcat Ridge: 195 m de cada uno y ~400 m del hábitat. Punto operativo de espera y reagrupación ante alerta (polvo, SPE, falla del traje). NO es un refugio con protección radiológica demostrada; ante un SPE la acción real es volver al hábitat. Pendiente y rocas sin verificar: validar en el DTM y moverlo si cae en talud o en una duna.",
-        "photo_id": "ph-sh-01"
+        "photo_id": "ph-sh-01",
+        "radiation_shelter": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.40621218,
+          18.45739137
+        ]
+      },
+      "properties": {
+        "id": "shelter-sev-rover-01",
+        "name": "SEV Pressurized Rover - Radiation Shelter (Depot-Wildcat Route)",
+        "kind": "shelter",
+        "science_value": 1,
+        "notes": "Rover presurizado (concepto NASA Space Exploration Vehicle, versión de superficie) estacionado sobre la ruta depot→Wildcat Ridge, a 3/4 del trayecto desde el centroide del depot: 97 m de Wildcat, 97 m de Hawksbill, 292 m del depot y 469 m del hábitat. Ficha NASA FS-2011-08-045-JSC: la cabina, con blindaje grueso, funciona como refugio ante tormentas solares; protege a la tripulación hasta 72 h ante SPE, falla de traje o emergencia médica; 2 tripulantes (4 en emergencia); salida por suitports en menos de 10 min; ~10 km/h. ASSUMPTION: el SEV es un concepto de 2011 que nunca operó en Marte, y tanto su presencia en la EVA-1 como su posición son supuestos del escenario. Uso en alerts.json: destino válido para SPE (radiation_shelter = true) y para polvo (safe_point). La falla de traje sigue yendo sólo al hábitat por regla del proyecto, aunque la ficha mencione ese caso. Pendiente y rocas sin verificar: validar en el DTM y moverlo si cae en talud, duna o hazard = 2.",
+        "photo_id": null,
+        "radiation_shelter": true,
+        "source": "NASA, Space Exploration Vehicle Concept, fact sheet FS-2011-08-045-JSC (https://www.nasa.gov/wp-content/uploads/2015/08/464826main_sev_factsheet_508.pdf)",
+        "assumption": true
       }
     }
   ]
