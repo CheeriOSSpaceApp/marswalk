@@ -9,3 +9,4 @@ Format: `- [HH:MM] Name — Tool — What for — What we kept / changed`
 - [19:20] Eric — Claude — replan (alert → shelter/habitat, stacking state), snap-to-walkable, 20 tests, alert buttons in test page.
 - [20:01] Ana - Claude - Help with "pruebas.mjs" to test radiation.js
 - [20:10] Eric — Claude — Fixed speedAt crash, enforced suit.json rules, data validator, e2e demo test, CLAUDE.md.
+- [20:20] Gabriel- ChatGPT- Create table using matplotlib in pyhton and saving changes in a .json file, checked by hand
