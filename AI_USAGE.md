@@ -36,3 +36,5 @@ Format: `- [HH:MM] Name — Tool — What for — What we kept / changed`
 - [11:18] Ana - Claude - Help with the formatting of the models section in the README.md file. 
 - [11:50] Eric — Claude — Tier 1 planner features: live obstacles in state (A), adapt() adaptive mission (B), day/night go/no-go + caution penalty (E), storm fallback to safe point (F), src/report.js mission report (C); 52 + 8 tests; docs/INTEGRATION.md §8.
 - [11:34] Gabriel - ChatGPT- help calculate hours at specific latitude on mars
+- [11:48] Marco — Copilot — Analyzed repository guidance and created `.github/copilot-instructions.md` for future sessions.
+- [11:54] Marco — Copilot — Created presenter context and video presentation script in `docs/PRESENTATION.md`, grounded in the project architecture and validation docs.
