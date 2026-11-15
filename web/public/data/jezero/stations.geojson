@@ -19,7 +19,7 @@
         "supplies": {
           "o2_min": {
             "value": 120,
-            "source": "EVA-1 scenario design assumption: 120 nominal O2-min per cache; technical reference pending confirmation from Marco.",
+            "source": "EVA-1 scenario design assumption: 120 nominal O2-min per cache.",
             "assumption": true
           }
         },
@@ -45,7 +45,7 @@
         "supplies": {
           "o2_min": {
             "value": 120,
-            "source": "EVA-1 scenario design assumption: 120 nominal O2-min per cache; technical reference pending confirmation from Marco.",
+            "source": "EVA-1 scenario design assumption: 120 nominal O2-min per cache.",
             "assumption": true
           }
         },
@@ -71,7 +71,7 @@
         "supplies": {
           "o2_min": {
             "value": 120,
-            "source": "EVA-1 scenario design assumption: 120 nominal O2-min per cache; technical reference pending confirmation from Marco.",
+            "source": "EVA-1 scenario design assumption: 120 nominal O2-min per cache.",
             "assumption": true
           }
         },

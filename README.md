@@ -49,7 +49,10 @@ Re-plan after an alert: 11–65 ms. Full numbers and method: [docs/PLANNER.md](d
   constant with its source: [Models](#models) below.
 - **Data pipeline** and caches (Gabriel). Converts HiRISE DTM into elevation, slope, detrended roughness, hazard and map images; climate comes from MCD. Greedy k-center uses the planner's oxygen costs to place up to three caches in an 800 m operating area, covering EVA-1 targets while keeping supplies near Wildcat. The planner retains its 1770 m walkback limit. Exports stations.geojson, CSV metrics and a before/after figure. At 800 m, worst-case cost falls from 34.47 to 28.70 nominal O₂-min; the 10-minute target remains unmet. The 120-minute cache supply is an explicit scenario assumption, pending its technical reference from Marco.
 - **Life support, comms and validation (Marco).** Suit limits with NASA sources (`web/public/data/common/suit.json`);
-  line-of-sight viewshed from the habitat antenna; the rover traverse as validation. *Validation results in progress: Marco.*
+ line-of-sight viewshed from the habitat antenna; the rover traverse as validation. The planner route is compared with the
+ real Perseverance traverse: 50.6% of checked vertices are within 20 m, with a 19.8 m median distance. Rover-corridor
+ terrain is gentler than the full AOI (0–5°: 67.3% vs 57.8%; 15°+: 1.7% vs 7.3%); see the
+ [validation figure](pipeline/out/rover_route_validation.png).
 - **Interface (Santiago).** Leaflet habitat console + field tablet, synced live over BroadcastChannel (same browser).
   Console: route planning with task stops, GO / CAUTION / NO-GO for every start hour, alert injection with the options the
   planner considered (why each was or wasn't chosen), O₂ cache inventory, built-in demo scenarios, mission report export
@@ -141,7 +144,7 @@ At a cache stop the crew tops up its oxygen: the refill task takes cache_refill 
 | SPE | 50 | 1 | 1 | shelter | MarsWalk planning assumption (deliberately conservative) |
 | Dust | 1 | 1.1 | 0.3 | safe_point | MarsWalk assumption |
 | Suit failure | 1 | 1.5 | 1 | return | MarsWalk assumption |
-| O₂ leak | 1 | 1.3 | 1 | resupply | MarsWalk assumption (Marco to confirm) |
+| O₂ leak | 1 | 1.3 | 1 | resupply | MarsWalk assumption |
 
 Alerts stack: `dose_x` and `o2_x` multiply, and visibility takes the lowest value. Visibility does not change oxygen; it multiplies the routing cost of a cell by 1 + (1 − visibility) · (slope/10 + roughness), with slope in degrees and roughness in meters. Actions: *shelter* goes to the fastest radiation-safe place, *safe_point* to the fastest of the habitat or any shelter, *return* to the habitat, and *resupply* home directly or via the O₂ cache that makes the return safe.
 
