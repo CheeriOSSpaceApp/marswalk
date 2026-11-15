@@ -13,7 +13,10 @@ url_dtm = ("https://asc-pds-services.s3.us-west-2.amazonaws.com/mosaic/mars2020_
 
 def main():
     repo_root = Path(__file__).resolve().parent.parent
-    meta_path = Path("/Users/gabrielburbano/Desktop/hack/meta.json")
+    meta_path = repo_root / "web/public/data/jezero/meta.json"
+    with meta_path.open("r", encoding="utf-8") as file:
+        meta = json.load(file)
+
     with meta_path.open("r", encoding="utf-8") as file:
         meta = json.load(file)
     elevation, dx_m, dy_m = map(meta)
@@ -48,7 +51,9 @@ def map(meta):
     return elevation, dx_m, dy_m
 
 def graph(slope,meta):
-    targets = load_targets("/Users/gabrielburbano/Desktop/hack/targets.geojson")
+    repo_root = Path(__file__).resolve().parent.parent
+    targets_path = repo_root / "web/public/data/jezero/targets.geojson"
+    targets = load_targets(targets_path)
 
     research = targets[targets["kind"] != "habitat"]
 

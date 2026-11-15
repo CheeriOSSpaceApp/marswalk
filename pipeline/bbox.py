@@ -4,13 +4,15 @@ import requests
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+
 from pathlib import Path
 
 # Configuration
 url_waypoints = "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_waypoints.json"
 sol_start = 640
 sol_end = 700
-file_path = "/Users/gabrielburbano/Desktop/hack/targets.geojson"
+repo_root = Path(__file__).resolve().parent.parent
+file_path = repo_root / "web/public/data/jezero/targets.geojson"
 SITE = "jezero"
 AOI_M = 3000
 WIDTH = 1000
@@ -40,7 +42,7 @@ def main():
     checkbbox(all_points, bbox)
 
     # Save metadata to JSON
-    output_path = Path(file_path).parent / "meta.json"
+    output_path = repo_root / "web/public/data/jezero/meta.json"
     save_metadata(bbox, targets, output_path)
 
     # Plot all locations
