@@ -149,10 +149,11 @@ Alerts stack: `dose_x` and `o2_x` multiply, and visibility takes the lowest valu
 | `task_min.habitat_egress`, `habitat_ingress` | 15, 15 | min | EMU timeline (15 min each) | Yes |
 | `work_metabolic_factor` | 1.0 | n/a | Design average (1200 BTU/h); Apollo geology-station rates were about 0.81-0.89 of it, but there is no Mars data, so the conservative value is used | Yes |
 | `sunrise_lmst`, `sunset_lmst` | 6.84, 17.62 | h (LMST, decimal Martian hours) | MCD v6.2, Ls = 270°, habitat at 77.41°E 18.45°N: hourly solar-zenith crossing of 90°, linear interpolation, flat horizon, approximate LTST-to-LMST conversion | Yes |
-| `night_buffer_min` | 30 | min | Team choice: margin to be back in the habitat before sunset | Yes |
+| `night_buffer_min` | 30 | Earth min | Team choice: margin to be back in the habitat before sunset | Yes |
 | `w_caution` | 0.5 | n/a | Tunable weight (team default); adjusted with the rover validation | Yes |
 | `w_obstacle_caution` | 2.0 | n/a | Tunable weight (team default); adjusted with the rover validation | Yes |
-| `task_min.cache_refill` | 10 | min | O₂ top-off at a pre-positioned surface cache via an umbilical (concept: ISS EMU Service and Cooling Umbilical); duration is a MarsWalk assumption | Yes |
+| `task_min.cache_refill` | 10 | min | O₂ top-off at a pre-positioned surface cache via an umbilical (concept: ISS EMU Service and Cooling Umbilical); duration is a MarsWalk assumption | Yes |,
+|w_nocomms | 0.2 | n/a | Tunable weight (team default) | Yes.|
 
 ### Model limitations
 - Slope is an unsigned magnitude, so descending costs the same as ascending. This is conservative; a signed-grade model (e.g. a Santee-type downhill correction) is future work.
