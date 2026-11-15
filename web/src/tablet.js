@@ -197,7 +197,7 @@ function setPlan(payload) {
   P.wps = wps.map((w, k) => ({ ...w, idx: m.legEnd[k] }));
   P.tasks = buildTasks(m, P.wps, replanned);
   P.refills = [...(payload.plan.refills || [])];
-  P.stats0 = payload.plan.stats;
+  P.stats0 = payload.plan.stats; P.replanned = replanned;
   P.sunset = payload.plan.stats?.sunset_lmst_hhmm || null;
   const st = replanned ? payload.state : payload.base_state;   // fresh plan: starting conditions from the test bench, if any
   eff = { o2_x: 1, dose_x: 1, visibility: 1, ...(st || {}) };
@@ -210,9 +210,9 @@ function setPlan(payload) {
   $('empty').hidden = true; $('hud').hidden = false; render();
   if (playing) { last = performance.now(); requestAnimationFrame(loop); }
   const st0 = payload.plan.stats || {};
-  if (DEMO && !replanned && st0.go === 'NO-GO') {    // autopilot never walks out on a NO-GO plan
-    setTimeout(() => openAlarm('high', `NO-GO · EVA start ${st0.start_lmst_hhmm || ''}`, `Back at ${st0.end_lmst_hhmm}, sunset ${st0.sunset_lmst_hhmm}${st0.daylight_margin_min != null ? ` (${st0.daylight_margin_min} min daylight margin)` : ''}. The console flags this start time as NO-GO: stay in the habitat.`, true), 1500);
-    return;
+  if (!replanned && st0.go === 'NO-GO') {            // NO-GO plan: warn on arrival (manual and demo); the autopilot never walks it
+    setTimeout(() => openAlarm('high', `NO-GO · EVA start ${st0.start_lmst_hhmm || ''}`, noGoText(st0), true), DEMO ? 1500 : 300);
+    if (DEMO) return;
   }
   if (DEMO && !replanned) setTimeout(() => {         // autopilot: ×300, walk
     if (!P || playing || P.stats0 !== st0) return;
@@ -519,8 +519,15 @@ function resetWalk() {
   P.extra = { o2_min: 0, dose_mSv: 0, time_min: 0 };
   P.tasks.forEach(t => { t.done = false; t.elapsed = 0; }); showConfirm(false);
 }
+// Why a plan is NO-GO, from the planner stats (daylight, O₂ return, walkback, battery)
+function noGoText(st) {
+  const why = st.o2_return_ok === false ? 'not enough O₂ to get back' : st.walkback_ok === false ? 'too far to walk back'
+    : st.battery_used_pct > 100 ? 'the suit battery runs out' : `back at ${st.end_lmst_hhmm}, after sunset ${st.sunset_lmst_hhmm}${st.daylight_margin_min != null ? ` (${st.daylight_margin_min} min daylight margin)` : ''}`;
+  return `NO-GO: ${why}. The console flags this plan as NO-GO: stay in the habitat.`;
+}
 $('playBtn').onclick = () => {
   if (!P) return;
+  if (!playing && P.stats0?.go === 'NO-GO' && !P.replanned) setBanner('high', `HIGH · ${noGoText(P.stats0)}`);   // manual walk still allowed, but warned every time
   if (d >= total() && !nextGate()) resetWalk();
   playing = !playing; $('playBtn').textContent = playing ? '⏸ Pause' : walkLabel();
   if (playing) { last = performance.now(); requestAnimationFrame(loop); }
