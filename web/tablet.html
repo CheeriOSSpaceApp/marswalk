@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Martian Map – Field Tablet</title>
+</head>
+<body class="tablet">
+  <div id="map"></div>
+  <button id="followBtn" class="follow on">◉ Follow astronaut: ON</button>
+  <aside id="panel">
+    <div class="topline"><h1>Field tablet</h1><span class="sub"><span id="site">–</span></span></div>
+    <div id="banner" hidden></div>
+    <div id="empty" class="empty big">No route yet. Plan one in the console.</div>
+
+    <div id="hud" hidden>
+      <div class="wprow">
+      <div class="card wp">
+        <div class="lbl">Next waypoint <span id="wpN" class="cnt"></span></div>
+        <div id="wpName" class="huge">–</div>
+        <div class="trio">
+          <div><span id="wpDist">–</span><small>distance</small></div>
+          <div><span id="wpBrg">–</span><small>bearing</small></div>
+          <div><span id="wpEta">–</span><small>ETA</small></div>
+        </div>
+      </div>
+      <div class="card compass">
+        <div class="hdg">Heading <b id="hdgTxt">–</b></div>
+        <svg viewBox="-60 -60 120 120" class="rose" aria-label="Compass">
+          <circle r="54" fill="#050505" stroke="#555" stroke-width="2"/>
+          <g stroke="#777" stroke-width="2">
+            <line x1="0" y1="-54" x2="0" y2="-46"/><line x1="54" y1="0" x2="46" y2="0"/><line x1="0" y1="54" x2="0" y2="46"/><line x1="-54" y1="0" x2="-46" y2="0"/>
+          </g>
+          <g font-family="system-ui,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#ddd">
+            <text x="0" y="-33" fill="#ff4d4d">N</text><text x="36" y="5">E</text><text x="0" y="42">S</text><text x="-36" y="5">W</text>
+          </g>
+          <g id="needle" style="transition:transform .25s">
+            <polygon points="0,-40 8,6 0,0 -8,6" fill="#ff4fa3" stroke="#000" stroke-width="1.5"/>
+            <polygon points="0,36 6,6 0,0 -6,6" fill="#444"/>
+          </g>
+          <circle r="3" fill="#fff"/>
+        </svg>
+      </div>
+      </div>
+
+      <div class="card task" id="taskCard">
+        <div class="lbl">Task <b id="taskTimer">–</b></div>
+        <div id="taskName" class="tname">–</div>
+        <ul id="checklist" class="checklist"></ul>
+        <button id="doneBtn" disabled>✓ Task done</button>
+        <div id="queue" class="queue">–</div>
+      </div>
+
+      <div class="card">
+        <div class="trio">
+          <div><span id="met">0:00</span><small>EVA time</small></div>
+          <div><span id="o2Lasts">–</span><small>O₂ lasts</small></div>
+          <div><span id="comms">–</span><small id="commsSub">comms</small></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="lbl">O₂ remaining <b id="o2Txt">–</b></div>
+        <div class="bar"><i id="o2Bar"></i><u id="o2Res"></u></div>
+        <div id="ret" class="chip">–</div>
+        <div class="lbl" style="margin-top:12px">Dose <b id="doseTxt">–</b></div>
+        <div class="bar dose"><i id="doseBar"></i></div>
+        <small class="mut" id="doseNote"></small>
+      </div>
+
+      <div class="card">
+        <div class="lbl">POV photo</div>
+        <div id="pov" class="pov">No POV photo for this waypoint yet.</div>
+      </div>
+
+      <div class="card">
+        <div class="lbl">Progress <b id="scrubTxt">–</b></div>
+        <input type="range" id="scrub" class="scrub" min="0" max="1" step="1" value="0">
+      </div>
+
+      <div class="btns"><button id="playBtn">▶ Walk (×60)</button><button id="speedBtn" title="Simulation speed (×60 / ×300 / ×600)">×60</button><button id="resetBtn">Reset</button></div>
+    </div>
+    <div id="status"></div>
+  </aside>
+  <div id="alarm" hidden>
+    <div class="box">
+      <div class="big-icon">⚠</div>
+      <h2 id="alarmTitle">ALERT</h2>
+      <p id="alarmBody"></p>
+      <button id="alarmOk">Acknowledge</button>
+    </div>
+  </div>
+  <script type="module" src="/src/tablet.js"></script>
+</body>
+</html>
