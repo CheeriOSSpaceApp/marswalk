@@ -133,8 +133,13 @@ OWNED = {"suit.json": "Marco", "params.json": "Ana", "alerts.json": "Marco + Ana
 FORCE = "--force" in sys.argv
 
 
+COMMON = os.path.join(os.path.dirname(__file__), "..", "web", "public", "data", "common")
+
+
 def write_json(name, obj):
-    path = os.path.join(OUT, name)
+    # suit/params/alerts are mission config shared by all sites -> data/common/
+    path = os.path.join(COMMON if name in OWNED else OUT, name)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     if name in OWNED and os.path.exists(path) and not FORCE:
         print(f"  skip {name} (owned by {OWNED[name]}; use --force to overwrite)")
         return

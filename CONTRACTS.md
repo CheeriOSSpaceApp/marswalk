@@ -1,6 +1,9 @@
 # CONTRACTS.md
 
-Everything lives in `web/public/data/<site>/` where `<site>` is `mock` or `jezero`.
+Data lives in `web/public/data/`:
+- `<site>/` (`mock` or `jezero`) — terrain and places of ONE site: meta.json, rasters (.f32/.u8), PNGs, targets.geojson, photos.json, env.json, rover_traverse.geojson.
+- `common/` — mission config shared by every site: **suit.json** (Marco), **params.json** (Ana), **alerts.json** (Marco + Ana). Never copy these into a site folder.
+- `mock/` is SYNTHETIC test terrain (Eric). Never put real Jezero data there: its bbox is fake and real coordinates fall outside it.
 If you need to change a format: announce in #general FIRST, then update this file.
 
 ## Decisions log
@@ -8,6 +11,9 @@ If you need to change a format: announce in #general FIRST, then update this fil
 - 20:30 suit.json format `{value, source, assumption}` approved (Eric); code reads `suit.<param>.value`.
 - 20:30 Jezero habitat = `habitat-threeforks-lz` (Marco). Targets 283–548 m from habitat → walkback (1770 m) is not the active limit for EVA-1; task time is.
 - 20:30 Marco's Jezero targets/photos live in `jezero/`, never in `mock/` (they're outside the mock bbox).
+- 00:30 Folder layout: `common/` (suit, params, alerts) + `<site>/`. Gabriel's Jezero meta.json moved from `mock/` to `jezero/` (it had overwritten the mock's meta). Dose uses Ana's `radiation.doseTotal(segments, params)` per leg (walk + task).
+- 00:35 Hand check (docs/HAND_CHECK.md): 12/12 stats match; fixed cache-per-terrain bug and double rounding of O₂ %.
+- 00:45 Replan speed: base O₂ cached per terrain, alerts only scale it (costToHome × o2_x is exact; test 14). Replan 300 → 30 ms in Node, SPE click-to-route ~380 ms in browser.
 - PENDING: reserve 15 % vs 18 % (95th percentile crew). Only `suit.reserve_pct.value` changes.
 
 ## Global conventions
@@ -44,7 +50,7 @@ So a route's total cost is in O₂-minutes and compares directly with `suit.o2_h
 **Definition (Marco, 19:50):** 1 O₂-minute = 1 minute of suit O₂ at the design metabolic rate of 1200 BTU/h = **352 W**
 (NASA ICES-2026-127). So `cellCost = (M_watts / 352) / (speed_m_s * 60)`: walking faster or uphill costs more than 1 O₂-min per minute.
 `cost.js` should also export `speedAt(i, layers, params) -> m/s` (if it doesn't, the planner uses Tobler with Ana's `tobler_*` and `V_cap` params).
-**Split of responsibilities (20:25):** `cellCost` = **physiology only** (Pandolf, terrain, gravity); it may ignore `state`.
+**Split of responsibilities (20:25):** `cellCost` = **physiology only** (Pandolf, terrain, gravity). Since 00:45 it **must not depend on `state`** (the planner calls it with `{}` once per terrain and caches it; that's what makes replanning ~30 ms).
 The planner applies operational modifiers itself: alert `o2_x` multiplies physical O₂; no-comms (`w_nocomms`) and dust (`visibility`) only raise the
 **routing** cost (which path A* prefers), never the O₂ numbers. Stats, costToHome and the O₂ rule always use physical O₂.
 Do NOT return per-cell cost (time to cross the cell × M): it would be off by a factor of `cell_m`.
@@ -54,7 +60,7 @@ Do NOT return per-cell cost (time to cross the cell × M): it would be off by a 
 | data.js | `loadSite(site) -> {meta, layers:{elevation, slope, roughness, hazard, viewshed}, targets, suit, params, alerts}` | Eric | All |
 | cost.js | `cellCost(i, layers, params, state) -> O2-equivalent MINUTES PER METER walked through cell i, or Infinity (impassable)`. Also exports `speedAt(i, layers) -> m/s` | Ana | Eric |
 | planner.worker.js | `plan({start, stops[], goal, params, state, task_min?[] , o2_used_min?}) -> {path: GeoJSON LineString, stats, segments[]}` or `{error: 'point_outside_map'\|'point_in_forbidden_zone'\|'unreachable', ...}`. Task O₂ is spent AT the stop, and the O₂ return rule is checked after it | Eric | Santiago |
-| stats | `{distance_m, walk_min, task_min, duration_min (= walk + task), o2_used_pct, dose_mSv, max_slope_deg, comms_pct, o2_return_ok, o2_margin_min, walkback_ok, walkback_max_m, battery_used_pct, safe}` + top-level `turnaround_point` ([lon,lat] or null), `o2_worst_point` | Eric + Ana | Santiago |
+| stats | `{distance_m, walk_min, task_min, duration_min (= walk + task), o2_used_min, o2_used_pct, dose_mSv, max_slope_deg, comms_pct, o2_return_ok, o2_margin_min, walkback_ok, walkback_max_m, battery_used_pct, safe}` + top-level `turnaround_point` ([lon,lat] or null), `o2_worst_point` | Eric + Ana | Santiago |
 | safety rules | **O₂ rule:** at every point, O₂ used so far + cheapest return (costToHome) ≤ usable O₂ (`o2_hours·60·(1−reserve)`, 408 min) → `o2_return_ok`; first failing point → `turnaround_point`. **Walkback rule (ICES-2026-127):** at every point, walking distance home ≤ `walkback_m` (1770 m) → `walkback_ok`. `safe` = both + battery ≤ 100% | Eric + Marco | Santiago, Dana |
 | plannerClient.js | `createPlanner()` -> `{init(site), plan(req), costToHome(req), terminate()}` (all Promises) | Eric | Santiago |
 | costToHome | `planner.costToHome({state}) -> {costToHome: Float32Array (O2-min home), distToHome: Float32Array (meters home), usable_o2_min, walkback_m}` (Infinity = unreachable). Tablet: cell i is beyond no-return if `costToHome[i] > O2 remaining` | Eric | Santiago |

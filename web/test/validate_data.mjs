@@ -11,12 +11,16 @@ let errors = 0, warns = 0;
 const ok = (m) => console.log('  OK    ' + m);
 const warn = (m) => { warns++; console.log('  WARN  ' + m); };
 const err = (m) => { errors++; console.log('  ERROR ' + m); };
-const has = (f) => fs.existsSync(new URL(f, dir));
-const json = (f) => { try { return JSON.parse(fs.readFileSync(new URL(f, dir))); } catch (e) { err(`${f}: ${e.message}`); return null; } };
+const commonDir = new URL('../public/data/common/', import.meta.url);
+const COMMON_FILES = new Set(['suit.json', 'params.json', 'alerts.json']); // shared mission config
+const where = (f) => new URL(f, COMMON_FILES.has(f) ? commonDir : dir);
+const has = (f) => fs.existsSync(where(f));
+const json = (f) => { try { return JSON.parse(fs.readFileSync(where(f))); } catch (e) { err(`${f}: ${e.message}`); return null; } };
 const bin = (f, T) => { const b = fs.readFileSync(new URL(f, dir)); return new T(b.buffer, b.byteOffset, b.byteLength / T.BYTES_PER_ELEMENT); };
 const close = (a, b, tol) => Math.abs(a - b) <= tol;
 
-console.log(`\nValidating web/public/data/${site}/\n`);
+console.log(`\nValidating web/public/data/${site}/  (+ common/ for suit, params, alerts)\n`);
+for (const f of COMMON_FILES) if (fs.existsSync(new URL(f, dir))) warn(`${site}/${f} exists but is IGNORED: mission config lives in common/${f}`);
 
 // ---- meta.json
 console.log('meta.json');

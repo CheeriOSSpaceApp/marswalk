@@ -15,3 +15,5 @@ Format: `- [HH:MM] Name — Tool — What for — What we kept / changed`
 
 - [20:52] Ana - Claude - Checked "radiation.js" to validate that it functions correctly.
 - [22:36] Gabriel - ChatGPT - how to path within a repo to open files, in order to load de meta.json.
+- [00:35] Eric — Claude — Reorganized data folders (common/ + site), restored mock meta.json and moved Jezero meta to jezero/, integrated Ana's radiation.js, hand-check script + docs/HAND_CHECK.md (found and fixed 2 bugs: cache ignored terrain, double rounding).
+- [00:50] Eric — Claude — Replan speed-up (base O2 cached per terrain, alert scaling proven exact by test), 32 unit tests + 14 browser tests passing.

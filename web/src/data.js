@@ -1,7 +1,12 @@
 // data.js — single loader for every contract file. Swap 'mock' -> 'jezero' and nothing else changes.
 // Usage: const site = await loadSite('mock'); site.layers.slope[i]  (i = row * width + col)
 
-const BASE = (site) => `${import.meta.env?.BASE_URL ?? '/'}data/${site}/`;
+// Folders under web/public/data/:
+//   <site>/  = terrain + places of ONE site (mock, jezero): meta, rasters, PNGs, targets, photos, env, rover traverse
+//   common/  = mission config shared by every site: suit.json (Marco), params.json (Ana), alerts.json (Marco + Ana)
+const ROOT = `${import.meta.env?.BASE_URL ?? '/'}data/`;
+const BASE = (site) => `${ROOT}${site}/`;
+const COMMON = `${ROOT}common/`;
 
 async function getJSON(url, fallback = null) {
   const r = await fetch(url);
@@ -28,9 +33,9 @@ export async function loadSite(site = 'mock') {
   ]);
   const [targets, suit, params, alerts] = await Promise.all([
     getJSON(b + 'targets.geojson', { type: 'FeatureCollection', features: [] }),
-    getJSON(b + 'suit.json', {}),
-    getJSON(b + 'params.json', {}),
-    getJSON(b + 'alerts.json', []),
+    getJSON(COMMON + 'suit.json', {}),
+    getJSON(COMMON + 'params.json', {}),
+    getJSON(COMMON + 'alerts.json', []),
   ]);
   const n = meta.width * meta.height;
   for (const [k, v] of Object.entries({ elevation, slope, roughness, hazard, viewshed }))

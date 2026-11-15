@@ -6,6 +6,7 @@
 
 import { MinHeap } from './heap.js';
 import * as costModel from './cost.js';
+import * as radiation from './radiation.js'; // Ana: doseTotal(segments, params), rate in params.gcr_mSv_per_h
 
 // Namespace import: if Ana's cost.js doesn't export speedAt, we fall back instead of crashing.
 // (A named import of a missing export is a SyntaxError at load time — that was the bug.)
@@ -35,22 +36,33 @@ const DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [-1, 1], [1, -1], [1, 
 //   cost[i] = ROUTING cost = o2 × penalties that express risk/preference, NOT oxygen
 //             (no comms, low visibility in dust). Used only by A* to choose the path.
 // Mixing them would make o2_used_pct include fake "comms oxygen".
-// cellCost (Ana) = physiology only. Operational modifiers (alerts, comms) are applied HERE.
-// Hard safety limit from suit.json enforced here too (defense in depth).
-export function buildCostGrid(layers, meta, params, state, cellCost = defaultCellCost, suit = null) {
+//
+// Speed trick (00:45): cellCost (Ana) = physiology only and does NOT depend on the alert state,
+// so it's evaluated ONCE per terrain+params (buildBaseO2, the expensive 1M calls).
+// An alert only multiplies/penalizes that base (applyState, a cheap pass).
+export function buildBaseO2(layers, meta, params, cellCost = defaultCellCost, suit = null) {
   const n = meta.width * meta.height;
-  const cost = new Float32Array(n);
   const o2 = new Float32Array(n);
   const maxSlope = suit?.max_slope_deg?.value ?? Infinity;
-  const o2x = state?.o2_x ?? 1;                       // suit failure: consumption ×1.5
-  const vis = state?.visibility ?? 1;                 // dust: 1 = clear, 0.3 = poor
+  for (let i = 0; i < n; i++) {
+    // Hard safety limit from suit.json enforced here too (defense in depth)
+    let c = layers.slope[i] > maxSlope ? Infinity : cellCost(i, layers, params, {});
+    if (!(c >= 0)) c = Infinity; // NaN or negative (bad data / bug) -> impassable
+    o2[i] = c;
+  }
+  return { o2, W: meta.width, H: meta.height, cellM: meta.cell_m };
+}
+
+export function applyState(base, layers, params, state = {}) {
+  const n = base.o2.length;
+  const o2x = state.o2_x ?? 1;          // suit failure: consumption ×1.5
+  const vis = state.visibility ?? 1;    // dust: 1 = clear, 0.3 = poor
   const wNoComms = params?.w_nocomms ?? 0.2;
+  const o2 = o2x === 1 ? base.o2 : new Float32Array(n);
+  const cost = new Float32Array(n);
   let minCost = Infinity;
   for (let i = 0; i < n; i++) {
-    let c = layers.slope[i] > maxSlope ? Infinity : cellCost(i, layers, params, state);
-    if (!(c >= 0)) c = Infinity; // NaN or negative (bad data / bug) -> impassable
-    const phys = c * o2x;
-    o2[i] = phys;
+    const phys = o2x === 1 ? base.o2[i] : (o2[i] = base.o2[i] * o2x);
     let r = phys;
     if (r < Infinity) {
       if (layers.viewshed && layers.viewshed[i] === 0) r *= 1 + wNoComms;
@@ -59,7 +71,11 @@ export function buildCostGrid(layers, meta, params, state, cellCost = defaultCel
     cost[i] = r;
     if (r < minCost) minCost = r;
   }
-  return { cost, o2, minCost, W: meta.width, H: meta.height, cellM: meta.cell_m };
+  return { cost, o2, minCost, W: base.W, H: base.H, cellM: base.cellM };
+}
+
+export function buildCostGrid(layers, meta, params, state, cellCost = defaultCellCost, suit = null) {
+  return applyState(buildBaseO2(layers, meta, params, cellCost, suit), layers, params, state);
 }
 
 // Same passable cells, but every meter costs 1 -> Dijkstra on it gives WALKING DISTANCE (m).
@@ -209,8 +225,10 @@ export function pathStats(cells, site, grid, params, state = {}) {
   return {
     distance_m: Math.round(distance),
     duration_min: Math.round(seconds / 60),
+    walk_min_exact: +(seconds / 60).toFixed(3),
+    o2_used_min: +o2min.toFixed(2), // physical O2-min (exact-ish), avoids double rounding of %
     o2_used_pct: +((100 * o2min) / o2Total).toFixed(1),
-    dose_mSv: +((params.gcr_mSv_per_h ?? 0.028) * hours * (state.dose_x ?? 1)).toFixed(4),
+    dose_mSv: +doseOf([{ minutes: seconds / 60, doseX: state.dose_x }], params).toFixed(4),
     max_slope_deg: +maxSlope.toFixed(1),
     walkback_ok: null, // filled by plan() (needs costToHome / distToHome)
     comms_pct: Math.round((100 * comms) / cells.length),
@@ -219,22 +237,42 @@ export function pathStats(cells, site, grid, params, state = {}) {
 
 // ---------- 4. Public API: plan() ----------
 // req: { start:[lon,lat], stops:[[lon,lat],...], goal:[lon,lat], params?, state? }
-let cache = { key: null, grid: null, costToHome: null };
+// Cache per TERRAIN (WeakMap keyed by the layers object) and, inside it, per (params, state).
+// Bug found by the hand check (00:30): a single global cache ignored the terrain, so switching
+// site (mock -> jezero) reused the old cost grid.
+const caches = new WeakMap(); // layers -> { key, grid, costToHome, distToHome }
 
 // Cost grid + costToHome depend only on (params, state). Recompute only when those change
 // (i.e. when an alert arrives) — that's why replanning is cheap.
 export function getGrid(site, params, state) {
-  const key = JSON.stringify([params, state, site.meta.habitat, site.suit?.max_slope_deg?.value]);
-  if (cache.key !== key) {
-    const grid = buildCostGrid(site.layers, site.meta, params, state, defaultCellCost, site.suit);
-    const home = snapToPassable(grid, lonLatToCell(site.meta, ...site.meta.habitat).i);
-    cache = {
-      key, grid,
-      costToHome: dijkstraFrom({ ...grid, cost: grid.o2 }, home), // physical O2-min home (cheapest)
-      distToHome: dijkstraFrom(unitGrid(grid), home), // meters of walking to get home
+  // Level 1 (expensive, once per terrain + params): base O2, costToHome at o2_x = 1, distToHome
+  const baseKey = JSON.stringify([params, site.meta, site.suit?.max_slope_deg?.value]);
+  let c = caches.get(site.layers);
+  if (!c || c.baseKey !== baseKey) {
+    const base = buildBaseO2(site.layers, site.meta, params, defaultCellCost, site.suit);
+    const g0 = applyState(base, site.layers, params, {});
+    const home = snapToPassable(g0, lonLatToCell(site.meta, ...site.meta.habitat).i);
+    c = {
+      baseKey, base, byState: new Map(),
+      costToHomeBase: dijkstraFrom({ ...g0, cost: g0.o2 }, home), // physical O2-min home
+      distToHome: dijkstraFrom(unitGrid(g0), home),               // meters home (state-independent)
     };
+    caches.set(site.layers, c);
   }
-  return cache;
+  // Level 2 (cheap, per alert state): routing grid + scaled costToHome.
+  // A uniform factor o2_x scales every path equally, so the cheapest way home costs exactly ×o2_x.
+  const sk = JSON.stringify(state || {});
+  let e = c.byState.get(sk);
+  if (!e) {
+    const grid = applyState(c.base, site.layers, params, state || {});
+    const o2x = state?.o2_x ?? 1;
+    let costToHome = c.costToHomeBase;
+    if (o2x !== 1) { costToHome = new Float32Array(c.costToHomeBase.length); for (let i = 0; i < costToHome.length; i++) costToHome[i] = c.costToHomeBase[i] * o2x; }
+    e = { grid, costToHome, distToHome: c.distToHome };
+    if (c.byState.size >= 8) c.byState.clear();
+    c.byState.set(sk, e);
+  }
+  return e;
 }
 
 export function plan(site, req) {
@@ -259,11 +297,14 @@ export function plan(site, req) {
   const taskO2 = taskMin.map((m) => m * ((params.task_W ?? params.P_nom ?? 351.7) / (params.P_nom ?? 351.7)) * (state.o2_x ?? 1));
 
   const all = [], segments = [], extraO2 = new Map(); // path index -> task O2 spent there
+  const doseSegs = []; // one per leg (walk + task), for radiation.doseTotal
   for (let k = 0; k < cellsOf.length - 1; k++) {
     const leg = astar(grid, cellsOf[k], cellsOf[k + 1]);
     if (!leg) return { error: 'unreachable', leg: k, from: pts[k], to: pts[k + 1] };
     const legStats = pathStats(leg, site, grid, params, state);
     legStats.task_min = taskMin[k + 1];
+    legStats.dose_mSv = +doseOf([{ minutes: legStats.walk_min_exact + taskMin[k + 1], doseX: state.dose_x }], params).toFixed(4);
+    doseSegs.push({ minutes: legStats.walk_min_exact + taskMin[k + 1], doseX: state.dose_x });
     segments.push({ from: pts[k], to: pts[k + 1], stats: legStats });
     all.push(...(k === 0 ? leg : leg.slice(1)));
     if (taskO2[k + 1] > 0) extraO2.set(all.length - 1, taskO2[k + 1]);
@@ -275,8 +316,9 @@ export function plan(site, req) {
   stats.walk_min = stats.duration_min;
   stats.task_min = Math.round(taskTotal);
   stats.duration_min = Math.round(stats.walk_min + taskTotal);
-  stats.o2_used_pct = +(stats.o2_used_pct + (100 * taskO2Total) / o2Total).toFixed(1);
-  stats.dose_mSv = +((params.gcr_mSv_per_h ?? 0.028) * (stats.duration_min / 60) * (state.dose_x ?? 1)).toFixed(4);
+  stats.o2_used_min = +(stats.o2_used_min + taskO2Total).toFixed(2);
+  stats.o2_used_pct = +((100 * stats.o2_used_min) / o2Total).toFixed(1); // round ONCE, from exact minutes
+  stats.dose_mSv = +doseOf(doseSegs, params).toFixed(4); // Ana's model, per leg (walk + task)
   // req.o2_used_min: O2 already spent before this plan starts (used by replan mid-EVA)
   const wb = walkbackCheck(all, grid, costToHome, usableO2min(site.suit) - (req.o2_used_min || 0), extraO2);
   // Rule 1 (O2): used so far + cheapest return <= usable O2, at every point
@@ -319,6 +361,16 @@ export function taskMinutesAt(site, params, [lon, lat], override) {
     }
   }
   return 0;
+}
+
+// Dose via Ana's radiation.js. segments: [{minutes, doseX}]. Never crash the UI on bad params.
+function doseOf(segments, params) {
+  try {
+    return radiation.doseTotal(segments, params);
+  } catch (e) {
+    console.warn('[planner] radiation.doseTotal failed, using RAD 0.67 mSv/day fallback:', e.message);
+    return segments.reduce((s, g) => s + (0.67 / 24) * (g.minutes / 60) * (g.doseX ?? 1), 0);
+  }
 }
 
 // Nearest walkable cell within `maxR` cells (square rings outward). -1 if none.

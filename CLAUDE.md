@@ -8,10 +8,15 @@ Concept: global costmap + global planner (like ROS Nav2). Deadline: Sun Nov 15, 
 ## Team & ownership (don't rewrite someone else's file without telling them)
 - **Eric** — tech lead, planner (`web/src/planner*.js`, `heap.js`, `data.js`, tests), merges to main
 - **Santiago** — frontend: `console.html`, `tablet.html`, `bus.js` (Leaflet, Vite)
-- **Gabriel** — data pipeline (`pipeline/`, `web/public/data/jezero/` rasters, meta.json)
-- **Ana** — cost model `web/src/cost.js`, `params.json`, env.json, tablet HUD
+- **Gabriel** — data pipeline (`pipeline/`, `web/public/data/jezero/` rasters, meta.json). GitHub: Khronos00
+- **Ana** — cost model `web/src/cost.js`, `web/src/radiation.js`, `params.json`, env.json, tablet HUD. GitHub: anakikilopez
 - **Marco** — `suit.json`, `alerts.json`, viewshed, rover traverse, validation
 - **Dana** — science targets, photos.json, video, project page
+
+## Data folders (web/public/data/)
+- `common/` suit.json (Marco), params.json (Ana), alerts.json (Marco+Ana) — shared by all sites
+- `mock/` synthetic terrain for testing (Eric). NEVER put real data here.
+- `jezero/` real site: meta.json (Gabriel), targets.geojson + photos.json (Marco), rasters (Gabriel, pending)
 
 ## Source of truth
 `CONTRACTS.md` defines every file format and code API. Read it before changing anything.
@@ -32,6 +37,7 @@ Changing a contract = announce in #general first, then update CONTRACTS.md in th
 ```bash
 node test/planner.test.mjs [mock|jezero]    # unit tests (must all PASS before any PR)
 node test/validate_data.mjs [mock|jezero]   # checks a data folder against CONTRACTS.md
+node test/hand_check.mjs                    # planner stats vs hand calculation (docs/HAND_CHECK.md)
 npx vite                                    # dev server -> /planner-test.html
 node test/e2e_demo.mjs                      # browser test of the demo (needs: npm i -D playwright && npx playwright install chromium)
 python ../pipeline/mock_site.py             # regenerate synthetic site (from repo root: python pipeline/mock_site.py)

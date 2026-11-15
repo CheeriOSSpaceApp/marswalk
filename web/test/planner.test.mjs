@@ -1,16 +1,17 @@
 // Run from web/:  node test/planner.test.mjs [site]
 // Loads the contract files from disk (no browser) and checks the planner.
 import fs from 'node:fs';
-import { plan, replan, astar, buildCostGrid, dijkstraFrom, getCostToHome } from '../src/planner.js';
+import { plan, replan, astar, buildCostGrid, dijkstraFrom, getCostToHome, getGrid } from '../src/planner.js';
 
 const site = process.argv[2] || 'mock';
 const dir = new URL(`../public/data/${site}/`, import.meta.url);
 const json = (f) => JSON.parse(fs.readFileSync(new URL(f, dir)));
+const common = (f) => JSON.parse(fs.readFileSync(new URL(`../public/data/common/${f}`, import.meta.url)));
 const bin = (f, T) => { const b = fs.readFileSync(new URL(f, dir)); return new T(b.buffer, b.byteOffset, b.byteLength / T.BYTES_PER_ELEMENT); };
 
 const meta = json('meta.json');
 const S = {
-  meta, targets: json('targets.geojson'), alerts: json('alerts.json'), suit: json('suit.json'), params: json('params.json'),
+  meta, targets: json('targets.geojson'), alerts: common('alerts.json'), suit: common('suit.json'), params: common('params.json'),
   layers: {
     elevation: bin('elevation.f32', Float32Array), slope: bin('slope.f32', Float32Array),
     roughness: bin('roughness.f32', Float32Array), hazard: bin('hazard.u8', Uint8Array),
@@ -134,5 +135,12 @@ check('400 min of work at a target -> O2 rule fails', long.stats.o2_return_ok ==
 const noRad = { ...S, targets: { ...S.targets, features: S.targets.features.map((f) => ({ ...f, properties: { ...f.properties, radiation_shelter: false } })) } };
 rp = replan(noRad, { current: mid, alert: A.SPE });
 check('SPE ignores non-radiation shelter -> habitat', rp.replan.destination === 'Habitat', `-> ${rp.replan.destination}`);
+
+// 14. Speed trick is exact: scaled costToHome (×o2_x) == Dijkstra recomputed on the ×o2_x grid
+const gx = buildCostGrid(S.layers, meta, S.params, { o2_x: 1.5 }, undefined, S.suit);
+const direct = dijkstraFrom({ ...gx, cost: gx.o2 }, home);
+const scaled = getGrid(S, S.params, { o2_x: 1.5 }).costToHome;
+let maxErr = 0; for (let i = 0; i < direct.length; i++) if (direct[i] < Infinity) maxErr = Math.max(maxErr, Math.abs(direct[i] - scaled[i]) / Math.max(1, direct[i]));
+check('scaled costToHome == recomputed (o2_x 1.5)', maxErr < 1e-5, `max rel err ${maxErr.toExponential(1)}`);
 
 process.exit(fails ? 1 : 0);
