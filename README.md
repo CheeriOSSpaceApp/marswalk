@@ -112,6 +112,16 @@ Task time counts toward O₂ use and dose, except habitat egress and ingress, wh
 
 At a cache stop the crew tops up its oxygen: the refill task takes cache_refill minutes, and in the O₂ return rule the O₂ used so far is reduced by the amount stored in that cache (a property of the cache in `targets.geojson`, not of `params.json`).
 
+### Alerts
+| Alert | dose_x | o2_x | visibility | Action | Source |
+|---|---|---|---|---|---|
+| SPE | 50 | 1 | 1 | shelter | MarsWalk planning assumption (deliberately conservative) |
+| Dust | 1 | 1.1 | 0.3 | safe_point | MarsWalk assumption |
+| Suit failure | 1 | 1.5 | 1 | return | MarsWalk assumption |
+| O₂ leak | 1 | 1.3 | 1 | resupply | MarsWalk assumption (Marco to confirm) |
+
+Alerts stack: `dose_x` and `o2_x` multiply, and visibility takes the lowest value. Visibility does not change oxygen; it multiplies the routing cost of a cell by 1 + (1 − visibility) · (slope/10 + roughness), with slope in degrees and roughness in meters. Actions: *shelter* goes to the fastest radiation-safe place, *safe_point* to the fastest of the habitat or any shelter, *return* to the habitat, and *resupply* home directly or via the O₂ cache that makes the return safe.
+
 ### Constants
 
 | Constant | Value | Unit | Source | Assumption? |
