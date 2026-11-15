@@ -58,7 +58,7 @@ node test/jezero_eva.mjs            # EVA-1 and every alert on real terrain
 ```
 Regenerate data: `python pipeline/export_jezero.py` (Jezero, needs internet) · `python pipeline/mock_site.py` (synthetic test site).
 
-## Models (Ana)
+## Models
 The models turn NASA-derived terrain layers into the numbers the crew sees: cost per meter for the route planner, O₂ use, radiation dose and alert effects. Every constant is listed with its source in Constants, anything we could not source is marked as an assumption.
 
 ### Walking speed
@@ -71,7 +71,7 @@ with a = 6 km/h, b = 3.5, c = 0.05 and V_cap = 0.98 m/s (2.2 mph, ICES-2026-127)
 ### Metabolic cost (Pandolf)
 Metabolic power on Mars, in watts, uses the Pandolf load-carriage equation:
 
-M = g_r · [ 1.5·W + 2·(W + L)·(L/W)² + η·(W + L)·(1.5·V² + 0.35·V·G) ]
+M = g_r · [ 1.5·W + 2·(W + L)·(L/W)² + η·(W + L)·(1.5·V² + 0.35·V·G) ] (Pandolf et al. 1977, as presented in Kim et al. 2024.)
 
 - W: body mass (kg). 
 - L: suit plus tools and samples (kg).
@@ -131,6 +131,10 @@ O₂ used during a task is its duration times a work metabolic factor of 1.0, i.
 | `task_min.shelter` | 5 | min | Team estimate (terrain check) | Yes |
 | `task_min.habitat_egress`, `habitat_ingress` | 15, 15 | min | EMU timeline (15 min each) | Yes |
 | `work_metabolic_factor` | 1.0 | n/a | Design average (1200 BTU/h); Apollo geology-station rates were about 0.81-0.89 of it, but there is no Mars data, so the conservative value is used | Yes |
+| `sunrise_lmst`, `sunset_lmst` | 6.0, 18.0 | h (LMST) | PLACEHOLDER until the Mars Climate Database values for the chosen Ls at Jezero are provided | Yes |
+| `night_buffer_min` | 30 | min | Team choice: margin to be back in the habitat before sunset | Yes |
+| `w_caution` | 0.5 | n/a | Tunable weight (team default); adjusted with the rover validation | Yes |
+| `w_obstacle_caution` | 2.0 | n/a | Tunable weight (team default); adjusted with the rover validation | Yes |
 
 ### Model limitations
 - Slope is an unsigned magnitude, so descending costs the same as ascending. This is conservative; a signed-grade model (e.g. a Santee-type downhill correction) is future work.
@@ -140,6 +144,7 @@ O₂ used during a task is its duration times a work metabolic factor of 1.0, i.
 - The GCR rate was measured at Gale Crater and is applied at Jezero.
 - Dust storms are modeled with a fixed visibility of 0.3 (`alerts.json`); low visibility only raises the routing cost of steep and rough cells, it does not change O₂ beyond the alert's `o2_x`.
 - The hand check verifies that the planner computes its statistics correctly from these equations; it does not validate the model itself. That is done against the real rover traverse.
+- The dependence of GCR dose on atmospheric pressure (Rafkin et al. 2014; Guo et al. 2017) is not modeled; a constant rate is used.
 
 ## References
 - Ogilvie et al. (2026). ICES-2026-127, NASA JSC. https://ntrs.nasa.gov/citations/20260003038 (paper); https://ntrs.nasa.gov/citations/20260005410 (presentation). 
