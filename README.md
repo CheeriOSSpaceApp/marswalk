@@ -152,8 +152,8 @@ Alerts stack: `dose_x` and `o2_x` multiply, and visibility takes the lowest valu
 | `night_buffer_min` | 30 | Earth min | Team choice: margin to be back in the habitat before sunset | Yes |
 | `w_caution` | 0.5 | n/a | Tunable weight (team default); adjusted with the rover validation | Yes |
 | `w_obstacle_caution` | 2.0 | n/a | Tunable weight (team default); adjusted with the rover validation | Yes |
-| `task_min.cache_refill` | 10 | min | O₂ top-off at a pre-positioned surface cache via an umbilical (concept: ISS EMU Service and Cooling Umbilical); duration is a MarsWalk assumption | Yes |,
-|w_nocomms | 0.2 | n/a | Tunable weight (team default) | Yes.|
+| `task_min.cache_refill` | 10 | min | O₂ top-off at a pre-positioned surface cache via an umbilical (concept: ISS EMU Service and Cooling Umbilical); duration is a MarsWalk assumption | Yes |
+|w_nocomms | 0.2 | n/a | Tunable weight (team default) | Yes |
 
 ### Model limitations
 - Slope is an unsigned magnitude, so descending costs the same as ascending. This is conservative; a signed-grade model (e.g. a Santee-type downhill correction) is future work.
