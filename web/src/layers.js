@@ -10,6 +10,11 @@ function rasterOverlay(arr, meta, bounds, colorOf) {
 }
 
 const KIND_COLOR = { habitat: '#ffffff', depot: '#f2c94c', science: '#6fcf97', shelter: '#56ccf2' };
+// Stations (Tier 2): square purple marker with a letter per station_type
+export function stationIcon(type) {
+  const letter = { cache: 'C', relay: 'R', shelter: 'S' }[type] || '•';
+  return L.divIcon({ className: 'station', html: letter, iconSize: [20, 20], iconAnchor: [10, 10] });
+}
 
 // Returns [{id, label, layer, on, opacity}]; `onAddStop(lonlat, name)` is called from target popups
 export function buildLayers(site, name, bounds, onAddStop) {
@@ -31,7 +36,9 @@ export function buildLayers(site, name, bounds, onAddStop) {
   out.push({ id: 'rover', label: 'Rover traverse', layer: roverLayer, on: false });
 
   const tl = L.geoJSON(targets, {
-    pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 7, weight: 2, color: '#000', fillColor: KIND_COLOR[f.properties.kind] || '#fff', fillOpacity: 1, bubblingMouseEvents: false }),
+    pointToLayer: (f, ll) => f.properties.station
+      ? L.marker(ll, { icon: stationIcon(f.properties.station_type), bubblingMouseEvents: false, zIndexOffset: 500 })
+      : L.circleMarker(ll, { radius: 7, weight: 2, color: '#000', fillColor: KIND_COLOR[f.properties.kind] || '#fff', fillOpacity: 1, bubblingMouseEvents: false }),
     onEachFeature: (f, l) => {
       const p = f.properties, box = document.createElement('div');
       let los = '';
@@ -41,10 +48,12 @@ export function buildLayers(site, name, bounds, onAddStop) {
         const v = row >= 0 && col >= 0 && row < meta.height && col < meta.width ? layers.viewshed[row * meta.width + col] : 0;
         los = v ? '<span style="color:#2e9e5b">● comms: line of sight</span><br>' : '<span style="color:#c0392b">○ comms: NO line of sight</span><br>';
       }
-      box.innerHTML = `<b>${p.name}</b><br>${p.kind} · science value ${p.science_value}/5<br>${los}${p.notes || ''}<br>`;
+      const o2 = p.supplies?.o2_min != null ? (p.supplies.o2_min.value ?? p.supplies.o2_min) : null;
+      box.innerHTML = `<b>${p.name}</b><br>${p.station ? `station · ${p.station_type}${o2 != null ? ` · ${o2} O₂-min stored` : ''}` : `${p.kind} · science value ${p.science_value}/5`}<br>` +
+        `${p.radiation_shelter === true ? '<span style="color:#2e9e5b">radiation-protected</span><br>' : ''}${los}${p.notes || ''}<br>`;
       if (p.kind !== 'habitat') {
         const b = document.createElement('button'); b.textContent = 'Add as stop';
-        b.onclick = () => { onAddStop(f.geometry.coordinates, p.name, p.photo_id, p.kind); l.closePopup(); };
+        b.onclick = () => { onAddStop(f.geometry.coordinates, p.name, p.photo_id, p.station_type === 'cache' ? 'cache' : p.kind); l.closePopup(); };
         box.appendChild(b);
       }
       l.bindPopup(box);
@@ -56,6 +65,9 @@ export function buildLayers(site, name, bounds, onAddStop) {
     { color: KIND_COLOR.science, name: 'Green', meaning: 'Science target' },
     { color: KIND_COLOR.shelter, name: 'Blue', meaning: 'Shelter / safe point' },
   ];
+  if (targets.features.some(f => f.properties.station)) {
+    targetLegend.push({ color: '#bb86fc', name: 'Purple ■', meaning: 'Station: O₂ cache (C) / relay (R) / shelter (S)', square: true });
+  }
   out.push({ id: 'targets', label: 'Targets', layer: tl, on: true, legend: targetLegend });
   return out;
 }

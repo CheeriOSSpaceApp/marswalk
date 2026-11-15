@@ -173,7 +173,7 @@
     const alertsBox = document.getElementById('alerts');
     for (const a of site.alerts) {
       const btn = document.createElement('button');
-      btn.textContent = `${a.type} → ${a.action}`;
+      btn.textContent = `${a.name || a.type} → ${a.action}`;
       btn.onclick = async () => {
         if (!basePlan) { out.textContent = 'plan a route first'; return; }
         const coords = basePlan.path.geometry.coordinates;

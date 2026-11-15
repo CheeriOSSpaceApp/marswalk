@@ -5,7 +5,7 @@ import { lonLatToCell } from './data.js';
 import { dist, helmetIcon } from './geo.js';
 import { createPlanner } from './plannerClient.js';   // only for costToHome (no-return zone), docs/INTEGRATION.md §6
 import { routeModel } from './route.js';
-import { createRing } from './ring.js';
+import { createRing, liveZone } from './ring.js';
 import { loadEnv, envAt, scenarioFor, ltst, lmstAt } from './env.js';
 
 const { map, site, name, bounds } = await createSiteMap();
@@ -20,6 +20,9 @@ const MARGIN_WARN = 30;                                   // min of O2 margin be
 const MARGIN_CRIT = 10;                                   // min of O2 margin left: return NOW (team estimate)
 const SPEEDS = [60, 300, 600];
 let SIM = 60;
+// ?demo=1 (Launch demo): the tablet walks by itself at ×300 and closes each task when its planned time is up
+const DEMO = new URLSearchParams(location.search).has('demo');
+const DEMO_HOLD_MIN = 20;                          // a replan 'hold' (shelter) has no planned time: wait this long, then stop
 const walkLabel = () => `▶ Walk (×${SIM})`;
 const R = 3396190, rad = x => x * Math.PI / 180, deg = x => x * 180 / Math.PI;
 const env = await loadEnv(site);
@@ -58,6 +61,8 @@ async function refreshRing(state) {                       // costToHome depends 
   await plannerReady; try { ring.setData(await planner.costToHome({ state: state || {} })); if (P) render(); } catch (e) { console.warn(e); }
 }
 refreshRing({});
+// Live safe zone (§9.2): dark red = can't go there and still reach safety, amber = tight (< 30 min margin). Includes O₂ caches.
+const zone = liveZone(planner, ring, () => eff);
 const routeLine = L.polyline([], { color: '#e2603a', weight: 5 }).addTo(map);          // remaining
 const doneLine = L.polyline([], { color: '#56ccf2', weight: 6 }).addTo(map);           // already walked
 const astro = L.marker(meta.habitat.slice().reverse(), { icon: helmetIcon(), zIndexOffset: 1000 }).bindTooltip('Astronaut').addTo(map);
@@ -91,9 +96,9 @@ let openLow = null; const lowQueue = [];
 // Alerts are NOT persistent: the popup and the banner show once and close by themselves (or earlier with Acknowledge).
 const ALARM_MS = { high: 6000, low: 4000, safe: 6000 };
 let alarmTimer = null, bannerTimer = null;
-function openAlarm(priority, type, body) {
+function openAlarm(priority, type, body, customTitle = false) {
   $('alarm').className = priority; openLow = priority === 'low' ? type : null;
-  $('alarmTitle').textContent = priority === 'safe' ? `SAFE SPOT REACHED · ${type}` : `${priority === 'high' ? 'HIGH' : 'LOW'} PRIORITY · ${ALERT_NAMES[type] || type}`;
+  $('alarmTitle').textContent = customTitle ? type : priority === 'safe' ? `SAFE SPOT REACHED · ${type}` : `${priority === 'high' ? 'HIGH' : 'LOW'} PRIORITY · ${ALERT_NAMES[type] || type}`;
   $('alarmBody').textContent = body; $('alarm').hidden = false;
   const bar = $('alarmBar'); bar.style.animation = 'none'; void bar.offsetWidth; bar.style.animation = `alarmTime ${ALARM_MS[priority]}ms linear forwards`;
   clearTimeout(alarmTimer); alarmTimer = setTimeout(closeAlarm, ALARM_MS[priority]);
@@ -191,10 +196,12 @@ function setPlan(payload) {
   while (wps.length < m.legEnd.length) wps.push({ name: 'Waypoint', ll: m.c[m.legEnd[wps.length]] });
   P.wps = wps.map((w, k) => ({ ...w, idx: m.legEnd[k] }));
   P.tasks = buildTasks(m, P.wps, replanned);
+  P.refills = [...(payload.plan.refills || [])];
+  P.stats0 = payload.plan.stats;
   P.sunset = payload.plan.stats?.sunset_lmst_hhmm || null;
   const st = replanned ? payload.state : payload.base_state;   // fresh plan: starting conditions from the test bench, if any
   eff = { o2_x: 1, dose_x: 1, visibility: 1, ...(st || {}) };
-  refreshRing(st || {});
+  refreshRing(st || {}); zone.invalidate();
   routeLine.setLatLngs(m.c.map(p => [p[1], p[0]]));
   if (m.total > 1) map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
   d = 0; playing = !!(replanned && wasPlaying); shownWp = null; shownTask = null; $('playBtn').textContent = playing ? '⏸ Pause' : walkLabel();
@@ -202,6 +209,15 @@ function setPlan(payload) {
   $('scrub').max = Math.round(m.total); $('scrub').value = 0;
   $('empty').hidden = true; $('hud').hidden = false; render();
   if (playing) { last = performance.now(); requestAnimationFrame(loop); }
+  const st0 = payload.plan.stats || {};
+  if (DEMO && !replanned && st0.go === 'NO-GO') {    // autopilot never walks out on a NO-GO plan
+    setTimeout(() => openAlarm('high', `NO-GO · EVA start ${st0.start_lmst_hhmm || ''}`, `Back at ${st0.end_lmst_hhmm}, sunset ${st0.sunset_lmst_hhmm}${st0.daylight_margin_min != null ? ` (${st0.daylight_margin_min} min daylight margin)` : ''}. The console flags this start time as NO-GO: stay in the habitat.`, true), 1500);
+    return;
+  }
+  if (DEMO && !replanned) setTimeout(() => {         // autopilot: ×300, walk
+    if (!P || playing || P.stats0 !== st0) return;
+    SIM = 300; $('speedBtn').textContent = '×300'; playing = true; $('playBtn').textContent = '⏸ Pause'; last = performance.now(); requestAnimationFrame(loop);
+  }, 2500);
 }
 
 const total = () => P.cumD[P.cumD.length - 1];
@@ -244,16 +260,20 @@ function comms(pos) {
 // (suit.json battery_Wh / base_power_W), daylight (params sunset_lmst − walk home − night buffer).
 // SPE outside a radiation shelter: also the dose limit. NASA-STD-3001 Vol. 1 Rev. C (2023), [V1 4031]: protect crew from the
 // design-reference SPE to < 250 mSv effective dose. We subtract the dose already taken in this EVA (conservative).
-// Pending: O₂ use while waiting at rest (Eric is looking for it); until then the work rate (conservative).
+// O₂ while waiting = rest rate (params.rest_metabolic_factor, 0.5 = 600 BTU/h, sources in params.json).
 const pv = x => (x && typeof x === 'object' && 'value' in x) ? x.value : x;
-const REST_FACTOR = pv(params.work_metabolic_factor) ?? 1;            // ASSUMPTION: O₂ use while waiting = task rate
+const WORK_FACTOR = pv(params.work_metabolic_factor) ?? 1;
+const REST_FACTOR = pv(params.rest_metabolic_factor) ?? WORK_FACTOR;  // §9.1: egress/ingress, cache refill, shelter, hold
+const REST_TASKS = new Set(params.rest_metabolic_factor?.applies_to || ['habitat_egress', 'habitat_ingress', 'cache_refill', 'shelter', 'hold']);
+// base O₂-min per minute of a tablet task (× eff.o2_x when burned)
+const taskRate = kind => REST_TASKS.has({ egress: 'habitat_egress', habitat: 'habitat_ingress', cache: 'cache_refill', shelter: 'shelter', hold: 'hold' }[kind]) ? REST_FACTOR : WORK_FACTOR;
 const BATT_WH = pv(suit.battery_Wh), BASE_W = pv(suit.base_power_W);
 const SPE_DOSE_LIMIT = pv(params.spe_dose_limit_mSv) ?? 250;   // mSv, NASA-STD-3001 V1 Rev C [V1 4031] (Ana can move it to params.json)
 const SUNSET = pv(params.sunset_lmst) ?? 18, NIGHT_BUF = pv(params.night_buffer_min) ?? 30, MARS_H = 88775.244 / 24 / 60;
 const fmtDur = m => m <= 0 ? 'leave now' : m >= 600 ? '10 h +' : `${Math.floor(m / 60) ? Math.floor(m / 60) + ' h ' : ''}${Math.round(m % 60)} min`;
 function stayLimits(ctx, a, radSafe = true) {
   const o2x = Math.max(eff.o2_x, a ? (a.effect?.o2_x ?? 1) : 1);          // that alert active (or the current state if worse)
-  const homeO2 = (ctx.cthBase + ctx.ingressMin) * o2x;
+  const homeO2 = (ctx.cthBase + ctx.ingressMin * REST_FACTOR) * o2x;
   const lim = [
     { k: 'O₂', v: (USABLE - ctx.used - homeO2) / (REST_FACTOR * o2x) },
     { k: 'daylight', v: (SUNSET - ctx.nowLmst) * MARS_H - ctx.walkHomeMin - ctx.ingressMin - NIGHT_BUF },
@@ -280,7 +300,7 @@ function renderStay(task, ctx) {
     `<small>limited by ${r.lim.k}${r.note ? ' · ' + r.note : ''}</small></div>`).join('');
   if (html !== stayKey) { stayKey = html; $('stayRows').innerHTML = html; }
   $('stayWhere').textContent = tf?.properties.name?.split(' - ')[0] || task.name;
-  $('stayNote').textContent = `O₂ while waiting = work rate (×${REST_FACTOR}) until the resting value is in. SPE dose limit ${SPE_DOSE_LIMIT} mSv per event (NASA-STD-3001 Vol. 1, [V1 4031]).`;
+  $('stayNote').textContent = `O₂ while waiting = rest rate (×${REST_FACTOR} of the walking design rate, params.json). SPE dose limit ${SPE_DOSE_LIMIT} mSv per event (NASA-STD-3001 Vol. 1, [V1 4031]).`;
   return rows[0].lim;
 }
 
@@ -315,6 +335,16 @@ function completeTask(name = null) {
   const t = P && activeTask(); if (!t || (name && name !== t.name)) return false;
   t.done = true; shownTask = null; shownWp = null; showConfirm(false);
   send('task_done', { name: t.name, t_min: spentNow.time_min });
+  if (t.kind === 'cache') {                       // Tier 2: the refill comes back to the O₂ used
+    const w = P.wps[t.wp], r = (P.refills || []).find(x => x.name === w?.name) || (P.refills || [])[0];
+    const amount = r?.o2_min ?? 0;
+    if (amount) {
+      P.extra.o2_min -= amount; P.refills = P.refills.filter(x => x !== r);
+      eff = { ...eff, cache_used: { ...(eff.cache_used || {}), [r.id]: (eff.cache_used?.[r.id] || 0) + amount } }; refreshRing(eff); zone.invalidate();
+      send('refill', { id: r.id, name: r.name, o2_min: amount, t_min: spentNow.time_min });
+      openAlarm('safe', `O₂ refilled at ${(r.name || '').split(' - ')[0]}`, `+${amount} O₂-min back in the tank. Next: ${(P.wps[t.wp + 1]?.name || 'Habitat').split(' - ')[0]}.`, true);
+    }
+  }
   render();
   if (playing) { last = performance.now(); requestAnimationFrame(loop); }
   return true;
@@ -346,11 +376,15 @@ function render() {
   // Ingress = the LAST habitat task of the route (the first one is the egress). Never negative (overtime).
   const habTasks = P.tasks.filter(t => t.kind === 'habitat'), lastHab = habTasks.length > 1 || (habTasks.length === 1 && P.tasks.indexOf(habTasks[0]) > 0) ? habTasks.at(-1) : null;
   const distHome = dist(pos, meta.habitat), ingress = lastHab && !lastHab.done ? lastHab : null;
-  const ingressO2 = (ingress ? Math.max(0, (ingress.minutes || 0) - (ingress.elapsed || 0)) : 0) * eff.o2_x;
+  const ingressO2 = (ingress ? Math.max(0, (ingress.minutes || 0) - (ingress.elapsed || 0)) : 0) * REST_FACTOR * eff.o2_x;
   const cth = ring.costAt(pos[0], pos[1]);                                            // planner costToHome (O2-min, real terrain)
   const walkHome = cth ?? distHome / SPEED / 60 * eff.o2_x;                           // fallback: straight line at V_cap
   const homeMin = walkHome + ingressO2;
-  const margin = USABLE - o2UsedMin - homeMin;                                        // planner rule: used + return <= usable
+  let margin = USABLE - o2UsedMin - homeMin;                                          // planner rule: used + return <= usable
+  // Tier 2: a rescue via an O₂ cache is safe if the astronaut reaches the cache (the planner already checked cache → home
+  // after the refill). While a refill is pending, the margin that matters is O₂ left on arrival at that cache.
+  const cacheWp = P.refills?.length ? P.wps.find(w => w.kind === 'cache' && P.cumD[w.idx] > d - 1) : null;
+  if (cacheWp) margin = USABLE - o2UsedMin - Math.max(0, P.cumO2[cacheWp.idx] - at(P.cumO2));
   const state = !(margin >= 0) || distHome > WALKBACK ? 'bad' : margin < MARGIN_WARN ? 'warn' : 'ok';
   // Safe spot reached: green popup once + stay-time card while there
   const cthHere = ring.costAt(pos[0], pos[1]);
@@ -366,7 +400,10 @@ function render() {
   }
   // Low-O2 alerts: once per level per plan. Not while the only thing left is the habitat (already going home).
   const goingHome = !P.tasks.some(t => !t.done && t.kind !== 'habitat' && t.kind !== 'egress') && P.wps.every(w => w.kind === 'habitat' || P.cumD[w.idx] <= d + 1);
-  if (Number.isFinite(margin) && !goingHome && (P.tasks.find(t => t.kind === 'egress')?.done ?? true)) {
+  // On the way to a cache refill the route already heads to the O₂: no 'go home' alarms (asking the console again would
+  // only send the astronaut back to the same cache). Only if the cache itself is out of reach.
+  if (cacheWp && margin < 0 && !P.o2Crit) { P.o2Crit = P.o2Low = true; showCritO2(margin, homeMin); }
+  if (Number.isFinite(margin) && !goingHome && !cacheWp && (P.tasks.find(t => t.kind === 'egress')?.done ?? true)) {
     if (margin < MARGIN_CRIT && !P.o2Crit) {
       P.o2Crit = P.o2Low = true;
       showCritO2(margin, homeMin);
@@ -378,6 +415,7 @@ function render() {
   }
   const canReturn = state !== 'bad';
   ring.update(USABLE - o2UsedMin - ingressO2);
+  zone.refresh(pos, o2UsedMin);
 
   // Next waypoint (or the one being worked on)
   const wpIdx = task && task.wp != null ? task.wp : P.wps.findIndex(w => P.cumD[w.idx] - d > 1);
@@ -453,7 +491,7 @@ function render() {
   spentNow = { o2_min: o2UsedMin, dose_mSv: dose, time_min: evaMin };
   // bus contract: {lon, lat, o2_used_min, t_min} + extras the console shows
   send('position', { lon: pos[0], lat: pos[1], o2_used_min: o2UsedMin, t_min: evaMin, d, o2_left: o2Left, can_return: canReturn,
-    margin_min: Number.isFinite(margin) ? margin : null, ingress_min: ingressO2 / eff.o2_x, comms: cs, off_route_m: offR,
+    margin_min: Number.isFinite(margin) ? margin : null, ingress_min: ingress ? Math.max(0, (ingress.minutes || 0) - (ingress.elapsed || 0)) : 0, comms: cs, off_route_m: offR,
     task: task ? task.name : null, task_elapsed: task ? task.elapsed : null, task_min: task ? task.minutes : null, spent: spentNow });
 }
 
@@ -463,7 +501,8 @@ function loop(t) {
   if (drift.m !== drift.target) { const step = dtMin * SPEED * 60; drift.m += Math.sign(drift.target - drift.m) * Math.min(step, Math.abs(drift.target - drift.m)); }
   const task = activeTask();
   if (task) {                                       // standing still doing the task: time, O2 and dose keep running
-    task.elapsed += dtMin; P.extra.time_min += dtMin; P.extra.o2_min += dtMin * eff.o2_x; P.extra.dose_mSv += GCR * dtMin / 60 * eff.dose_x;
+    task.elapsed += dtMin; P.extra.time_min += dtMin; P.extra.o2_min += dtMin * taskRate(task.kind) * eff.o2_x; P.extra.dose_mSv += GCR * dtMin / 60 * eff.dose_x;
+    if (DEMO && task.elapsed >= (task.kind === 'hold' ? Math.max(task.minutes, DEMO_HOLD_MIN) : task.minutes)) { render(); completeTask(task.name); return; }   // completeTask re-arms the loop
   } else {
     const gate = nextGate(), lim = gate ? gate.at : total();
     let i = 0; while (i < P.cumD.length - 2 && P.cumD[i + 1] <= d) i++;

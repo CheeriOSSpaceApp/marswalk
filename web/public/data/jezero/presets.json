@@ -1,0 +1,204 @@
+{
+ "note": "Built-in demo scenarios (Santiago, frontend). Loaded by console.html (Saved presets card, marked built-in); console.html?demo=1 loads the first one, ?demo=<id> a given one. cfg = same object as the test bench 'Send to console' (docs: src/presets.js) + optional script: [{on: 'arrive'|'task_done', stop: <index in cfg.stops>, alert: <alerts.json id>}] that the console injects automatically. Numbers checked with the planner on the real terrain (15:15 LMST run).",
+ "presets": [
+  {
+   "id": "eva1-nominal",
+   "name": "EVA-1 nominal 09:00",
+   "description": "Habitat \u2192 10 depot tubes \u2192 Wildcat Ridge \u2192 habitat. GO, back 12:04, O\u2082 42 %.",
+   "cfg": {
+    "site": "jezero",
+    "stops": [
+     [
+      77.40845187,
+      18.45335876
+     ],
+     [
+      77.40861382,
+      18.45305613
+     ],
+     [
+      77.40850874,
+      18.45302517
+     ],
+     [
+      77.40825046,
+      18.45282019
+     ],
+     [
+      77.40831719,
+      18.45273305
+     ],
+     [
+      77.40818728,
+      18.4527171
+     ],
+     [
+      77.40807742,
+      18.45278117
+     ],
+     [
+      77.40804345,
+      18.45267194
+     ],
+     [
+      77.40783165,
+      18.45252828
+     ],
+     [
+      77.40776224,
+      18.45264516
+     ],
+     [
+      77.4055481,
+      18.4589106
+     ]
+    ],
+    "start_hour": 9
+   }
+  },
+  {
+   "id": "spe-wildcat",
+   "name": "SPE at Wildcat",
+   "description": "Same EVA; a solar particle event hits on arrival at Wildcat Ridge \u2192 SEV rover radiation shelter (2 min) instead of Hawksbill (not protected).",
+   "cfg": {
+    "site": "jezero",
+    "stops": [
+     [
+      77.40845187,
+      18.45335876
+     ],
+     [
+      77.40861382,
+      18.45305613
+     ],
+     [
+      77.40850874,
+      18.45302517
+     ],
+     [
+      77.40825046,
+      18.45282019
+     ],
+     [
+      77.40831719,
+      18.45273305
+     ],
+     [
+      77.40818728,
+      18.4527171
+     ],
+     [
+      77.40807742,
+      18.45278117
+     ],
+     [
+      77.40804345,
+      18.45267194
+     ],
+     [
+      77.40783165,
+      18.45252828
+     ],
+     [
+      77.40776224,
+      18.45264516
+     ],
+     [
+      77.4055481,
+      18.4589106
+     ]
+    ],
+    "start_hour": 9,
+    "script": [
+     {
+      "on": "arrive",
+      "stop": 10,
+      "alert": "spe1"
+     }
+    ]
+   }
+  },
+  {
+   "id": "leak-cache",
+   "name": "O2 leak \u2192 cache rescue",
+   "description": "Short survey north of the habitat with the tank at 50 %. O\u2082 leak after the task: habitat \u2717 not enough O\u2082, Cache 1 \u2713 refill 120 O\u2082-min then home.",
+   "cfg": {
+    "site": "jezero",
+    "stops": [
+     {
+      "ll": [
+       77.40955,
+       18.46341
+      ],
+      "name": "North survey point",
+      "task_min": 10
+     }
+    ],
+    "start_hour": 9,
+    "o2_start_min": 240,
+    "script": [
+     {
+      "on": "task_done",
+      "stop": 0,
+      "alert": "leak1"
+     }
+    ]
+   }
+  },
+  {
+   "id": "late-start",
+   "name": "Late start 15:00",
+   "description": "EVA-1 starting 15:00 LMST: back after sunset (17:37) \u2192 NO-GO.",
+   "cfg": {
+    "site": "jezero",
+    "stops": [
+     [
+      77.40845187,
+      18.45335876
+     ],
+     [
+      77.40861382,
+      18.45305613
+     ],
+     [
+      77.40850874,
+      18.45302517
+     ],
+     [
+      77.40825046,
+      18.45282019
+     ],
+     [
+      77.40831719,
+      18.45273305
+     ],
+     [
+      77.40818728,
+      18.4527171
+     ],
+     [
+      77.40807742,
+      18.45278117
+     ],
+     [
+      77.40804345,
+      18.45267194
+     ],
+     [
+      77.40783165,
+      18.45252828
+     ],
+     [
+      77.40776224,
+      18.45264516
+     ],
+     [
+      77.4055481,
+      18.4589106
+     ]
+    ],
+    "start_hour": 15
+   }
+  }
+ ]
+}

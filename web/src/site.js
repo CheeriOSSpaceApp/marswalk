@@ -6,7 +6,8 @@
 const BASE = () => import.meta.env?.BASE_URL ?? '/';
 const FALLBACK = 'mock';
 const FILES = ['meta.json', 'elevation.f32', 'slope.f32', 'roughness.f32', 'hazard.u8', 'viewshed.u8', 'targets.geojson', 'suit.json',
-               'params.json', 'alerts.json', 'env.json', 'photos.json', 'rover_traverse.geojson', 'hillshade.png', 'ortho.png', 'slope.png'];
+               'params.json', 'alerts.json', 'env.json', 'photos.json', 'rover_traverse.geojson', 'hillshade.png', 'ortho.png', 'slope.png',
+               'stations.geojson', 'presets.json'];
 const urlIn = (dir, file) => `${BASE()}data/${dir}/${file}`;
 
 // A file "exists" if the server answers OK and it is not an HTML page (Vite's dev server answers unknown paths with index.html)
@@ -40,12 +41,15 @@ export async function loadSite(site = 'jezero') {
   const [targets, suit, params, alerts] = await Promise.all([
     json('targets.geojson', { type: 'FeatureCollection', features: [] }), json('suit.json', {}), json('params.json', {}), json('alerts.json', [])]);
 
+  // Stations (Gabriel, Tier 2): optional; merged into targets exactly like data.js loadSite() does for the planner
+  const st = await json('stations.geojson', null);
+  for (const f of st?.features || []) targets.features.push({ ...f, properties: { kind: 'shelter', ...f.properties, station: true } });
   if (meta) {
     const n = meta.width * meta.height;
     for (const [k, v] of Object.entries({ elevation, slope, roughness, hazard, viewshed }))
       if (v && v.length !== n) console.error(`${k}: expected ${n} cells, got ${v.length}`);
   }
   if (fellBack.length) console.warn(`[site] "${site}" is missing ${fellBack.length} file(s); using ${FALLBACK}/ for: ${fellBack.join(', ')}`);
-  if (missing.length) console.warn(`[site] not found in ${dirs.join('/ or ')}/: ${missing.join(', ')}`);
+  if (missing.filter(f => !['stations.geojson', 'presets.json'].includes(f)).length) console.warn(`[site] not found in ${dirs.join('/ or ')}/: ${missing.join(', ')}`);
   return { name: site, meta, layers: { elevation, slope, roughness, hazard, viewshed }, targets, suit, params, alerts, url, fellBack, missing };
 }

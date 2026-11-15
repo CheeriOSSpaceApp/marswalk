@@ -3,12 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Martian Map – Habitat Console</title>
+  <title>MarsWalk – Habitat console</title>
 </head>
 <body class="tablet console">
   <div id="map"></div>
   <aside id="panel">
-    <div class="topline"><h1>Martian Map</h1><span class="sub">Habitat console · <span id="site">–</span></span></div>
+    <div class="topline"><h1>MarsWalk</h1><span class="sub">Habitat console · <span id="site">–</span></span></div>
+    <div class="challenge">Martian Map challenge · NASA Space Apps 2026</div>
 
     <section class="card"><h2>Layers</h2>
     <div id="layers"></div>
@@ -34,6 +35,14 @@
     <div id="alertStatus"></div>
     <div id="alertLog"></div>
 
+    </section>
+    <section class="card" id="reportCard" hidden><h2>Mission report</h2>
+    <div class="note" id="reportInfo">–</div>
+    <button id="reportMd">Export report (.md)</button>
+    <button id="reportJson">Export log (.json)</button>
+    </section>
+    <section class="card" id="cacheCard" hidden><h2>O₂ caches (inventory)</h2>
+    <div id="caches"></div>
     </section>
     <section class="card"><h2>Route stats</h2>
     <div id="stats"><div class="empty">No route yet.</div></div>
