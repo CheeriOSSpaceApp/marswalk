@@ -75,6 +75,12 @@
     "source": "Design average (1200 BTU/h). Apollo geology-station rates were about 0.81-0.89 of it, but we have no Mars data, so we use the conservative value",
     "assumption": true
   },
+  "rest_metabolic_factor": {
+    "value": 0.5,
+    "applies_to": ["habitat_egress", "habitat_ingress", "cache_refill", "shelter", "hold"],
+    "source": "O2 burned while the suited crew stands or sits still (airlock egress/ingress, cache refill, waiting in a shelter), relative to P_nom = 1200 BTU/h. 0.5 = 600 BTU/h (176 W): the TOP of the 300-600 BTU/h measured for suited test subjects at rest in a seated position (Rhodes, Bue, Meginnis, Hakam & Radford, 'Thermal Performance Testing of EMU and CSAFE Liquid Cooling Garments', AIAA ICES 2013, NTRS 20130011117, https://ntrs.nasa.gov/api/citations/20130011117/downloads/20130011117.pdf). Cross-check: NASA HIDH nominal awake (shirt-sleeve) O2 use for the 82 kg reference astronaut is 0.57 g/min = 0.40 L/min = ~136 W = ~465 BTU/h (Ewert & Downs, 'Developing a Daily Metabolic Rate Profile for Human Exploration Missions', ICES-2021-365, Table 1, https://ntrs.nasa.gov/api/citations/20205010692/downloads/ICES-2021_Metabolic_Paper-Final.pdf; conversion 1.429 g/L and 20.47 kJ/L at RQ 0.86); Shuttle max awake rate 650 BTU/h (same paper). O2 use scales linearly with metabolic rate (ICES-2026-127 slide 6). We take the top of the suited range because standing in a 104 kg suit at 0.38 g costs more than sitting, and underestimating O2 is the unsafe direction.",
+    "assumption": true
+  },
   "sunrise_lmst": {
     "value": 6.8387,
     "source": "MCD v6.2; Ls=270 deg; habitat: 77.41359752 E, 18.45369687 N; hourly solar zenith crossing 90 deg; linear interpolation; approximate LTST-to-LMST conversion from LMD; flat horizon; decimal Martian hours. https://www-mars.lmd.jussieu.fr/mcd_python/",

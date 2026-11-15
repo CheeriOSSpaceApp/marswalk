@@ -38,6 +38,10 @@ export function createPlanner() {
     adapt: (req) => call('adapt', req),
     // -> {costToHome: Float32Array (O2-min per cell), usable_o2_min}. For the no-return ring.
     costToHome: (req = {}) => call('costToHome', req),
+    // Live safe zone (13:50). req: {current:[lon,lat], o2_used_min, state?, tight_min?}
+    // -> {zone: Uint8Array (0 no-return · 1 tight · 2 safe), slack: Float32Array (O2-min margin per cell),
+    //     budget_min, here_margin_min, wait_max_min, safe_km2, tight_km2, timing_ms}. See docs/INTEGRATION.md §9.
+    safeZone: (req = {}) => call('safeZone', req),
     terminate: () => worker.terminate(),
   };
 }

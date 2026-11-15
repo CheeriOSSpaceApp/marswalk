@@ -1,7 +1,7 @@
 // Run from web/:  node test/planner.test.mjs [site]
 // Loads the contract files from disk (no browser) and checks the planner.
 import fs from 'node:fs';
-import { plan, replan, adapt, astar, buildCostGrid, dijkstraFrom, getCostToHome, getGrid, usableO2min } from '../src/planner.js';
+import { plan, replan, adapt, astar, buildCostGrid, dijkstraFrom, getCostToHome, getGrid, usableO2min, safeZone, metabolicFactors } from '../src/planner.js';
 
 const site = process.argv[2] || 'mock';
 const dir = new URL(`../public/data/${site}/`, import.meta.url);
@@ -124,12 +124,13 @@ r = plan(S, { start: [77.4136, 18.4537], goal: T.habitat });
 check('point outside bbox -> error, not garbage', r.error === 'point_outside_map');
 
 // 12. Task time at stops counts in duration, O2 and the O2 return rule
-const noTask = plan(S, { start: T.habitat, stops: [T.shelter1], goal: T.habitat, task_min: [0, 0] });
-const withTask = plan(S, { start: T.habitat, stops: [T.shelter1], goal: T.habitat, task_min: [60, 0] });
+// (a science target: WORK rate. A shelter would burn the REST rate, tested in the 'Rest' section below)
+const noTask = plan(S, { start: T.habitat, stops: [T.sci1], goal: T.habitat, task_min: [0, 0] });
+const withTask = plan(S, { start: T.habitat, stops: [T.sci1], goal: T.habitat, task_min: [60, 0] });
 check('task time adds to duration', withTask.stats.duration_min - noTask.stats.duration_min === 60, `${noTask.stats.duration_min} -> ${withTask.stats.duration_min} min`);
 check('task time adds O2 (60 min at P_nom = 12.5%)', Math.abs((withTask.stats.o2_used_pct - noTask.stats.o2_used_pct) - 12.5) < 0.15, `+${(withTask.stats.o2_used_pct - noTask.stats.o2_used_pct).toFixed(2)}%`);
 check('task time reduces O2 margin by 60 min', Math.abs((noTask.stats.o2_margin_min - withTask.stats.o2_margin_min) - 60) < 0.2, `${noTask.stats.o2_margin_min} -> ${withTask.stats.o2_margin_min}`);
-const long = plan(S, { start: T.habitat, stops: [T.shelter1], goal: T.habitat, task_min: [400, 0] });
+const long = plan(S, { start: T.habitat, stops: [T.sci1], goal: T.habitat, task_min: [400, 0] });
 check('400 min of work at a target -> O2 rule fails', long.stats.o2_return_ok === false, `margin ${long.stats.o2_margin_min}`);
 
 // 13. SPE never sends you to a shelter that doesn't protect from radiation
@@ -264,5 +265,66 @@ check('T2: a cache shrinks the cost-to-safety field (bigger safe exploration zon
   const r = plan(SC2, { start: T.habitat, stops: [T.shelter1], goal: T.habitat, o2_used_min: 100 });
   check('T2: cache placed AT another target is still used (refill)', r.stats.o2_refilled_min > 0, `refilled ${r.stats.o2_refilled_min}`); }
 check('T2: a cache also counts as a safe point in a dust storm', rp.replan.destination_kind === 'shelter');
+
+
+// ---------- O2 at REST (13:50): airlock, refill, waiting in a shelter burn rest_metabolic_factor, not the work rate ----------
+{
+  const mf = metabolicFactors(S.params);
+  check('Rest: params.rest_metabolic_factor is loaded (0.5 = 600 BTU/h) and < work', mf.rest === 0.5 && mf.rest < mf.work, `rest ${mf.rest} work ${mf.work}`);
+  const restP = { ...S.params, rest_metabolic_factor: { ...S.params.rest_metabolic_factor, value: 1 } };   // old behaviour
+  const a = plan(S, { start: T.habitat, stops: [T.sci1], goal: T.habitat });
+  const b = plan(S, { start: T.habitat, stops: [T.sci1], goal: T.habitat, params: restP });
+  const eg = (S.params.task_min.habitat_egress.value + S.params.task_min.habitat_ingress.value);
+  check('Rest: egress + ingress in the airlock cost half the O2 of work', Math.abs((b.stats.o2_used_min - a.stats.o2_used_min) - eg * 0.5) < 0.05,
+    `${b.stats.o2_used_min} -> ${a.stats.o2_used_min} (saved ${(b.stats.o2_used_min - a.stats.o2_used_min).toFixed(2)}, expected ${eg * 0.5})`);
+  check('Rest: duration is unchanged (resting is slower on O2, not on the clock)', a.stats.duration_min === b.stats.duration_min);
+  const sci = a.tasks.find((t) => t.key === 'science'), egr = a.tasks[0];
+  check('Rest: science stays at the WORK rate; egress is REST', sci.activity === 'work' && sci.o2_per_min === 1 && egr.key === 'habitat_egress' && egr.activity === 'rest' && egr.o2_per_min === 0.5,
+    JSON.stringify(a.tasks.map((t) => `${t.key}:${t.activity}`)));
+  const sh = plan(S, { start: T.habitat, stops: [T.shelter1], goal: T.habitat, task_min: [60, 0] });
+  const sc = plan(S, { start: T.habitat, stops: [T.sci1], goal: T.habitat, task_min: [60, 0] });
+  check('Rest: 60 min waiting in a shelter = 30 O2-min (rest), same 60 min of science = 60', Math.abs(sh.segments[0].stats.task_o2_min - 30) < 0.01 && Math.abs(sc.segments[0].stats.task_o2_min - 60) < 0.01,
+    `shelter ${sh.segments[0].stats.task_o2_min} · science ${sc.segments[0].stats.task_o2_min}`);
+  const s15 = plan(S, { start: T.habitat, stops: [T.shelter1], goal: T.habitat, task_min: [60, 0], state: { o2_x: 1.5 } });
+  check('Rest: a suit alert (o2_x 1.5) also scales the rest rate', Math.abs(s15.segments[0].stats.task_o2_min - 45) < 0.01, `${s15.segments[0].stats.task_o2_min}`);
+  check('Rest: plan exposes o2_per_min {rest, work} for the tablet', a.stats.o2_per_min.rest === 0.5 && a.stats.o2_per_min.work === 1);
+  const noRest = { ...S.params }; delete noRest.rest_metabolic_factor;
+  const c = plan({ ...S, params: noRest }, { start: T.habitat, stops: [T.sci1], goal: T.habitat });
+  check('Rest: without the param, everything uses the work rate (backward compatible)', Math.abs(c.stats.o2_used_min - b.stats.o2_used_min) < 0.01);
+}
+
+// ---------- Live safe zone (13:50): used + cost(here -> i) + costToSafety(i) + ingress <= usable ----------
+{
+  const usable = usableO2min(S.suit);
+  const z0 = safeZone(S, { current: T.habitat, o2_used_min: 0 });
+  check('Zone: computes in < 1.5 s on the full grid', !z0.error && z0.timing_ms < 1500, `${z0.timing_ms} ms, safe ${z0.safe_km2} km², tight ${z0.tight_km2} km²`);
+  const W0 = meta.width, cellOf = ([lo, la]) => Math.floor((latMax - la) / (latMax - latMin) * meta.height) * W0 + Math.floor((lo - lonMin) / (lonMax - lonMin) * W0);
+  check('Zone: the habitat itself is safe at the start, with no O2 wait limit', z0.zone[cellOf(T.habitat)] === 2 && z0.wait_max_min === null);
+  check('Zone: forbidden cells are never in the zone', (() => { for (let i = 0; i < z0.zone.length; i += 7) if (S.layers.hazard[i] === 2 && z0.zone[i]) return false; return true; })());
+  // From the habitat, cost(here->i) == costToHome(i) (symmetric grid) -> slack = budget - 2·costToHome
+  const cth = getGrid(S, S.params, {}).costToHome;
+  const ing = S.params.task_min.habitat_ingress.value * 0.5;
+  check('Zone: from the habitat, slack = usable − ingress − 2·costToHome (out-and-back)', (() => { let bad = 0, n = 0; for (let i = 0; i < cth.length; i += 1009) { if (!(cth[i] < Infinity)) continue; n++; if (Math.abs(z0.slack[i] - (usable - ing - 2 * cth[i])) > 0.05) bad++; } return n > 50 && bad === 0; })());
+  // Spending O2 shrinks the zone, monotonically, to nothing
+  const z1 = safeZone(S, { current: T.sci2, o2_used_min: 100 }), z2 = safeZone(S, { current: T.sci2, o2_used_min: 250 });
+  const area = (z) => z.safe_km2 + z.tight_km2;
+  check('Zone: shrinks as O2 is spent (100 -> 250 O2-min used)', area(z2) < area(z1), `${area(z1).toFixed(3)} -> ${area(z2).toFixed(3)} km²`);
+  check('Zone: every zone cell from sci2 is inside the old teleport ring (stricter, pays the walk there)', (() => { const left = usable - 100 - ing; for (let i = 0; i < z1.zone.length; i += 13) if (z1.zone[i] && !(cth[i] <= left + 1e-3)) return false; return true; })());
+  // Consistency with the planner: a cell marked safe can be planned there and home without breaking the O2 rule
+  const pick = (() => { const sci2 = cellOf(T.sci2); let best = -1; for (let i = 0; i < z1.zone.length; i += 211) if (z1.zone[i] === 2 && Math.abs(i % W0 - sci2 % W0) + Math.abs(Math.floor(i / W0) - Math.floor(sci2 / W0)) > 80) { best = i; break; } return best; })();
+  const ll = [lonMin + ((pick % W0) + 0.5) / W0 * (lonMax - lonMin), latMax - (Math.floor(pick / W0) + 0.5) / meta.height * (latMax - latMin)];
+  const pz = plan(S, { start: T.sci2, stops: [ll], goal: T.habitat, o2_used_min: 100, start_task_min: 0, task_min: [0] });
+  check('Zone: a "safe" cell is really doable: plan there and home keeps used ≤ usable', !pz.error && 100 + pz.stats.o2_used_min <= usable + 0.5, `used ${100 + (pz.stats?.o2_used_min ?? NaN)} / ${usable}`);
+  const zEmpty = safeZone(S, { current: T.sci2, o2_used_min: usable });
+  check('Zone: with the usable O2 gone, nothing is safe', zEmpty.safe_km2 === 0 && zEmpty.tight_km2 === 0);
+  const zx = safeZone(S, { current: T.sci2, o2_used_min: 250, state: { o2_x: 1.5 } });   // 250: where O2 (not the 1770 m walkback) binds
+  check('Zone: a suit alert (o2_x 1.5) shrinks it', area(zx) < area(z2), `${area(z2).toFixed(3)} -> ${area(zx).toFixed(3)} km²`);
+  check('Zone: wait_max_min = margin here / rest rate', Math.abs(z1.wait_max_min - z1.here_margin_min / 0.5) < 0.1, `${z1.here_margin_min} O2-min -> wait ${z1.wait_max_min} min`);
+  const zc = safeZone(SC, { current: T.sci2, o2_used_min: 250 });
+  check('Zone: an O2 cache makes it bigger (Tier 2)', area(zc) > area(z2), `${area(z2).toFixed(3)} -> ${area(zc).toFixed(3)} km²`);
+  const rpS = replan(S, { current: T.sci2, alert: A.dust, o2_used_min: 100 });
+  check('Zone: replan to a shelter reports how long the crew can wait there', rpS.replan.destination_kind === 'habitat' ? rpS.replan.wait_max_min === null : rpS.replan.wait_max_min > 0,
+    `${rpS.replan.destination}: wait ${rpS.replan.wait_max_min} min`);
+}
 
 process.exit(fails ? 1 : 0);

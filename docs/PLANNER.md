@@ -111,7 +111,7 @@ than 3 × 3 km.
 
 **Why an 18 % reserve.** It is 86.4 min of oxygen. The design worst case is a 30-min walkback at 1700 BTU/h with a suit
 failure (×1.5), which costs 63.75 O₂-min. A 15 % reserve (72 min) left only 8 min of slack and did not cover a
-95th-percentile crewmember. 18 % leaves +36 % and covers them, and it costs EVA-1 nothing: the margin is still 177 min.
+95th-percentile crewmember. 18 % leaves +36 % and covers them, and it costs EVA-1 nothing: the margin is still 192 min.
 
 **Task time** counts in O₂ and in the return rule, which is checked *after* the work at a stop (you must be able to get home
 once the job is done). Task durations come from Ana's `params.task_min` (Apollo-based):
@@ -119,7 +119,28 @@ once the job is done). Task durations come from Ana's `params.task_min` (Apollo-
 - depot setup: 10 min (once) + 8 min per tube
 - science stop: 45 min
 
-**Airlock time** costs O₂ and time but **no radiation dose** (shielded; our assumption).
+**O₂ at rest vs at work (13:50).** O₂ use is proportional to metabolic rate, so each task minute burns a factor × 1 O₂-min:
+- **work** (science, depot): `work_metabolic_factor` = **1.0** (1200 BTU/h, Ana, conservative)
+- **rest** (airlock egress/ingress, cache refill, waiting in a shelter): `rest_metabolic_factor` = **0.5** (600 BTU/h = 176 W).
+  Source: top of the 300–600 BTU/h measured for suited subjects at rest (Rhodes et al., ICES 2013, NTRS 20130011117);
+  cross-check: NASA HIDH nominal awake O₂ use for the 82 kg reference astronaut = 0.57 g/min ≈ 136 W ≈ 465 BTU/h
+  (Ewert & Downs, ICES-2021-365). We take the top of the range: standing in a 104 kg suit at 0.38 g costs more than
+  sitting, and underestimating O₂ is the unsafe direction. Both are scaled by the alert's `o2_x`.
+  Effect on EVA-1: 30 airlock minutes now cost 15 O₂-min instead of 30 → O₂ 42.0 % (was 45.1 %), margin 192 min (was 177).
+
+**Airlock time** costs O₂ (at the rest rate) and time but **no radiation dose** (shielded; our assumption).
+
+**Live safe zone** (`safeZone`, 13:50). Where can the astronaut still go *from where they are*, with the O₂ they have left?
+Cell *i* is in the zone if `used + cost(here → i) + costToSafety(i) + ingress ≤ usable` and `distToHome(i) ≤ 1770 m`.
+`cost(here → i)` is a Dijkstra from the astronaut, bounded by the O₂ budget (it stops expanding past it). Unlike the
+earlier ring (`costToHome(i) ≤ O₂ left`, "if I were teleported to *i*"), it pays for the walk to *i*, so the zone is an
+ellipse-like region between the astronaut and safety that shrinks as O₂ is spent and grows when an O₂ cache exists.
+It also gives `wait_max_min`: how long the crew can stand still here (at the rest rate) before they must leave; a replan
+to a shelter reports the same number for the shelter ("you can sit out the storm here for X min").
+Jezero, astronaut at Wildcat Ridge: 6.2 km² safe at 0–200 O₂-min used (the 1770 m walkback is the binding limit),
+2.7 km² at 300 (1.7 of it under a 30-min margin), 0.4 km² at 350, nothing at 380. 200–600 ms per call.
+
+![Live safe zone from Wildcat Ridge at 100, 300 and 350 O₂-min used](img/safe_zone_jezero.png)
 
 **Dose:** GCR 0.0279 mSv/h (MSL/RAD, Hassler et al. 2014) × time exposed × alert multiplier, via Ana's `radiation.js`.
 
@@ -167,7 +188,7 @@ All of it runs in a **Web Worker**, so the map never freezes.
 | what | how | result |
 |---|---|---|
 | optimality | A\* cost == Dijkstra cost | equal |
-| safety logic | 66 unit tests (incl. caches/refill/inventory): no forbidden cell on any route, slope ≤ 15°, O₂ rule and turnaround, walkback, task time, airlock dose, alert stacking, scaling exactness, obstacles, adapt, day/night, storm fallback | 52/52 |
+| safety logic | 86 unit tests (incl. caches/refill/inventory, O₂ at rest, live safe zone): no forbidden cell on any route, slope ≤ 15°, O₂ rule and turnaround, walkback, task time, airlock dose, alert stacking, scaling exactness, obstacles, adapt, day/night, storm fallback | 86/86 |
 | **hand calculation** | 2 synthetic routes computed with a calculator (`docs/HAND_CHECK.md`) against the planner | 12/12 values match; **found and fixed 2 real bugs** (a cache that ignored the terrain; double rounding of O₂ %) |
 | real terrain | EVA-1 and each alert on Jezero (`test/jezero_eva.mjs`) | safe, numbers below |
 | full stack | headless Chromium: console plans → tablet receives → walk → position back → SPE → tablet alarm | pass |
@@ -182,8 +203,8 @@ Habitat (certified MSR landing site at Three Forks) → 10 depot tubes → Wildc
 |---|---|
 | distance | **1432 m** |
 | duration | **190 min** (25 walking, 165 working) |
-| O₂ used | **45.1 %** (216.6 O₂-min) |
-| O₂ margin on the return rule | **177 min** |
+| O₂ used | **42.0 %** (201.6 O₂-min; airlock time at the rest rate) |
+| O₂ margin on the return rule | **192 min** |
 | max walkback | 601 m (limit 1770) |
 | dose | 0.075 mSv |
 | line of sight to the habitat | 100 % |

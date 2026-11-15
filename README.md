@@ -23,8 +23,8 @@ npm run dev
 Add `?site=mock` to any page for the synthetic test terrain.
 
 ## Results — EVA-1 on real Jezero terrain
-Habitat → 10 sample-depot tubes → Wildcat Ridge → habitat: **1432 m, 190 min (165 of them working), 45 % of O₂,
-177 min of O₂ margin, 0.075 mSv. Safe, GO from a 09:00 LMST start.**
+Habitat → 10 sample-depot tubes → Wildcat Ridge → habitat: **1432 m, 190 min (165 of them working), 42 % of O₂,
+192 min of O₂ margin, 0.075 mSv. Safe, GO from a 09:00 LMST start.**
 Re-plan after an alert: 11–65 ms. Full numbers and method: [docs/PLANNER.md](docs/PLANNER.md).
 
 ## How it works (one paragraph per piece)

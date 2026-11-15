@@ -176,7 +176,8 @@ export function astar(grid, start, goal) {
 // cost(i -> home) == cost(home -> i). If Ana later makes cost direction-dependent
 // (uphill != downhill), this must run on reversed edges ("reverse Dijkstra").
 // Same loop as A* but: no heuristic (h = 0) and no goal (expand everything).
-export function dijkstraFrom(grid, source) {
+// maxCost (13:50): stop expanding past this cost (safe zone: no point exploring beyond the O2 budget).
+export function dijkstraFrom(grid, source, maxCost = Infinity) {
   const { cost, W, H, cellM } = grid;
   const n = W * H;
   const dist = new Float32Array(n).fill(Infinity);
@@ -198,7 +199,7 @@ export function dijkstraFrom(grid, source) {
       const diagonal = d >= 4;
       if (diagonal && (!(cost[r * W + nc] < Infinity) || !(cost[nr * W + c] < Infinity))) continue;
       const nd = dc + 0.5 * (cost[cur] + cost[nb]) * (diagonal ? SQRT2 * cellM : cellM);
-      if (nd < dist[nb]) { dist[nb] = nd; open.push(nd, nb); }
+      if (nd < dist[nb] && nd <= maxCost) { dist[nb] = nd; open.push(nd, nb); }
     }
   }
   return dist;
@@ -239,8 +240,8 @@ function safetyField(site, params, state, e) {
   if (!live.length) return e.costToHome;
   const key = JSON.stringify(live.map((f) => [f.properties.id, avail(f)]));
   if (e.safetyKey === key) return e.safety;
-  const workFactor = pval(params.work_metabolic_factor) ?? 1, o2x = state.o2_x ?? 1;
-  const refillO2 = (pval(params.task_min?.cache_refill) ?? 10) * workFactor * o2x;
+  const o2x = state.o2_x ?? 1;
+  const refillO2 = (pval(params.task_min?.cache_refill) ?? 10) * activityFactor(params, 'cache_refill') * o2x;   // standing still: rest rate
   const g = { ...e.grid, cost: e.grid.o2 };
   const seeds = live.map((f) => {
     const cell = snapToPassable(g, lonLatToCell(site.meta, ...f.geometry.coordinates).i);
@@ -257,6 +258,79 @@ function safetyField(site, params, state, e) {
 export function usableO2min(suit) {
   const total = (suit?.o2_hours?.value ?? 8) * 60;
   return total * (1 - (suit?.reserve_pct?.value ?? 20) / 100);
+}
+
+// ---------- O2 at rest vs at work (13:50) ----------
+// The O2 budget is counted in "O2-min" = minutes of O2 at P_nom (1200 BTU/h = 351.7 W, ICES-2026-127).
+// O2 consumption is proportional to metabolic rate (ICES-2026-127: MetRate = (0.961 + 0.275·RER)·VO2·mass),
+// so a task at factor f burns f O2-min per minute.
+//   work: params.work_metabolic_factor (science, depot)                       = 1.0  (Ana, conservative)
+//   rest: params.rest_metabolic_factor (airlock, cache refill, waiting/shelter) = 0.5  (600 BTU/h, see params source)
+// Without rest_metabolic_factor in params everything uses the work rate (old behaviour).
+const REST_TASKS_DEFAULT = ['habitat_egress', 'habitat_ingress', 'cache_refill', 'shelter', 'hold'];
+export function metabolicFactors(params = {}) {
+  const work = pval(params.work_metabolic_factor) ?? (params.task_W ? params.task_W / (params.P_nom ?? 351.7) : 1);
+  const rp = params.rest_metabolic_factor;
+  const rest = pval(rp) ?? work;
+  return { work, rest, restTasks: (rp && typeof rp === 'object' && Array.isArray(rp.applies_to)) ? rp.applies_to : REST_TASKS_DEFAULT };
+}
+export function activityOf(params, key) {
+  if (!key) return 'work';   // custom point with explicit minutes: assume work (conservative)
+  return metabolicFactors(params).restTasks.includes(key) ? 'rest' : 'work';
+}
+export function activityFactor(params, key) {
+  const m = metabolicFactors(params);
+  return activityOf(params, key) === 'rest' ? m.rest : m.work;
+}
+
+// ---------- Live safe zone (13:50) — "where can I still go from HERE with the O2 I have left?" ----------
+// Cell i is reachable-and-returnable if
+//     used + cost(here -> i) + costToSafety(i) + ingress O2  <=  usable O2           (O2 rule)
+//     distToHome(i) <= walkback_m                                                     (ICES walkback)
+// cost(here -> i): bounded Dijkstra from the astronaut over the PHYSICAL O2 grid (stops at the budget).
+// costToSafety: habitat, or a cache that can refill enough (Tier 2) -> the zone grows when caches exist.
+// Unlike the old ring (costToHome[i] <= left, "if I were teleported to i"), this one also pays the walk TO i,
+// so it is an ellipse-like region between the astronaut and safety that shrinks as O2 is spent.
+// req: {current?:[lon,lat] (default habitat), o2_used_min?, state?, params?, tight_min? (default 30), ingress_min?}
+// -> {zone: Uint8Array (0 = no-return, 1 = tight (< tight_min margin), 2 = safe), slack: Float32Array (O2-min margin),
+//     budget_min, here_margin_min, wait_max_min (how long you can stand still here at rest), areas, timing_ms}
+export function safeZone(site, req = {}) {
+  const t0 = performance.now();
+  const params = { ...site.params, ...(req.params || {}) }, state = req.state || {};
+  const e = getGrid(site, params, state);
+  const safety = safetyField(site, params, state, e);
+  const o2x = state.o2_x ?? 1;
+  const usable = usableO2min(site.suit), used = req.o2_used_min || 0;
+  const ingressMin = req.ingress_min ?? pval(params.task_min?.habitat_ingress) ?? 0;
+  const ingressO2 = ingressMin * activityFactor(params, 'habitat_ingress') * o2x;
+  const budget = usable - used - ingressO2;
+  const g = { ...e.grid, cost: e.grid.o2 };
+  const from = req.current ?? site.meta.habitat;
+  const cur = snapToPassable(g, lonLatToCell(site.meta, ...from).i, 40);
+  if (cur < 0) return { error: 'point_in_forbidden_zone', coords: from };
+  const n = g.W * g.H;
+  const fwd = budget > 0 ? dijkstraFrom(g, cur, budget) : new Float32Array(n).fill(Infinity);
+  const walkback = site.suit?.walkback_m?.value ?? Infinity, tight = req.tight_min ?? 30;
+  const slack = new Float32Array(n), zone = new Uint8Array(n);
+  let nSafe = 0, nTight = 0;
+  for (let i = 0; i < n; i++) {
+    const sl = budget - fwd[i] - safety[i];               // -Infinity when unreachable
+    slack[i] = sl;
+    if (!(sl >= 0) || e.distToHome[i] > walkback) continue;
+    if (sl >= tight) { zone[i] = 2; nSafe++; } else { zone[i] = 1; nTight++; }
+  }
+  const cellKm2 = (site.meta.cell_m ** 2) / 1e6;
+  const here = budget - safety[cur];
+  const restRate = metabolicFactors(params).rest * o2x;   // O2-min per minute standing still
+  return {
+    zone, slack, budget_min: +budget.toFixed(2), usable_o2_min: usable, o2_used_min: used, ingress_o2_min: +ingressO2.toFixed(2),
+    here_margin_min: +here.toFixed(2),
+    // "You can wait here X min before you must start walking to safety" (Infinity in the habitat itself)
+    wait_max_min: e.costToHome[cur] === 0 ? null : +Math.max(0, here / restRate).toFixed(1),
+    rest_o2_per_min: +restRate.toFixed(3), tight_min: tight,
+    safe_km2: +(nSafe * cellKm2).toFixed(3), tight_km2: +(nTight * cellKm2).toFixed(3),
+    timing_ms: Math.round(performance.now() - t0),
+  };
 }
 
 // Walkback check: at EVERY point k of the route,
@@ -387,14 +461,20 @@ export function plan(site, req) {
   // doing the task. Source, in priority: req.task_min[k-1] > target.properties.task_min > params.task_min[kind].
   const ctx = {};
   const last = pts.length - 1;
-  const taskMin = pts.map((p, k) => {
-    if (k > 0 && typeof req.task_min?.[k - 1] === 'number') return req.task_min[k - 1]; // explicit override
-    if (k === 0 && typeof req.start_task_min === 'number') return req.start_task_min;
-    return taskMinutesAt(site, params, p, k === 0 ? 'start' : k === last ? 'end' : 'stop', ctx);
+  const taskInfo = pts.map((p, k) => {
+    const role = k === 0 ? 'start' : k === last ? 'end' : 'stop';
+    const explicit = k > 0 && typeof req.task_min?.[k - 1] === 'number' ? req.task_min[k - 1]
+      : k === 0 && typeof req.start_task_min === 'number' ? req.start_task_min : null;
+    if (explicit === null) return taskInfoAt(site, params, p, role, ctx);
+    return { minutes: explicit, key: taskInfoAt(site, params, p, role, {}).key };   // override keeps the activity type (rest/work)
   });
-  // Work metabolic rate relative to P_nom (Ana: work_metabolic_factor = 1.0, conservative)
-  const workFactor = pval(params.work_metabolic_factor) ?? (params.task_W ? params.task_W / (params.P_nom ?? 351.7) : 1);
-  const taskO2 = taskMin.map((m) => m * workFactor * (state.o2_x ?? 1));
+  const taskMin = taskInfo.map((t) => t.minutes);
+  // O2 per task minute, relative to P_nom (13:50): REST tasks (airlock, refill, waiting in a shelter) burn
+  // params.rest_metabolic_factor; WORK tasks (science, depot) burn params.work_metabolic_factor. See metabolicFactors().
+  const o2x = state.o2_x ?? 1;
+  const taskRate = taskInfo.map((t) => activityFactor(params, t.key) * o2x);       // O2-min per task minute
+  const taskAct = taskInfo.map((t) => activityOf(params, t.key));
+  const taskO2 = taskMin.map((m, k) => m * taskRate[k]);
 
   const all = [], segments = [], extraO2 = new Map(); // path index -> task O2 spent there
   const refillAt = new Map(), refillInfo = new Map();   // Tier 2: caches the route STOPS at (start/end excluded)
@@ -408,6 +488,7 @@ export function plan(site, req) {
     if (!leg) return { error: 'unreachable', leg: k, from: pts[k], to: pts[k + 1] };
     const legStats = pathStats(leg, site, grid, params, state);
     legStats.task_min = taskMin[k + 1];
+    legStats.task_o2_min = +taskO2[k + 1].toFixed(2); legStats.task_activity = taskAct[k + 1]; legStats.task_o2_per_min = +taskRate[k + 1].toFixed(3);
     const exposedMin = legStats.walk_min_exact + (inAirlock[k + 1] ? 0 : taskMin[k + 1]);
     legStats.dose_mSv = +doseOf([{ minutes: exposedMin, doseX: state.dose_x }], params).toFixed(4);
     doseSegs.push({ minutes: exposedMin, doseX: state.dose_x });
@@ -427,6 +508,9 @@ export function plan(site, req) {
   stats.task_min = Math.round(taskTotal);
   stats.duration_min = Math.round(stats.walk_min + taskTotal);
   stats.o2_used_min = +(stats.o2_used_min + taskO2Total).toFixed(2);
+  stats.task_o2_min = +taskO2Total.toFixed(2);
+  // O2-min per minute standing still / working, at this alert state (the tablet uses these while a task runs)
+  stats.o2_per_min = { rest: +(metabolicFactors(params).rest * o2x).toFixed(3), work: +(metabolicFactors(params).work * o2x).toFixed(3) };
   stats.o2_used_pct = +((100 * stats.o2_used_min) / o2Total).toFixed(1); // round ONCE, from exact minutes
   stats.dose_mSv = +doseOf(doseSegs, params).toFixed(4); // Ana's model, per leg (walk + task)
   // req.o2_used_min: O2 already spent before this plan starts (used by replan mid-EVA)
@@ -461,6 +545,8 @@ export function plan(site, req) {
     stats,
     o2_worst_point: cellToLonLat(site.meta, all[wb.worst_point]),
     refills,
+    // One entry per point (0 = start): what is done there, for how long, and the O2 it burns (rest vs work rate)
+    tasks: taskInfo.map((t, k) => ({ index: k, key: t.key, activity: taskAct[k], minutes: taskMin[k], o2_per_min: +taskRate[k].toFixed(3), o2_min: +taskO2[k].toFixed(2) })),
     turnaround_point: wb.turnaround >= 0 ? cellToLonLat(site.meta, all[wb.turnaround]) : null,
     segments,
     timing_ms: { cost_grid: Math.round(tCost - t0), astar: Math.round(performance.now() - tCost) },
@@ -493,27 +579,34 @@ export function targetAt(site, [lon, lat]) {
 //   habitat -> habitat_egress if the EVA starts there, habitat_ingress if it ends there
 // A target's own properties.task_min (number) overrides the defaults.
 export function taskMinutesAt(site, params, point, role = 'stop', ctx = {}) {
+  return taskInfoAt(site, params, point, role, ctx).minutes;
+}
+// Same, plus WHICH params.task_min entry it is (key), so the O2 rate (rest vs work) can be chosen.
+export function taskInfoAt(site, params, point, role = 'stop', ctx = {}) {
   const f = targetAt(site, point);
-  if (!f) return 0;
+  if (!f) return { minutes: 0, key: null };
   const p = f.properties || {};
-  if (typeof p.task_min === 'number') return p.task_min;
   const T = params.task_min || {};
+  let key = null, m = 0;
   switch (p.kind) {
     case 'depot': {
-      let m = pval(T.depot_per_tube) ?? pval(T.depot) ?? 0;
+      key = 'depot_per_tube';
+      m = pval(T.depot_per_tube) ?? pval(T.depot) ?? 0;
       if (!ctx.depotSetupDone) { m += pval(T.depot_setup) ?? 0; ctx.depotSetupDone = true; }
-      return m;
+      break;
     }
-    case 'science': return pval(T.science) ?? 0;
+    case 'science': key = 'science'; m = pval(T.science) ?? 0; break;
     case 'shelter':
-      if (p.station_type === 'cache' && role === 'stop') return pval(T.cache_refill) ?? 10;   // swap/top-up O2 (assumption)
-      return role === 'stop' || role === 'end' ? pval(T.shelter) ?? 0 : 0;
+      if (p.station_type === 'cache' && role === 'stop') { key = 'cache_refill'; m = pval(T.cache_refill) ?? 10; break; }   // swap/top-up O2 (assumption)
+      key = 'shelter'; m = role === 'stop' || role === 'end' ? pval(T.shelter) ?? 0 : 0; break;
     case 'habitat':
-      if (role === 'start') return pval(T.habitat_egress) ?? 0;
-      if (role === 'end') return pval(T.habitat_ingress) ?? pval(T.habitat) ?? 0;
-      return 0;
-    default: return 0;
+      if (role === 'start') { key = 'habitat_egress'; m = pval(T.habitat_egress) ?? 0; }
+      else if (role === 'end') { key = 'habitat_ingress'; m = pval(T.habitat_ingress) ?? pval(T.habitat) ?? 0; }
+      break;
+    default: break;
   }
+  if (typeof p.task_min === 'number') m = p.task_min;   // a target's own task_min overrides the minutes, not the activity
+  return { minutes: m, key };
 }
 
 // Dose via Ana's radiation.js. segments: [{minutes, doseX}]. Never crash the UI on bad params.
@@ -646,6 +739,16 @@ export function replan(site, req) {
     if (alt) { best = alt; fallback = true; best.plan.stats.reaches_destination_with_reserve = true;
       considered.push({ id: alt.target.id, name: alt.target.name, kind: 'shelter', eligible: true, minutes: alt.plan.stats.walk_min, why: 'fallback: habitat not reachable with O2/daylight' }); }
   }
+  // How long the crew can WAIT at the destination (at rest) before they must leave for safety — the answer to
+  // "how long can we sit out the SPE / dust storm here?". null at the habitat (no limit from O2).
+  let waitMax = null;
+  if (best.target.kind !== 'habitat') {
+    const ee = getGrid(site, { ...site.params, ...(req.params || {}) }, state);
+    const saf = safetyField(site, { ...site.params, ...(req.params || {}) }, state, ee);
+    const dc = snapToPassable({ ...ee.grid, cost: ee.grid.o2 }, lonLatToCell(site.meta, ...best.target.coords).i);
+    const left = usable - used0 - best.plan.stats.o2_used_min - (dc >= 0 ? saf[dc] : Infinity);
+    waitMax = +Math.max(0, left / (metabolicFactors({ ...site.params, ...(req.params || {}) }).rest * (state.o2_x ?? 1))).toFixed(1);
+  }
   if (!best) return { error: 'no_safe_destination', alert: req.alert.id, state };
   return {
     ...best.plan,
@@ -653,7 +756,7 @@ export function replan(site, req) {
     replan: {
       alert: req.alert.id, type: req.alert.type, action: req.alert.action,
       destination: best.target.name, destination_id: best.target.id, destination_kind: best.target.kind,
-      candidates: candidates.length, fallback_to_safe_point: fallback,
+      candidates: candidates.length, fallback_to_safe_point: fallback, wait_max_min: waitMax,
       considered: considered.map((c) => ({ ...c, chosen: c.id === best.target.id })).sort((a, b) => (a.minutes ?? 1e9) - (b.minutes ?? 1e9)),
       total_ms: Math.round(performance.now() - t0),
     },
@@ -746,5 +849,6 @@ export function getCostToHome(site, req = {}) {
   return {
     costToHome: costToHome.slice(), distToHome: distToHome.slice(), costToSafety: costToSafety === costToHome ? null : costToSafety.slice(),
     usable_o2_min: usableO2min(site.suit), walkback_m: site.suit?.walkback_m?.value ?? null,
+    o2_per_min: { rest: metabolicFactors(params).rest * (req.state?.o2_x ?? 1), work: metabolicFactors(params).work * (req.state?.o2_x ?? 1) },
   };
 }

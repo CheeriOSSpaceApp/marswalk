@@ -7,6 +7,7 @@ Data lives in `web/public/data/`:
 If you need to change a format: announce in #general FIRST, then update this file.
 
 ## Decisions log
+- 13:50 O₂ at rest: `params.rest_metabolic_factor` = 0.5 (600 BTU/h, NTRS 20130011117 + HIDH cross-check) for airlock egress/ingress, cache refill, shelter, hold; work tasks stay at `work_metabolic_factor` 1.0. New `safeZone()` (live reachable-and-return zone) and `replan.wait_max_min` (Eric). docs/INTEGRATION.md §9.
 - 18:45 `cellCost` = O₂-min per meter (Eric + Ana). 19:50 1 O₂-min = 1 min at 1200 BTU/h = 351.7 W (Marco, confirmed by Ana).
 - 20:30 suit.json format `{value, source, assumption}` approved (Eric); code reads `suit.<param>.value`.
 - 20:30 Jezero habitat = `habitat-threeforks-lz` (Marco). Targets 283–548 m from habitat → walkback (1770 m) is not the active limit for EVA-1; task time is.

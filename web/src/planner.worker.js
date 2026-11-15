@@ -1,11 +1,11 @@
 // planner.worker.js — Runs the planner OFF the main thread so the map never freezes.
 // Protocol (RPC over postMessage):
-//   in:  {id, type: 'init'|'plan'|'replan'|'adapt'|'costToHome', payload}
+//   in:  {id, type: 'init'|'plan'|'replan'|'adapt'|'costToHome'|'safeZone', payload}
 //   out: {id, ok: true, result} | {id, ok: false, error}
 // The worker loads its own copy of the layers (16 MB) once, on 'init'.
 
 import { loadSite } from './data.js';
-import { plan, replan, adapt, getCostToHome } from './planner.js';
+import { plan, replan, adapt, getCostToHome, safeZone } from './planner.js';
 
 let site = null;
 
@@ -30,6 +30,12 @@ self.onmessage = async (e) => {
       result = getCostToHome(site, payload);
       // transfer the 4 MB buffer instead of copying it (zero-copy)
       self.postMessage({ id, ok: true, result }, [result.costToHome.buffer, result.distToHome.buffer, ...(result.costToSafety ? [result.costToSafety.buffer] : [])]);
+      return;
+    } else if (type === 'safeZone') {
+      if (!site) throw new Error('planner not initialized: call init(site) first');
+      result = safeZone(site, payload);
+      if (result.error) { self.postMessage({ id, ok: true, result }); return; }
+      self.postMessage({ id, ok: true, result }, [result.zone.buffer, result.slack.buffer]);   // zero-copy
       return;
     } else {
       throw new Error('unknown message type: ' + type);

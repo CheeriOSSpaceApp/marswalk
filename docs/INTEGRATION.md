@@ -69,8 +69,8 @@ Use `r.replan.destination_kind` ('habitat' | 'shelter') for logic, `destination`
 - HUD priority (Ana): O₂ remaining vs cost to get home (top), next waypoint (distance, bearing, ETA), dose, alert banner.
 
 ## 7. Real numbers to sanity-check the UI (Jezero, `node test/jezero_eva.mjs`)
-EVA-1 (habitat → 10 depot tubes → Wildcat Ridge → habitat): 1432 m, 190 min (165 working), O₂ 45.1 %,
-margin 177 min (reserve 18 %), max walkback 601 m, dose 0.075 mSv, safe. Replan: 11–63 ms. SPE → habitat (Hawksbill isn't a radiation shelter).
+EVA-1 (habitat → 10 depot tubes → Wildcat Ridge → habitat): 1432 m, 190 min (165 working), O₂ 42.0 %,
+margin 192 min (reserve 18 %), max walkback 601 m, dose 0.075 mSv, safe. Replan: 11–63 ms. SPE → habitat (Hawksbill isn't a radiation shelter).
 
 ---
 # 8. Tier 1 features (11:30) — planner side DONE, UI to wire
@@ -166,3 +166,36 @@ In the browser: `suit → resupply` (O₂ leak) goes via "O2 Cache 1", dust may 
 - Stats: `o2_refilled_min`; the plan's `refills: [{id, name, o2_min}]`. Tablet: when the astronaut reaches a cache stop, add a checklist
   "Connect O₂ line · Refill · Disconnect" and subtract the refill from O₂ used.
 - Optional: `planner.costToHome()` now also returns `costToSafety` (null if no caches). Using it for the ring shows the bigger safe zone.
+
+## 9. O₂ at rest + live safe zone (13:50) — planner DONE, UI to wire
+
+### 9.1 O₂ at rest (affects tablet + console numbers)
+`params.json` has a new `rest_metabolic_factor` = **0.5** (600 BTU/h; sources in the param). Airlock egress/ingress, cache refill,
+shelter time and `hold` (waiting after a replan) now burn **0.5 O₂-min per minute**; science and depot work still burn 1.0.
+Every result now carries what you need, so the UI never hard-codes a rate:
+- `plan.tasks[]` = `{index, key, activity: 'rest'|'work', minutes, o2_per_min, o2_min}` (index 0 = start/egress, k = stop k / goal)
+- `segments[k].stats.task_o2_min`, `.task_activity`, `.task_o2_per_min` (task at the END of leg k)
+- `stats.o2_per_min = {rest, work}` (already × the alert's `o2_x`) · `stats.task_o2_min`
+- `costToHome()` result: `o2_per_min = {rest, work}`
+
+**Santiago — tablet.js line ~348** (it burns 1 O₂-min/min for every task today):
+`P.extra.o2_min += dtMin * eff.o2_x` → `P.extra.o2_min += dtMin * (task.o2_per_min ?? 1) * eff.o2_x` where `task.o2_per_min` is the
+**base** rate (`plan.tasks[k].o2_per_min / state.o2_x`, or simply 0.5 for egress/ingress/shelter/hold/cache and 1 for depot/science,
+read from `plan.stats.o2_per_min` divided by `o2_x`). In `buildTasks` copy it from `m.tasks` (console must forward `res.tasks` in `publish`).
+Same for the ingress estimate in the return math (`ingressO2` ≈ 15 × 0.5 = 7.5, not 15).
+
+### 9.2 Live safe zone (the "breathing" zone for the video)
+```js
+const z = await planner.safeZone({ current: [lon, lat], o2_used_min, state: alertState, tight_min: 30 });
+// z.zone: Uint8Array W×H — 0 = no-return (can't go there and still reach safety), 1 = tight (< 30 min margin), 2 = safe
+// z.slack: Float32Array — O₂-min of margin per cell (−Infinity = unreachable)
+// z.wait_max_min: how long the crew can stand still HERE before leaving for safety (null at the habitat)
+// z.safe_km2, z.tight_km2, z.budget_min, z.here_margin_min, z.timing_ms (200–600 ms on Jezero)
+```
+Paint it like `ring.js` (one canvas pixel per cell): zone 0 dark red (as now), 1 amber, 2 transparent. Call it
+**when the astronaut moved ≥ ~20 m or O₂ used changed ≥ 2 min**, and always after an alert/refill (do not call every frame).
+Use it for the ring in the tablet and the console instead of `costToHome ≤ left`. It already includes caches (Tier 2) and the
+1770 m walkback. **Demo tip:** on Jezero the walkback limit dominates until ~250 O₂-min used; the zone collapses visibly between
+250 and 380 → start the demo preset with `o2_start_min` ≈ 250 used, or trigger the O₂ leak.
+
+`replan.wait_max_min` (shelter / safe-point replans): "you can sit out the storm here for X min". Show it on the destination card.
