@@ -4,7 +4,8 @@ mock_site.py — Generate a synthetic Mars site that follows CONTRACTS.md exactl
 Why: nobody waits for real Jezero data. Frontend (Santiago) and cost model (Ana)
 build against web/public/data/mock/. At 20:30 we swap mock/ -> jezero/.
 
-Run:  python pipeline/mock_site.py            (from repo root)
+Run:  python pipeline/mock_site.py            (from repo root; keeps suit/params/alerts)
+      python pipeline/mock_site.py --force    (regenerate EVERYTHING, overwrites teammates' files)
 Out:  web/public/data/mock/*
 
 Conventions (from CONTRACTS.md):
@@ -15,6 +16,7 @@ Conventions (from CONTRACTS.md):
 """
 import json
 import os
+import sys
 
 import numpy as np
 from PIL import Image
@@ -125,9 +127,19 @@ def write_bin(name, arr, dtype):
     arr.astype(np.dtype(dtype).newbyteorder("<")).tofile(os.path.join(OUT, name))
 
 
+# Files that teammates own and edit by hand inside mock/. NEVER overwrite them unless --force.
+#   suit.json -> Marco, params.json -> Ana, alerts.json -> Marco + Ana
+OWNED = {"suit.json": "Marco", "params.json": "Ana", "alerts.json": "Marco + Ana"}
+FORCE = "--force" in sys.argv
+
+
 def write_json(name, obj):
-    with open(os.path.join(OUT, name), "w") as f:
-        json.dump(obj, f, indent=2)
+    path = os.path.join(OUT, name)
+    if name in OWNED and os.path.exists(path) and not FORCE:
+        print(f"  skip {name} (owned by {OWNED[name]}; use --force to overwrite)")
+        return
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(obj, f, indent=2, ensure_ascii=False)
 
 
 def main():
@@ -190,13 +202,17 @@ def main():
         for sc, p, wv, t in [("clear", 700, 5, 0.5), ("dusty", 705, 12, 1.5),
                              ("storm", 710, 25, 4.0)]}})
 
+    # suit.json = Marco's values (keep identical to his file; he owns it)
+    ices = "NASA ICES-2026-127 (Ogilvie et al., Mars Spacesuit Mass Requirements)"
     write_json("suit.json", {
-        "o2_hours": {"value": 8, "assumption": True, "source": "mock"},
-        "reserve_pct": {"value": 20, "assumption": True, "source": "mock"},
-        "battery_Wh": {"value": 2000, "assumption": True, "source": "mock"},
-        "base_power_W": {"value": 150, "assumption": True, "source": "mock"},
-        "walkback_m": {"value": 10000, "assumption": True, "source": "ICES 2026 (to verify)"},
-        "max_slope_deg": {"value": SLOPE_FORBIDDEN, "assumption": True, "source": "mock"},
+        "o2_hours": {"value": 8, "assumption": True,
+                     "source": "8 h EVA design duration (VERIFY source); sized at 1200 BTU/h = 352 W average metabolic rate from " + ices},
+        "reserve_pct": {"value": 15, "assumption": True, "source": "prototype decision: 72 of 480 O2-min never planned"},
+        "battery_Wh": {"value": 1155, "assumption": True, "source": "prototype decision"},
+        "base_power_W": {"value": 120, "assumption": True, "source": "prototype decision: suit electronics, NOT metabolism"},
+        "walkback_m": {"value": 1770, "assumption": True,
+                       "source": ices + ": 30-min walkback at 2.2 mph"},
+        "max_slope_deg": {"value": 15, "assumption": True, "source": "prototype decision"},
     })
 
     write_json("alerts.json", [

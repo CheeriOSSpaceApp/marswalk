@@ -7,3 +7,6 @@ __pycache__/
 .DS_Store
 *.tif
 *.IMG
+web/test/screens/
+node_modules/
+.vite/

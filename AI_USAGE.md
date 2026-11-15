@@ -7,6 +7,5 @@ Format: `- [HH:MM] Name — Tool — What for — What we kept / changed`
 - [17:30] Eric — Claude — Planner v1: binary heap, A* (octile heuristic), Web Worker RPC, tests, test page. Reviewed design decisions; verified optimality vs Dijkstra in tests.
 - [18:45] Eric — Claude — costToHome (Dijkstra from habitat), walkback check, no-return ring in test page; CONTRACTS.md cost-unit decision (agreed with Ana).
 - [19:20] Eric — Claude — replan (alert → shelter/habitat, stacking state), snap-to-walkable, 20 tests, alert buttons in test page.
-
-
 - [20:01] Ana - Claude - Help with "pruebas.mjs" to test radiation.js
+- [20:10] Eric — Claude — Fixed speedAt crash, enforced suit.json rules, data validator, e2e demo test, CLAUDE.md.

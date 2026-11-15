@@ -57,18 +57,32 @@ check('suit alert raises O2 use', !r.error, `o2 ${r.stats.o2_used_pct}%`);
 // 7. costToHome: 0 at habitat, symmetric with A* cost, timing
 let t = performance.now();
 const home = 850 * W + 150, depot = 200 * W + 600;
-const cth = dijkstraFrom(grid, home);
+const o2grid = { ...grid, cost: grid.o2, minCost: grid.o2.reduce((m, v) => (v < m ? v : m), Infinity) };
+const cth = dijkstraFrom(o2grid, home);
 const tD = Math.round(performance.now() - t);
 check('costToHome[habitat] == 0', cth[home] === 0, `(dijkstra full grid ${tD} ms)`);
-check('costToHome[depot] == A* cost habitat->depot', Math.abs(cth[depot] - costOf(a)) < 1e-2, `${cth[depot].toFixed(3)} vs ${costOf(a).toFixed(3)}`);
+const aO2 = astar(o2grid, home, depot);
+const o2Of = (p) => p.slice(1).reduce((s, i, k) => { const q = p[k]; const diag = (q % W) !== (i % W) && Math.floor(q / W) !== Math.floor(i / W); return s + 0.5 * (grid.o2[q] + grid.o2[i]) * (diag ? Math.SQRT2 : 1) * meta.cell_m; }, 0);
+check('costToHome[depot] == optimal O2 cost habitat->depot', Math.abs(cth[depot] - o2Of(aO2)) < 1e-2, `${cth[depot].toFixed(3)} vs ${o2Of(aO2).toFixed(3)}`);
+check('routing penalties never reduce cost (cost >= o2)', grid.cost.every((v, i) => v >= grid.o2[i]));
 check('forbidden cells are Infinity', cth.every((v, i) => S.layers.hazard[i] !== 2 || v === Infinity));
 
-// 8. walkback: normal EVA OK; tiny O2 tank must fail
+// 8. Suit rules (Marco's suit.json)
+const WB = S.suit.walkback_m.value, MAXS = S.suit.max_slope_deg.value;
+r = plan(S, { start: T.habitat, stops: [T.shelter1], goal: T.habitat });
+check('near EVA (shelter, <1 km): O2 rule + walkback OK', r.stats.o2_return_ok && r.stats.walkback_ok,
+  `o2 margin ${r.stats.o2_margin_min} min, max walkback ${r.stats.walkback_max_m} m <= ${WB}`);
 r = plan(S, { start: T.habitat, stops: [T.depot], goal: T.habitat });
-check('walkback_ok with normal suit', r.stats.walkback_ok === true, `margin ${r.stats.walkback_margin_min} min`);
+check(`far EVA (depot): walkback fails if > ${WB} m`, r.stats.walkback_ok === (r.stats.walkback_max_m <= WB) && r.stats.o2_return_ok,
+  `max walkback ${r.stats.walkback_max_m} m -> walkback_ok=${r.stats.walkback_ok}, safe=${r.stats.safe}`);
+check('battery check present', r.stats.battery_used_pct > 0 && r.stats.battery_used_pct < 100, `${r.stats.battery_used_pct}%`);
+const pathCells = (res) => res.path.geometry.coordinates.map(([lo, la]) =>
+  Math.floor((latMax - la) / (latMax - latMin) * meta.height) * W + Math.floor((lo - lonMin) / (lonMax - lonMin) * W));
+check(`no cell on path steeper than ${MAXS} deg`, pathCells(r).every((i) => S.layers.slope[i] <= MAXS), `max ${r.stats.max_slope_deg}`);
 const S2 = { ...S, suit: { ...S.suit, o2_hours: { value: 0.5 } } };
 r = plan(S2, { start: T.habitat, stops: [T.depot], goal: T.habitat });
-check('walkback fails with 30-min tank', r.stats.walkback_ok === false, `margin ${r.stats.walkback_margin_min} min`);
+check('30-min tank: O2 rule fails and gives a turnaround point', r.stats.o2_return_ok === false && Array.isArray(r.turnaround_point),
+  `margin ${r.stats.o2_margin_min} min, turnaround ${JSON.stringify(r.turnaround_point)}`);
 
 // 9. Replanning: astronaut is halfway habitat -> depot when each alert arrives
 const out = plan(S, { start: T.habitat, goal: T.depot });
@@ -90,6 +104,9 @@ const r0 = plan(S, { start: mid, goal: T.habitat });
 rp = replan(S, { current: mid, alert: A.suit });
 check('suit -> same route home but more O2', rp.stats.o2_used_pct > r0.stats.o2_used_pct, `${r0.stats.o2_used_pct}% -> ${rp.stats.o2_used_pct}%`);
 
+const clearHome = plan(S, { start: mid, goal: T.habitat }).path.geometry.coordinates;
+const dustHome = replan(S, { current: mid, alert: A.dust }).path.geometry.coordinates;
+check('dust changes the route home (avoids steep/rough)', JSON.stringify(clearHome) !== JSON.stringify(dustHome), `${clearHome.length} vs ${dustHome.length} cells`);
 const rp2 = replan(S, { current: mid, alert: A.dust, state: rp.state });
 check('alerts stack (suit x dust)', Math.abs(rp2.state.o2_x - A.suit.effect.o2_x * A.dust.effect.o2_x) < 1e-9 && rp2.state.visibility === A.dust.effect.visibility, `o2_x ${rp2.state.o2_x}`);
 check('replan < 1 s', rp.replan.total_ms < 1000 && rp2.replan.total_ms < 1000, `${rp.replan.total_ms}, ${rp2.replan.total_ms} ms`);

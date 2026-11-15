@@ -5,7 +5,22 @@
 //   costGrid --(A* per leg)--> path cells --> GeoJSON + stats
 
 import { MinHeap } from './heap.js';
-import { cellCost as defaultCellCost, speedAt } from './cost.js';
+import * as costModel from './cost.js';
+
+// Namespace import: if Ana's cost.js doesn't export speedAt, we fall back instead of crashing.
+// (A named import of a missing export is a SyntaxError at load time — that was the bug.)
+const defaultCellCost = costModel.cellCost;
+const MAX_SPEED_MS = 0.9835; // 2.2 mph (NASA ICES-2026-127 nominal walking speed)
+// Fallback speed model: Tobler, using Ana's params (tobler_a/b/offset, V_cap) when present,
+// so durations match the speed inside her cellCost.
+function toblerSpeed(i, layers, params = {}) {
+  const tan = Math.tan((layers.slope[i] * Math.PI) / 180);
+  const a = params.tobler_a ?? 6, b = params.tobler_b ?? 3.5, off = params.tobler_offset ?? 0.05;
+  return Math.min(params.V_cap ?? MAX_SPEED_MS, (a * Math.exp(-b * Math.abs(tan + off))) / 3.6);
+}
+const speedAt = typeof costModel.speedAt === 'function' ? costModel.speedAt : toblerSpeed;
+if (typeof defaultCellCost !== 'function') throw new Error('cost.js must export cellCost(i, layers, params, state)');
+if (speedAt === toblerSpeed) console.warn('[planner] cost.js has no speedAt export; using built-in Tobler (cap 2.2 mph)');
 import { lonLatToCell, cellToLonLat } from './data.js';
 
 const SQRT2 = Math.SQRT2;
@@ -15,16 +30,43 @@ const DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [-1, 1], [1, -1], [1, 
 // ---------- 1. Cost grid ----------
 // Evaluate cellCost ONCE per cell (1M calls, ~20-50 ms) instead of inside A*'s hot loop.
 // Replanning after an alert = rebuild this grid with the new state + rerun A*.
-export function buildCostGrid(layers, meta, params, state, cellCost = defaultCellCost) {
+// Two grids, on purpose:
+//   o2[i]   = PHYSICAL O2-min per meter (Ana's cellCost × alert o2_x). Used for stats, costToHome, O2 rule.
+//   cost[i] = ROUTING cost = o2 × penalties that express risk/preference, NOT oxygen
+//             (no comms, low visibility in dust). Used only by A* to choose the path.
+// Mixing them would make o2_used_pct include fake "comms oxygen".
+// cellCost (Ana) = physiology only. Operational modifiers (alerts, comms) are applied HERE.
+// Hard safety limit from suit.json enforced here too (defense in depth).
+export function buildCostGrid(layers, meta, params, state, cellCost = defaultCellCost, suit = null) {
   const n = meta.width * meta.height;
   const cost = new Float32Array(n);
+  const o2 = new Float32Array(n);
+  const maxSlope = suit?.max_slope_deg?.value ?? Infinity;
+  const o2x = state?.o2_x ?? 1;                       // suit failure: consumption ×1.5
+  const vis = state?.visibility ?? 1;                 // dust: 1 = clear, 0.3 = poor
+  const wNoComms = params?.w_nocomms ?? 0.2;
   let minCost = Infinity;
   for (let i = 0; i < n; i++) {
-    const c = cellCost(i, layers, params, state);
-    cost[i] = c;
-    if (c < minCost) minCost = c;
+    let c = layers.slope[i] > maxSlope ? Infinity : cellCost(i, layers, params, state);
+    if (!(c >= 0)) c = Infinity; // NaN or negative (bad data / bug) -> impassable
+    const phys = c * o2x;
+    o2[i] = phys;
+    let r = phys;
+    if (r < Infinity) {
+      if (layers.viewshed && layers.viewshed[i] === 0) r *= 1 + wNoComms;
+      if (vis < 1) r *= 1 + (1 - vis) * (layers.slope[i] / 10 + layers.roughness[i]); // avoid steep/rough when you can't see
+    }
+    cost[i] = r;
+    if (r < minCost) minCost = r;
   }
-  return { cost, minCost, W: meta.width, H: meta.height, cellM: meta.cell_m };
+  return { cost, o2, minCost, W: meta.width, H: meta.height, cellM: meta.cell_m };
+}
+
+// Same passable cells, but every meter costs 1 -> Dijkstra on it gives WALKING DISTANCE (m).
+export function unitGrid(grid) {
+  const cost = new Float32Array(grid.cost.length);
+  for (let i = 0; i < cost.length; i++) cost[i] = grid.cost[i] < Infinity ? 1 : Infinity;
+  return { ...grid, cost, minCost: 1 };
 }
 
 // ---------- 2. A* ----------
@@ -126,20 +168,22 @@ export function usableO2min(suit) {
 // Walkback check: at EVERY point k of the route,
 //   O2 already used up to k + costToHome[k] <= usable O2
 // margin = worst (smallest) slack along the route, in O2-minutes.
+// Marco's viability rule. turnaround = last point before the rule first fails (-1 if never fails).
 export function walkbackCheck(cells, grid, costToHome, usable) {
   const W = grid.W;
-  let used = 0, margin = Infinity, worstIdx = 0;
+  let used = 0, margin = Infinity, worstIdx = 0, turnaround = -1;
   for (let k = 0; k < cells.length; k++) {
     const i = cells[k];
     if (k > 0) {
       const p = cells[k - 1];
       const diag = Math.floor(p / W) !== Math.floor(i / W) && p % W !== i % W;
-      used += 0.5 * (grid.cost[p] + grid.cost[i]) * (diag ? SQRT2 : 1) * grid.cellM;
+      used += 0.5 * (grid.o2[p] + grid.o2[i]) * (diag ? SQRT2 : 1) * grid.cellM; // physical O2
     }
     const slack = usable - (used + costToHome[i]);
     if (slack < margin) { margin = slack; worstIdx = k; }
+    if (slack < 0 && turnaround === -1) turnaround = Math.max(0, k - 1);
   }
-  return { ok: margin >= 0, margin_min: +margin.toFixed(1), worst_point: worstIdx };
+  return { ok: margin >= 0, margin_min: +margin.toFixed(1), worst_point: worstIdx, turnaround };
 }
 
 // ---------- 3. Stats for a list of cells ----------
@@ -156,10 +200,10 @@ export function pathStats(cells, site, grid, params, state = {}) {
     const diag = Math.floor(p / W) !== Math.floor(i / W) && p % W !== i % W;
     const dist = diag ? SQRT2 * cellM : cellM;
     distance += dist;
-    seconds += dist / (0.5 * (speedAt(p, layers) + speedAt(i, layers)));
-    o2min += 0.5 * (grid.cost[p] + grid.cost[i]) * dist;
+    seconds += dist / (0.5 * (speedAt(p, layers, params) + speedAt(i, layers, params)));
+    o2min += 0.5 * (grid.o2[p] + grid.o2[i]) * dist; // physical O2, not routing cost
   }
-  const o2Total = (suit?.o2_hours?.value ?? 8) * 60;
+  const o2Total = (suit?.o2_hours?.value ?? 8) * 60; // 1 O2-min = 1 min at 352 W (1200 BTU/h)
   const hours = seconds / 3600;
   return {
     distance_m: Math.round(distance),
@@ -167,7 +211,7 @@ export function pathStats(cells, site, grid, params, state = {}) {
     o2_used_pct: +((100 * o2min) / o2Total).toFixed(1),
     dose_mSv: +((params.gcr_mSv_per_h ?? 0.028) * hours * (state.dose_x ?? 1)).toFixed(4),
     max_slope_deg: +maxSlope.toFixed(1),
-    walkback_ok: null, // filled by plan() with walkbackCheck (needs the whole route)
+    walkback_ok: null, // filled by plan() (needs costToHome / distToHome)
     comms_pct: Math.round((100 * comms) / cells.length),
   };
 }
@@ -179,11 +223,15 @@ let cache = { key: null, grid: null, costToHome: null };
 // Cost grid + costToHome depend only on (params, state). Recompute only when those change
 // (i.e. when an alert arrives) — that's why replanning is cheap.
 export function getGrid(site, params, state) {
-  const key = JSON.stringify([params, state, site.meta.habitat]);
+  const key = JSON.stringify([params, state, site.meta.habitat, site.suit?.max_slope_deg?.value]);
   if (cache.key !== key) {
-    const grid = buildCostGrid(site.layers, site.meta, params, state);
-    const home = lonLatToCell(site.meta, ...site.meta.habitat).i;
-    cache = { key, grid, costToHome: dijkstraFrom(grid, home) };
+    const grid = buildCostGrid(site.layers, site.meta, params, state, defaultCellCost, site.suit);
+    const home = snapToPassable(grid, lonLatToCell(site.meta, ...site.meta.habitat).i);
+    cache = {
+      key, grid,
+      costToHome: dijkstraFrom({ ...grid, cost: grid.o2 }, home), // physical O2-min home (cheapest)
+      distToHome: dijkstraFrom(unitGrid(grid), home), // meters of walking to get home
+    };
   }
   return cache;
 }
@@ -192,7 +240,7 @@ export function plan(site, req) {
   const t0 = performance.now();
   const params = { ...site.params, ...(req.params || {}) };
   const state = req.state || {};
-  const { grid, costToHome } = getGrid(site, params, state);
+  const { grid, costToHome, distToHome } = getGrid(site, params, state);
   const tCost = performance.now();
 
   const pts = [req.start, ...(req.stops || []), req.goal];
@@ -209,8 +257,19 @@ export function plan(site, req) {
   const stats = pathStats(all, site, grid, params, state);
   // req.o2_used_min: O2 already spent before this plan starts (used by replan mid-EVA)
   const wb = walkbackCheck(all, grid, costToHome, usableO2min(site.suit) - (req.o2_used_min || 0));
-  stats.walkback_ok = wb.ok;
-  stats.walkback_margin_min = wb.margin_min;
+  // Rule 1 (O2): used so far + cheapest return <= usable O2, at every point
+  stats.o2_return_ok = wb.ok;
+  stats.o2_margin_min = wb.margin_min;
+  // Rule 2 (walkback, ICES-2026-127): walking distance home <= walkback_m, at every point
+  let maxBack = 0;
+  for (const i of all) if (distToHome[i] > maxBack) maxBack = distToHome[i];
+  const walkbackM = site.suit?.walkback_m?.value ?? Infinity;
+  stats.walkback_max_m = Math.round(maxBack);
+  stats.walkback_ok = maxBack <= walkbackM;
+  // Battery (suit electronics, NOT metabolism): hours of EVA vs battery_Wh / base_power_W
+  const battH = (site.suit?.battery_Wh?.value ?? Infinity) / (site.suit?.base_power_W?.value ?? 1);
+  stats.battery_used_pct = +((100 * stats.duration_min) / 60 / battH).toFixed(1);
+  stats.safe = stats.o2_return_ok && stats.walkback_ok && stats.battery_used_pct <= 100;
   return {
     path: {
       type: 'Feature',
@@ -218,7 +277,8 @@ export function plan(site, req) {
       geometry: { type: 'LineString', coordinates: all.map((i) => cellToLonLat(site.meta, i)) },
     },
     stats,
-    walkback_worst_point: cellToLonLat(site.meta, all[wb.worst_point]),
+    o2_worst_point: cellToLonLat(site.meta, all[wb.worst_point]),
+    turnaround_point: wb.turnaround >= 0 ? cellToLonLat(site.meta, all[wb.turnaround]) : null,
     segments,
     timing_ms: { cost_grid: Math.round(tCost - t0), astar: Math.round(performance.now() - tCost) },
   };
@@ -299,6 +359,9 @@ export function replan(site, req) {
 // Tablet logic: cell i is beyond no-return if costToHome[i] > O2 remaining now.
 export function getCostToHome(site, req = {}) {
   const params = { ...site.params, ...(req.params || {}) };
-  const { costToHome } = getGrid(site, params, req.state || {});
-  return { costToHome: costToHome.slice(), usable_o2_min: usableO2min(site.suit) };
+  const { costToHome, distToHome } = getGrid(site, params, req.state || {});
+  return {
+    costToHome: costToHome.slice(), distToHome: distToHome.slice(),
+    usable_o2_min: usableO2min(site.suit), walkback_m: site.suit?.walkback_m?.value ?? null,
+  };
 }

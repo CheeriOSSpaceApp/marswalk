@@ -1,0 +1,8 @@
+# Normalize text to LF in the repo (Windows checkouts still get CRLF in the working copy)
+* text=auto eol=lf
+# Raw rasters and images: never touch line endings or diff them
+*.f32 binary
+*.u8 binary
+*.png binary
+*.jpg binary
+*.tif binary

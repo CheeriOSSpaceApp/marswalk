@@ -68,7 +68,10 @@
       ctx.drawImage(bg, 0, 0);
       drawRing();
       if (old) drawLine(old.path.geometry.coordinates, 'rgba(0,229,255,0.45)', 2, [6, 6]);
-      if (res?.replan) { drawLine(res.path.geometry.coordinates, '#ff9800', 4); res = null; }
+      if (res?.replan) { drawLine(res.path.geometry.coordinates, '#ff9800', 4); }
+      if (res?.turnaround_point) { const [x, y] = toXY(res.turnaround_point); ctx.strokeStyle = '#f00'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(x - 9, y - 9); ctx.lineTo(x + 9, y + 9); ctx.moveTo(x + 9, y - 9); ctx.lineTo(x - 9, y + 9); ctx.stroke(); ctx.fillStyle = '#f00'; ctx.fillText('TURN BACK', x + 12, y); }
+      if (res?.replan) res = null;
       if (res?.path) {
         ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 3; ctx.beginPath();
         res.path.geometry.coordinates.forEach((p, k) => { const [x, y] = toXY(p); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
@@ -99,6 +102,7 @@
         const ms = Math.round(performance.now() - t);
         if (res.error) { out.textContent = 'ERROR ' + JSON.stringify(res, null, 1); return; }
         alertState = res.state;   // alerts stack
+        window.__last = { base: basePlan, replan: res, current };
         draw(res, lastPts, basePlan, current);
         out.textContent = JSON.stringify({ round_trip_ms: ms, ...res.replan, state: res.state, ...res.stats }, null, 1);
       };
@@ -110,7 +114,7 @@
       const res = await planner.plan({ ...req, state: state() });
       const roundTrip = Math.round(performance.now() - t);
       draw(res, [req.start, ...(req.stops || []), req.goal]);
-      basePlan = res.error ? null : res; alertState = {};
+      basePlan = res.error ? null : res; alertState = {}; window.__last = { base: basePlan };
       out.textContent = res.error ? 'ERROR ' + JSON.stringify(res, null, 1)
         : JSON.stringify({ round_trip_ms: roundTrip, ...res.timing_ms, ...res.stats }, null, 1);
     }
