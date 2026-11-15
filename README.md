@@ -10,7 +10,21 @@ that runs long, the Sun going down), the route is **re-planned in milliseconds**
 Built on real NASA data: HiRISE DTM of Jezero (1 m → 3 m grid), Perseverance's traverse and Three Forks sample depot,
 NASA spacesuit studies (ICES-2026-127 / -158), MSL/RAD radiation, Mars Climate Database.
 
-## Run it
+## Try it online
+**https://cheeriosspaceapp.github.io/marswalk/** → press **▶ Launch demo** and pick a scenario. It opens the field tablet
+in a new window (allow pop-ups) and the habitat console in the same tab. The tablet walks by itself (×60) and the
+scenario injects its alert. Keep both windows visible side by side: a hidden window is paused by the browser.
+
+| Scenario | What happens |
+|---|---|
+| EVA-1 nominal 09:00 | Habitat → 10 depot tubes → Wildcat Ridge → habitat. GO, back 12:04 LMST, 42 % of O₂ |
+| SPE at Wildcat | Solar particle event on arrival at Wildcat → SEV rover radiation shelter (Hawksbill is not protected) |
+| O2 leak → cache rescue | Tank at 50 %, leak after a survey task: habitat ✗ not enough O₂ → Cache 1 ✓ refill 120 O₂-min, then home |
+| Late start 15:00 | Back after sunset (17:37 LMST) → NO-GO; the tablet does not walk out |
+
+Direct links: `console.html?demo=<id>` (ids in `web/public/data/jezero/presets.json`), `tablet.html?demo=1`.
+
+## Run it locally
 ```bash
 cd web
 npm install
@@ -36,7 +50,13 @@ Re-plan after an alert: 11–65 ms. Full numbers and method: [docs/PLANNER.md](d
 - **Data pipeline** and caches (Gabriel). Converts HiRISE DTM into elevation, slope, detrended roughness, hazard and map images; climate comes from MCD. Greedy k-center uses the planner's oxygen costs to place up to three caches in an 800 m operating area, covering EVA-1 targets while keeping supplies near Wildcat. The planner retains its 1770 m walkback limit. Exports stations.geojson, CSV metrics and a before/after figure. At 800 m, worst-case cost falls from 34.47 to 28.70 nominal O₂-min; the 10-minute target remains unmet. The 120-minute cache supply is an explicit scenario assumption, pending its technical reference from Marco.
 - **Life support, comms and validation (Marco).** Suit limits with NASA sources (`web/public/data/common/suit.json`);
   line-of-sight viewshed from the habitat antenna; the rover traverse as validation. *Validation results in progress: Marco.*
-- **Interface (Santiago).** Leaflet console + tablet, synced live over BroadcastChannel; no-return ring, HUD, checklists, alerts.
+- **Interface (Santiago).** Leaflet habitat console + field tablet, synced live over BroadcastChannel (same browser).
+  Console: route planning with task stops, GO / CAUTION / NO-GO for every start hour, alert injection with the options the
+  planner considered (why each was or wasn't chosen), O₂ cache inventory, built-in demo scenarios, mission report export
+  (Markdown / JSON). Tablet: next waypoint, compass, O₂ / dose / time HUD, task checklists (cache refill gives the O₂ back),
+  high / low priority alarms that close by themselves, "how long you can stay" at a safe spot per alert, emergency report.
+  Both draw the live **safe zone** from the planner (dark red = can't go there and still reach safety, amber = less than
+  30 min of margin) and recompute it as the astronaut moves.
 - **Science and story (Dana).** EVA-1 science objectives (Three Forks depot, Wildcat Ridge), POV photos, video, project page.
 
 ## Repository
