@@ -89,6 +89,10 @@ c = M / (V · 60 · P_nom)   [O₂ min / m]
 
 The cost of a step between neighbouring cells a and b is ½(c_a + c_b) times the step length (cell size, or √2 times it on diagonals). Walking time is the step length divided by the mean speed of the two cells. The planner also treats cells steeper than the suit’s max_slope_deg (15°) as impassable.
 
+The planner keeps two grids. The physical grid (O₂ minutes per meter, times the alert's `o2_x`) gives the reported O₂ use and the return rule. The routing grid only decides which path is preferred: it multiplies cost by 1 + `w_nocomms` without line of sight to the habitat, by 1 + `w_caution` in caution cells, by 1 + `w_obstacle_caution` near caution obstacles, and by the visibility factor above. None of these adds oxygen.
+
+Daylight: EVA duration in Earth minutes is converted to Mars hours (1 Mars hour = 61.649 Earth minutes). The EVA is GO if the crew is back at least `night_buffer_min` Earth minutes before sunset, CAUTION if back before sunset but inside that buffer, and NO-GO if back after sunset or if it starts before sunrise.
+
 ### Radiation
 The base galactic cosmic ray (GCR) rate is 0.0279 mSv/h, which is the 0.67 mSv/day average dose equivalent measured by MSL/RAD (Hassler et al. 2014) divided by 24 h. The dose of one route segment is
 
