@@ -20,3 +20,4 @@ Format: `- [HH:MM] Name — Tool — What for — What we kept / changed`
 - [00:50] Eric — Claude — Replan speed-up (base O2 cached per terrain, alert scaling proven exact by test), 32 unit tests + 14 browser tests passing.
 - [01:05] Eric — Claude — Integration pass after everyone pushed: adapted planner to Ana's task_min structure (+ airlock no-dose assumption), ran Marco's traverse script, wrote pipeline/export_jezero.py on top of Gabriel's Elevation.py (detrended roughness, verified on synthetic planes), validator/CONTRACTS updates; 35 tests.
 - [01:35] Eric — Claude — Jezero integration: validator snap-aware reachability (Wildcat Ridge at scarp base), EVA-1 run on real terrain (test/jezero_eva.mjs), consistent replan destination ids, docs/INTEGRATION.md for console/tablet wiring.
+[1:55] Gabirel - ChatGPT - create and export png and.jsons from export_jezero.
