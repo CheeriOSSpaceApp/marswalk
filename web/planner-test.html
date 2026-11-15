@@ -1,28 +1,76 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Planner test — Eric</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MarsWalk – Planner test bench</title>
+  <link rel="stylesheet" href="./src/style.css" />
   <style>
-    body { margin: 0; display: flex; gap: 16px; font: 14px system-ui; background: #111; color: #eee; padding: 12px; }
-    canvas { cursor: crosshair; image-rendering: pixelated; width: 800px; height: 800px; }
-    pre { background: #222; padding: 8px; width: 320px; white-space: pre-wrap; }
-    button { margin: 4px 4px 4px 0; }
+    #stage { flex:1; min-width:0; display:flex; align-items:center; justify-content:center; background:#000; overflow:hidden; }
+    #c { display:block; cursor:crosshair; image-rendering:pixelated; height:100vh; max-width:100%; aspect-ratio:1 / 1; object-fit:contain; }
+    .bench .card h2 { margin:0 0 8px; }
+    .bench .layer { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .bench .layer label { flex:1; }
+    .bench .o2row { display:block; }
+    .bench .o2row .o2head { display:flex; justify-content:space-between; font-size:13px; }
+    .bench .o2row .o2head b { font-variant-numeric:tabular-nums; }
+    .key { display:grid; grid-template-columns:22px 1fr; gap:4px 8px; align-items:center; font-size:12px; color:#bbb; margin-top:8px; }
+    .key i { display:block; height:10px; }
+    .key i.line { height:0; border-top:3px solid; }
+    #alerts button { margin-top:6px; text-align:left; border-radius:0; border-color:#ff2b2b; color:#ff8080; }
+    #alerts button:hover { background:#ff2b2b; color:#fff; }
+    #eva { margin-top:0; }
+    #out { margin:0; background:#0b0b0b; border:1px solid #333; padding:8px; font:12px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
+           white-space:pre-wrap; word-break:break-word; max-height:42vh; overflow:auto; color:#ddd; }
+    .steps { margin:0; padding-left:18px; font-size:13px; color:#ddd; line-height:1.6; }
+    @media (max-width:700px) { #c { height:auto; width:100%; } }
   </style>
 </head>
-<body>
-  <canvas id="c" width="1000" height="1000"></canvas>
-  <div>
-    <b>Click 1 = start, click 2 = goal.</b> Red = forbidden, yellow = caution.<br />
-    <label><input id="suit" type="checkbox" /> Suit failure (O₂ ×1.5)</label><br />
-    <label><input id="dust" type="checkbox" /> Dust (visibility 0.3)</label><br />
-    <label><input id="ring" type="checkbox" /> No-return ring</label>
-    <input id="o2" type="range" min="0" max="400" value="120" /> O₂ left: <span id="o2v">120</span> min<br />
-    <button id="eva">EVA: habitat → depot → science → habitat</button><br />
-    <b>Inject alert</b> (astronaut at 40% of current route):<br />
-    <span id="alerts"></span>
-    <pre id="out">loading…</pre>
-  </div>
+<body class="tablet console bench">
+  <main id="stage"><canvas id="c" width="1000" height="1000"></canvas></main>
+  <aside id="panel">
+    <div class="topline"><h1>Planner test bench</h1><span class="sub" id="siteLbl">–</span></div>
+
+    <section class="card"><h2>How to use</h2>
+      <ol class="steps">
+        <li>Click the map once for the start, once for the goal.</li>
+        <li>Or press <b>EVA</b> for habitat → depots → science → habitat.</li>
+        <li>Inject an alert: the astronaut is placed at 40 % of the route.</li>
+      </ol>
+      <div class="key">
+        <i style="background:#c83a3a"></i><span>Forbidden terrain (hazard 2)</span>
+        <i style="background:#c8c84a"></i><span>Caution terrain (hazard 1)</span>
+        <i class="line" style="border-color:#00e5ff"></i><span>Planned route</span>
+        <i class="line" style="border-color:#ff9800"></i><span>Re-planned route after an alert</span>
+        <i style="background:#3a3a55"></i><span>Beyond no-return (ring on)</span>
+      </div>
+    </section>
+
+    <section class="card"><h2>Conditions</h2>
+      <div class="layer"><label><input id="suit" type="checkbox" /> Suit failure</label><small>O₂ ×1.5</small></div>
+      <div class="layer"><label><input id="dust" type="checkbox" /> Dust storm</label><small>visibility 0.3</small></div>
+    </section>
+
+    <section class="card"><h2>No-return ring</h2>
+      <div class="layer"><label><input id="ring" type="checkbox" /> Show no-return area</label></div>
+      <div class="layer o2row">
+        <div class="o2head"><span>O₂ left</span><b><span id="o2v">120</span> min</b></div>
+        <input id="o2" type="range" min="0" max="400" value="120" />
+      </div>
+    </section>
+
+    <section class="card"><h2>Plan</h2>
+      <button id="eva">EVA: habitat → depot → science → habitat</button>
+    </section>
+
+    <section class="card"><h2>Inject alert</h2>
+      <div id="alerts"></div>
+    </section>
+
+    <section class="card"><h2>Planner output</h2>
+      <pre id="out">loading…</pre>
+    </section>
+  </aside>
   <script type="module">
     import { createPlanner } from './src/plannerClient.js';
     import { loadSite, lonLatToCell } from './src/data.js';
@@ -34,7 +82,8 @@
     const { meta } = site, W = meta.width, H = meta.height;
 
     // background: hillshade + hazard tint
-    const img = new Image(); img.src = `data/${SITE}/hillshade.png`; // relative: works on localhost and on GitHub Pages await img.decode();
+    const img = new Image(); img.src = `data/${SITE}/hillshade.png`; // relative: works on localhost and on GitHub Pages
+    await img.decode();
     const bg = document.createElement('canvas'); bg.width = W; bg.height = H;
     const b = bg.getContext('2d'); b.drawImage(img, 0, 0, W, H);
     const px = b.getImageData(0, 0, W, H);
@@ -139,6 +188,9 @@
     for (const id of ['ring', 'suit', 'dust']) document.getElementById(id).addEventListener('change', refreshRing);
     document.getElementById('o2').oninput = refreshRing;
 
+    const o2el = document.getElementById('o2'), paintRange = () => o2el.style.setProperty('--p', (o2el.value / o2el.max * 100) + '%');
+    o2el.addEventListener('input', paintRange); paintRange();
+    document.getElementById('siteLbl').textContent = `site: ${SITE}`;
     draw(null, []);
     out.textContent = `site: ${SITE}, ${W}×${H}, cell ${meta.cell_m} m. Click to plan.`;
   </script>
