@@ -46,5 +46,11 @@
     "value": 1.0,
     "source": "Design average (1200 BTU/h). Apollo geology-station rates were about 0.81-0.89 of it, but we have no Mars data, so we use the conservative value",
     "assumption": true
-  }
+  },
+
+  "sunrise_lmst": { "value": 6.0, "source": "PLACEHOLDER until Gabriel provides MCD value for the chosen Ls (Jezero)", "assumption": true },
+  "sunset_lmst":  { "value": 18.0, "source": "PLACEHOLDER (same)", "assumption": true },
+  "night_buffer_min": { "value": 30, "source": "Team choice: margin to be back in the habitat before sunset", "assumption": true },
+  "w_caution": { "value": 0.5, "source": "Tunable weight (team default); adjusted with the rover validation", "assumption": true },
+  "w_obstacle_caution": { "value": 2.0, "source": "Tunable weight (team default); adjusted with the rover validation", "assumption": true }
 }
