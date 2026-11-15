@@ -106,7 +106,7 @@ Time spent on tasks is added to the walking time, so it counts toward O₂ use a
 | Science stop | 45 |
 | Shelter check | 5 |
 | Habitat egress / ingress | 15 each |
-| Cache refill | 10 |
+| Cache refill (O₂ top-off at a surface cache) | 10 |
 
 O₂ used during a task is its duration times a work metabolic factor of 1.0, i.e. nominal metabolic rate (conservative: Apollo geology stations ran at about 0.81 to 0.89 of it).
 
@@ -136,7 +136,7 @@ O₂ used during a task is its duration times a work metabolic factor of 1.0, i.
 | `night_buffer_min` | 30 | min | Team choice: margin to be back in the habitat before sunset | Yes |
 | `w_caution` | 0.5 | n/a | Tunable weight (team default); adjusted with the rover validation | Yes |
 | `w_obstacle_caution` | 2.0 | n/a | Tunable weight (team default); adjusted with the rover validation | Yes |
-| `task_min.cache_refill` | 10 | min | Team estimate (placeholder): time to refill/restock at a cache during the EVA | Yes |
+| `task_min.cache_refill` | 10 | min | O₂ top-off at a pre-positioned surface cache via an umbilical (concept: ISS EMU Service and Cooling Umbilical); duration is a MarsWalk assumption | Yes |
 
 ### Model limitations
 - Slope is an unsigned magnitude, so descending costs the same as ascending. This is conservative; a signed-grade model (e.g. a Santee-type downhill correction) is future work.
