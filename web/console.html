@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Martian Map – Habitat Console</title>
+</head>
+<body class="tablet console">
+  <div id="map"></div>
+  <aside id="panel">
+    <div class="topline"><h1>Martian Map</h1><span class="sub">Habitat console · <span id="site">–</span></span></div>
+
+    <section class="card"><h2>Layers</h2>
+    <div id="layers"></div>
+
+    </section>
+    <section class="card"><h2>Route (habitat → stops → habitat)</h2>
+    <div id="stopsEmpty" class="empty">Click the map or a target to add stops.</div>
+    <ul id="stops"></ul>
+    <button id="planBtn">Plan</button>
+    <button id="clearBtn">Clear</button>
+    <div id="status"></div>
+
+    </section>
+    <section class="card"><h2>Inject alert</h2>
+    <div id="alerts"></div>
+
+    </section>
+    <section class="card"><h2>Route stats</h2>
+    <div id="stats"><div class="empty">No route yet.</div></div>
+
+    </section>
+    <section class="card"><h2>Astronaut (from tablet)</h2>
+    <div id="astro"><div class="empty">Waiting for the tablet. Press Walk there.</div></div>
+
+    </section>
+    <section class="card"><h2>Selected segment</h2>
+    <div id="seg"><div class="empty">Click a route segment on the map.</div></div>
+    </section>
+  </aside>
+  <script type="module" src="/src/console.js"></script>
+</body>
+</html>
