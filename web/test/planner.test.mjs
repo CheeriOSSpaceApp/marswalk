@@ -153,4 +153,8 @@ check('depot setup charged once for 2 tubes', r2.stats.task_min === v(TM.habitat
 const walkDose = S.params.gcr_mSv_per_h * (r.stats.walk_min + r.stats.task_min - v(TM.habitat_egress) - v(TM.habitat_ingress)) / 60;
 check('airlock time (egress/ingress) has no dose', Math.abs(r.stats.dose_mSv - walkDose) < 0.0006, `${r.stats.dose_mSv} vs ${walkDose.toFixed(4)} mSv`);
 
+// 16. Replan while still at the habitat: no second egress (bug seen in the console, 11:10)
+rp = replan(S, { current: T.habitat, alert: A.SPE });
+check('replan at habitat charges no egress', rp.stats.task_min === S.params.task_min.habitat_ingress.value, `task ${rp.stats.task_min} min`);
+
 process.exit(fails ? 1 : 0);

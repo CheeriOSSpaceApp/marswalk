@@ -189,8 +189,10 @@ function render() {
   const o2Left = Math.max(0, 100 - o2UsedMin / O2_MIN * 100), o2LeftMin = o2Left / 100 * O2_MIN;
   const dose = P.base.dose_mSv + at(P.cumDose) + P.extra.dose_mSv, doseTotal = P.base.dose_mSv + P.cumDose[P.cumDose.length - 1] + P.extra.dose_mSv;
   const evaMin = P.base.time_min + at(P.cumT) + P.extra.time_min;
-  const distHome = dist(pos, meta.habitat), ingress = P.tasks.find(t => t.kind === 'habitat' && !t.done);
-  const ingressO2 = (ingress ? ingress.minutes - ingress.elapsed : 0) * eff.o2_x;
+  // Ingress = the LAST habitat task of the route (the first one is the egress). Never negative (overtime).
+  const habTasks = P.tasks.filter(t => t.kind === 'habitat'), lastHab = habTasks.length > 1 || (habTasks.length === 1 && P.tasks.indexOf(habTasks[0]) > 0) ? habTasks.at(-1) : null;
+  const distHome = dist(pos, meta.habitat), ingress = lastHab && !lastHab.done ? lastHab : null;
+  const ingressO2 = (ingress ? Math.max(0, (ingress.minutes || 0) - (ingress.elapsed || 0)) : 0) * eff.o2_x;
   const cth = ring.costAt(pos[0], pos[1]);                                            // planner costToHome (O2-min, real terrain)
   const walkHome = cth ?? distHome / SPEED / 60 * eff.o2_x;                           // fallback: straight line at V_cap
   const homeMin = walkHome + ingressO2;

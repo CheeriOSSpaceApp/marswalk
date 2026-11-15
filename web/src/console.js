@@ -99,7 +99,7 @@ function drawRoute(res, title = null) {
     const [lon, lat] = res.turnaround_point;
     L.marker([lat, lon], { icon: L.divIcon({ className: 'turnX', html: '✕<span>TURN BACK</span>', iconSize: [24, 24] }), interactive: false }).addTo(routeGroup);
   }
-  if (routeGroup.getLayers().length) map.fitBounds(routeGroup.getBounds(), { padding: [40, 40] });
+  if (routeGroup.getLayers().length) map.fitBounds(routeGroup.getBounds(), { padding: [40, 40], maxZoom: 16 }); // tiny routes: don't zoom into a blur
   const st = res.stats, ok = v => v ? '✓' : '✗';
   $('stats').innerHTML = (title ? `<div class="est">${title}</div>` : '') +
     row('Safe', st.safe ? '✓ yes' : '✗ NO') +

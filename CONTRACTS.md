@@ -17,6 +17,7 @@ If you need to change a format: announce in #general FIRST, then update this fil
 - 01:00 Integration pass: Ana's task_min (in old `mock/params.json`) merged into `common/params.json`; rover traverse generated from Marco's script → `jezero/rover_traverse.geojson`; FeatureCollection format approved; detrended roughness; `pipeline/export_jezero.py` writes Jezero layers using Gabriel's `Elevation.map` + `elevcalc` (needs internet: run on a laptop, the DTM host is blocked in CI).
 - 01:25 Jezero terrain generated (export_jezero.py on Eric's laptop): 82.7 % free, 10.0 % caution, 7.3 % forbidden. Wildcat Ridge point sits on the delta-front scarp (16°); planner stops 3 m away at its base (14.3°) — intended. EVA-1 on real terrain: 1430 m, 190 min, O₂ 45 %, safe (docs/INTEGRATION.md §7).
 - 01:30 replan returns `destination_id` + `destination_kind` (UI logic must use these, not the name). Frontend wiring guide: docs/INTEGRATION.md.
+- 11:15 Full-stack check (console + tablet + planner + Jezero data, headless browser): plan → tablet live → walk → position back to console → SPE → tablet alarm. Fixes: replan never charges a second egress (`start_task_min: 0`); tablet ingress = LAST habitat task, clamped ≥ 0 (showed "home needs −6 min"); console fitBounds maxZoom 16 for near-zero routes.
 - PENDING: reserve 15 % vs 18 % (95th percentile crew). Only `suit.reserve_pct.value` changes.
 
 ## Global conventions

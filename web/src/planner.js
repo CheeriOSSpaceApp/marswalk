@@ -452,7 +452,8 @@ export function applyAlert(state = {}, alert) {
 export function replan(site, req) {
   const t0 = performance.now();
   const state = applyAlert(req.state, req.alert);
-  const base = { start: req.current, stops: [], params: req.params, state, o2_used_min: req.o2_used_min };
+  // start_task_min 0: a replan starts where the astronaut IS; it's not a new egress even if standing at the habitat
+  const base = { start: req.current, stops: [], params: req.params, state, o2_used_min: req.o2_used_min, start_task_min: 0 };
   const habitat = site.meta.habitat;
   // Same identity for the habitat whatever the alert (UI should use destination_id / destination_kind, not the name)
   const habF = site.targets?.features?.find((f) => f.properties?.kind === 'habitat');
