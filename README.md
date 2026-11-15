@@ -32,7 +32,7 @@ Re-plan after an alert: 11–65 ms. Full numbers and method: [docs/PLANNER.md](d
   Dijkstra "cost-to-home" field gives an O(1) point-of-no-return check anywhere; safety rules: O₂ return with an 18 % reserve,
   1770 m walkback, battery, daylight. Details, complexity and verification: [docs/PLANNER.md](docs/PLANNER.md).
 - **Models (Ana).** Pandolf metabolic cost on Mars gravity, Tobler speed capped at 2.2 mph, GCR dose, task times. Every
-  constant with its source: [Models](#models-ana) below.
+  constant with its source: [Models](#models) below.
 - **Data pipeline (Gabriel).** HiRISE DTM → elevation, slope, detrended roughness, hazard, hillshade, ortho; climate from
   the MCD. `pipeline/export_jezero.py`. *Section in progress: Gabriel.*
 - **Life support, comms and validation (Marco).** Suit limits with NASA sources (`web/public/data/common/suit.json`);
