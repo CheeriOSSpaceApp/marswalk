@@ -1,0 +1,75 @@
+{
+  "1_plano_curvatura_False": {
+    "passed": true,
+    "visible_pct": 100.0
+  },
+  "1_plano_curvatura_True": {
+    "passed": true,
+    "visible_pct": 100.0
+  },
+  "2_monticulo_aislado": {
+    "passed": true,
+    "detras": 0.0,
+    "delante": 1.0,
+    "oeste": 1.0,
+    "cima_visible": 0.3333333333333333,
+    "celdas_ocultas": 160
+  },
+  "3_obstaculo_intermedio": {
+    "passed": true,
+    "objetivo_detras_del_muro": 0,
+    "punto_antes_del_muro": 1,
+    "objetivo_elevado_30m": 1
+  },
+  "4_antena_mas_alta": {
+    "passed": true,
+    "alturas_m": [
+      0.5,
+      2,
+      5,
+      10,
+      30
+    ],
+    "visible_pct": [
+      21.47,
+      34.17,
+      51.64,
+      69.69,
+      94.75
+    ],
+    "monotono_por_celda": true
+  },
+  "5_horizonte_curvatura": {
+    "passed": true,
+    "horizonte_teorico_m": 1165.5,
+    "max_distancia_visible_m": 1167.5,
+    "dentro": 1.0,
+    "fuera": 0.0
+  },
+  "6_vs_fuerza_bruta": {
+    "passed": true,
+    "concordancia_pct": 100.0,
+    "r3_visible_pct": 86.56,
+    "fuerza_bruta_visible_pct": 86.56,
+    "celdas_distintas": 0
+  },
+  "7_orientacion": {
+    "passed": true,
+    "esquina_NO": [
+      0,
+      0
+    ],
+    "esquina_SE": [
+      99,
+      99
+    ],
+    "visible_norte_detras_cresta_pct": 0.0,
+    "visible_sur_pct": 100.0
+  },
+  "8_metodo_rayos_del_plan": {
+    "passed": true,
+    "celdas_no_visitadas": 0,
+    "concordancia_en_visitadas_pct": 98.07,
+    "nota": "informativa: R3 se usa para la salida oficial"
+  }
+}

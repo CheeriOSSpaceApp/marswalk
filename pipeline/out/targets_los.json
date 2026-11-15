@@ -1,0 +1,188 @@
+{
+  "targets": [
+    {
+      "id": "habitat-threeforks-lz",
+      "kind": "habitat",
+      "row": 515,
+      "col": 610,
+      "dist_m": 0.0,
+      "elev_dem_m": -2548.71,
+      "los": 1,
+      "los_7x7_pct": 100.0
+    },
+    {
+      "id": "depot-tf-dz13",
+      "kind": "depot",
+      "row": 522,
+      "col": 514,
+      "dist_m": 288.8,
+      "elev_dem_m": -2545.21,
+      "los": 1,
+      "los_7x7_pct": 100.0
+    },
+    {
+      "id": "depot-tf-dz16",
+      "kind": "depot",
+      "row": 528,
+      "col": 517,
+      "dist_m": 281.7,
+      "elev_dem_m": -2545.27,
+      "los": 1,
+      "los_7x7_pct": 100.0
+    },
+    {
+      "id": "depot-tf-dz17",
+      "kind": "depot",
+      "row": 528,
+      "col": 515,
+      "dist_m": 287.7,
+      "elev_dem_m": -2545.16,
+      "los": 1,
+      "los_7x7_pct": 100.0
+    },
+    {
+      "id": "depot-tf-dz18",
+      "kind": "depot",
+      "row": 532,
+      "col": 510,
+      "dist_m": 304.3,
+      "elev_dem_m": -2545.09,
+      "los": 1,
+      "los_7x7_pct": 100.0
+    },
+    {
+      "id": "depot-tf-dz19",
+      "kind": "depot",
+      "row": 534,
+      "col": 511,
+      "dist_m": 302.4,
+      "elev_dem_m": -2545.38,
+      "los": 1,
+      "los_7x7_pct": 100.0
+    },
+    {
+      "id": "depot-tf-dz20",
+      "kind": "depot",
+      "row": 534,
+      "col": 509,
+      "dist_m": 308.3,
+      "elev_dem_m": -2545.27,
+      "los": 1,
+      "los_7x7_pct": 100.0
+    },
+    {
+      "id": "depot-tf-dz21",
+      "kind": "depot",
+      "row": 533,
+      "col": 507,
+      "dist_m": 313.7,
+      "elev_dem_m": -2545.19,
+      "los": 1,
+      "los_7x7_pct": 100.0
+    },
+    {
+      "id": "depot-tf-dz22",
+      "kind": "depot",
+      "row": 535,
+      "col": 506,
+      "dist_m": 317.7,
+      "elev_dem_m": -2545.29,
+      "los": 1,
+      "los_7x7_pct": 100.0
+    },
+    {
+      "id": "depot-tf-dz25",
+      "kind": "depot",
+      "row": 538,
+      "col": 502,
+      "dist_m": 331.3,
+      "elev_dem_m": -2545.48,
+      "los": 1,
+      "los_7x7_pct": 100.0
+    },
+    {
+      "id": "depot-tf-dz26",
+      "kind": "depot",
+      "row": 536,
+      "col": 501,
+      "dist_m": 333.0,
+      "elev_dem_m": -2545.27,
+      "los": 1,
+      "los_7x7_pct": 100.0
+    },
+    {
+      "id": "sci-wildcat-ridge",
+      "kind": "science",
+      "row": 412,
+      "col": 460,
+      "dist_m": 545.9,
+      "elev_dem_m": -2520.04,
+      "los": 1,
+      "los_7x7_pct": 100.0
+    },
+    {
+      "id": "shelter-hawksbill-01",
+      "kind": "shelter",
+      "row": 472,
+      "col": 484,
+      "dist_m": 399.4,
+      "elev_dem_m": -2542.24,
+      "los": 1,
+      "los_7x7_pct": 100.0
+    }
+  ],
+  "eva1_legs_straight": [
+    {
+      "leg": "habitat->depot_centroid",
+      "len_m": 307.3,
+      "los_pct": 100.0
+    },
+    {
+      "leg": "depot_centroid->shelter",
+      "len_m": 195.0,
+      "los_pct": 100.0
+    },
+    {
+      "leg": "shelter->wildcat",
+      "len_m": 193.9,
+      "los_pct": 100.0
+    },
+    {
+      "leg": "wildcat->habitat",
+      "len_m": 545.9,
+      "los_pct": 100.0
+    }
+  ],
+  "wildcat_sensitivity": [
+    {
+      "antenna_m": 2,
+      "suit_m": 0.0,
+      "wildcat_los": 1
+    },
+    {
+      "antenna_m": 2,
+      "suit_m": 1.5,
+      "wildcat_los": 1
+    },
+    {
+      "antenna_m": 5,
+      "suit_m": 0.0,
+      "wildcat_los": 1
+    },
+    {
+      "antenna_m": 5,
+      "suit_m": 1.5,
+      "wildcat_los": 1
+    },
+    {
+      "antenna_m": 10,
+      "suit_m": 0.0,
+      "wildcat_los": 1
+    },
+    {
+      "antenna_m": 10,
+      "suit_m": 1.5,
+      "wildcat_los": 1
+    }
+  ]
+}
