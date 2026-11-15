@@ -154,7 +154,7 @@ Jezero, astronaut at Wildcat Ridge: 6.2 km² safe at 0–200 O₂-min used (the 
 | **Dust storm** | visibility 0.3: steep or rough ground gets a higher routing cost; return to the habitat. **If O₂ or daylight don't allow it**, go to the fastest safe point that can be reached without touching the reserve. | `replan` |
 | **Suit failure** | O₂ ×1.5 on every cell; return to the habitat | `replan` |
 | **Obstacle reported** (astronaut, rover, drone or console) | circle of radius *r*: blocked = impassable, caution = ×3 routing cost; recompute return fields and route | `state.obstacles` + `adapt` |
-| **O₂ leak** (`resupply`) | home directly, or via the O₂ cache that makes the return safe; every option listed with why | `replan` |
+| **O₂ leak** (`resupply`) | home directly if that is safe with ≥ 30 min margin (the repair is there); otherwise the option with the best O₂ margin, usually a detour to an O₂ cache. Every option listed with why. Jezero, leak at Wildcat Ridge with 354 O₂-min used: habitat ✗ not enough O₂ → **Cache 1** (Gabriel's k-center, 140 m away) ✓ refill 120 O₂-min, then home | `replan` |
 | **Task overtime / "can I still do the rest?"** | re-plan current position → remaining stops → home; if unsafe, first try a **refill detour to an O₂ cache**; otherwise **drop stops with the lowest science value first** (ties: keep the larger margin) until safe → `continue` / `refill` / `skip` / `return` | `adapt` |
 
 Alerts stack: their multipliers combine, and the returned `state` is sent back on the next call.

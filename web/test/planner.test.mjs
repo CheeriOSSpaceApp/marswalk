@@ -327,4 +327,10 @@ check('T2: a cache also counts as a safe point in a dust storm', rp.replan.desti
     `${rpS.replan.destination}: wait ${rpS.replan.wait_max_min} min`);
 }
 
+{
+  const leak2 = { id: 'leak1', type: 'suit', action: 'resupply', effect: { o2_x: 1.3, dose_x: 1, visibility: 1 } };
+  const r = replan(SC, { current: T.sci2, alert: leak2, o2_used_min: 50 });
+  check('T2: O2 leak with plenty of O2 -> straight home (repair), no cache detour', r.replan.destination_kind === 'habitat' && !r.replan.via_cache,
+    r.replan.considered.map((c) => `${c.name}: ${c.why}${c.chosen ? ' ✓' : ''}`).join(' · '));
+}
 process.exit(fails ? 1 : 0);

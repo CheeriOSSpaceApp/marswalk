@@ -688,7 +688,11 @@ export function replan(site, req) {
       if (!bestR || score > bestR.score) bestR = { plan: p, target, score };
     };
     tryOne([], habitatCandidate);
+    // 15:20: a leaking suit wants the habitat (repair, fastest). If going home DIRECTLY is safe with a comfortable
+    // margin (>= 30 min), go home; only otherwise pick the option with the best O2 margin (usually a cache detour).
+    const homeDirect = bestR;
     for (const f of caches) tryOne([f.geometry.coordinates], { id: f.properties.id, kind: 'cache', name: f.properties.name, coords: f.geometry.coordinates });
+    if (homeDirect && homeDirect.plan.stats.o2_return_ok && homeDirect.plan.stats.o2_margin_min >= (req.comfort_margin_min ?? 30)) bestR = homeDirect;
     if (!bestR) return { error: 'no_safe_destination', alert: req.alert.id, state };
     return { ...bestR.plan, state, replan: { alert: req.alert.id, type: req.alert.type, action: 'resupply', destination: bestR.target.name,
       destination_id: bestR.target.id, destination_kind: bestR.target.kind, via_cache: bestR.target.kind === 'cache', fallback_to_safe_point: false,
