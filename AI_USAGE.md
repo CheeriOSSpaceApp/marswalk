@@ -15,3 +15,4 @@ Format: `- [HH:MM] Name — Tool — What for — What we kept / changed`
 
 - [20:52] Ana - Claude - Checked "radiation.js" to validate that it functions correctly.
 - [22:36] Gabriel - ChatGPT - how to path within a repo to open files, in order to load de meta.json.
+- [00:21] Ana - Claude - Help with creation of code for the HUD of the tablet based on design made by Ana.
