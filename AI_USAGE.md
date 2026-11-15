@@ -8,3 +8,5 @@ Format: `- [HH:MM] Name — Tool — What for — What we kept / changed`
 - [18:45] Eric — Claude — costToHome (Dijkstra from habitat), walkback check, no-return ring in test page; CONTRACTS.md cost-unit decision (agreed with Ana).
 
 - [18:23] Ana - Claude - Created an example of what value to use for eta in Pandolf equation. 
+
+- [18:51] Ana - Claude - Checked cost.js validating that it works, and created a header that specifies important info and assumptions.
