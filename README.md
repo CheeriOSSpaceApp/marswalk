@@ -87,7 +87,11 @@ Cost is expressed in "O₂ minutes": one O₂ minute is one minute of suit suppl
 
 c = M / (V · 60 · P_nom)   [O₂ min / m]
 
-The planner multiplies c by the move length (cell size, or √2 times it on diagonals). Cells with hazard = 2, or with missing slope or roughness data, cost infinity.
+The cost of a step between neighbouring cells a and b is ½(c_a + c_b) times the step length (cell size, or √2 times it on diagonals). Walking time is the step length divided by the mean speed of the two cells. The planner also treats cells steeper than the suit’s max_slope_deg (15°) as impassable.
+
+The planner keeps two grids. The physical grid (O₂ minutes per meter, times the alert's `o2_x`) gives the reported O₂ use and the return rule. The routing grid only decides which path is preferred: it multiplies cost by 1 + `w_nocomms` without line of sight to the habitat, by 1 + `w_caution` in caution cells, by 1 + `w_obstacle_caution` near caution obstacles, and by the visibility factor defined under Alerts. None of these adds oxygen.
+
+Daylight: EVA duration in Earth minutes is converted to Mars hours (1 Mars hour = 61.649 Earth minutes). The EVA is GO if the crew is back at least `night_buffer_min` Earth minutes before sunset, CAUTION if back before sunset but inside that buffer, and NO-GO if back after sunset or if it starts before sunrise.
 
 ### Radiation
 The base galactic cosmic ray (GCR) rate is 0.0279 mSv/h, which is the 0.67 mSv/day average dose equivalent measured by MSL/RAD (Hassler et al. 2014) divided by 24 h. The dose of one route segment is
@@ -97,7 +101,7 @@ D_i = rate · (t_i / 60) · dose_x   [mSv]
 where t_i is the segment duration in minutes and dose_x is the multiplier of the active alert (1 when there is none). The route dose is the sum over segments. For a few hours of EVA the GCR dose is small, the real radiation risk is a solar particle event (SPE), which is why an SPE alert sends the crew to the fastest radiation-safe place (the habitat, or a shelter flagged `radiation_shelter: true`).
 
 ### Task time
-Time spent on tasks is added to the walking time, so it counts toward O₂ use and dose. Durations are team estimates informed by Apollo timelines:
+Time spent on tasks is added to the walking time, so it counts toward O₂ use and, with one exception, dose. Durations are team estimates informed by Apollo timelines:
 
 | Task | Minutes |
 |---|---|
@@ -108,7 +112,19 @@ Time spent on tasks is added to the walking time, so it counts toward O₂ use a
 | Habitat egress / ingress | 15 each |
 | Cache refill (O₂ top-off at a surface cache) | 10 |
 
-O₂ used during a task is its duration times a work metabolic factor of 1.0, i.e. nominal metabolic rate (conservative: Apollo geology stations ran at about 0.81 to 0.89 of it).
+Task time counts toward O₂ use and dose, except habitat egress and ingress, which are assumed to happen in a shielded airlock (they cost O₂ and time, not dose). O₂ used during a task is its duration times the work metabolic factor (1.0) times the active alert’s o2_x.
+
+At a cache stop the crew tops up its oxygen: the refill task takes cache_refill minutes, and in the O₂ return rule the O₂ used so far is reduced by the amount stored in that cache (a property of the cache in `targets.geojson`, not of `params.json`).
+
+### Alerts
+| Alert | dose_x | o2_x | visibility | Action | Source |
+|---|---|---|---|---|---|
+| SPE | 50 | 1 | 1 | shelter | MarsWalk planning assumption (deliberately conservative) |
+| Dust | 1 | 1.1 | 0.3 | safe_point | MarsWalk assumption |
+| Suit failure | 1 | 1.5 | 1 | return | MarsWalk assumption |
+| O₂ leak | 1 | 1.3 | 1 | resupply | MarsWalk assumption (Marco to confirm) |
+
+Alerts stack: `dose_x` and `o2_x` multiply, and visibility takes the lowest value. Visibility does not change oxygen; it multiplies the routing cost of a cell by 1 + (1 − visibility) · (slope/10 + roughness), with slope in degrees and roughness in meters. Actions: *shelter* goes to the fastest radiation-safe place, *safe_point* to the fastest of the habitat or any shelter, *return* to the habitat, and *resupply* home directly or via the O₂ cache that makes the return safe.
 
 ### Constants
 
@@ -133,10 +149,11 @@ O₂ used during a task is its duration times a work metabolic factor of 1.0, i.
 | `task_min.habitat_egress`, `habitat_ingress` | 15, 15 | min | EMU timeline (15 min each) | Yes |
 | `work_metabolic_factor` | 1.0 | n/a | Design average (1200 BTU/h); Apollo geology-station rates were about 0.81-0.89 of it, but there is no Mars data, so the conservative value is used | Yes |
 | `sunrise_lmst`, `sunset_lmst` | 6.84, 17.62 | h (LMST, decimal Martian hours) | MCD v6.2, Ls = 270°, habitat at 77.41°E 18.45°N: hourly solar-zenith crossing of 90°, linear interpolation, flat horizon, approximate LTST-to-LMST conversion | Yes |
-| `night_buffer_min` | 30 | min | Team choice: margin to be back in the habitat before sunset | Yes |
+| `night_buffer_min` | 30 | Earth min | Team choice: margin to be back in the habitat before sunset | Yes |
 | `w_caution` | 0.5 | n/a | Tunable weight (team default); adjusted with the rover validation | Yes |
 | `w_obstacle_caution` | 2.0 | n/a | Tunable weight (team default); adjusted with the rover validation | Yes |
-| `task_min.cache_refill` | 10 | min | O₂ top-off at a pre-positioned surface cache via an umbilical (concept: ISS EMU Service and Cooling Umbilical); duration is a MarsWalk assumption | Yes |
+| `task_min.cache_refill` | 10 | min | O₂ top-off at a pre-positioned surface cache via an umbilical (concept: suit Service and Cooling Umbilical, Campbell et al. 2017, sec. 3.2.5.5.2); duration is a MarsWalk assumption | Yes |
+| `w_nocomms`| 0.2 | n/a | Tunable weight (team default) | Yes |
 
 ### Model limitations
 - Slope is an unsigned magnitude, so descending costs the same as ascending. This is conservative; a signed-grade model (e.g. a Santee-type downhill correction) is future work.
@@ -159,6 +176,8 @@ O₂ used during a task is its duration times a work metabolic factor of 1.0, i.
 - Hassler, D. M. et al. (2018). Space Weather on the Surface of Mars: Impact of the September 2017 Events. *Space Weather* 16(11).
 - Rafkin, S. C. R. et al. (2014). *J. Geophys. Res. Planets* 119, 1345-1358. doi:10.1002/2013JE004525
 - Guo, J. et al. (2017). *J. Geophys. Res. Planets* 122, 329-341. doi:10.1002/2016JE005206
+- Campbell, C., Rodriggs, L., Blanco, R. (2017). Schematics and Behavioral Description for the Advanced EMU (AEMU) Portable Life Support Subsystem (PLSS). CTSD-ADV-959 Rev A, NASA JSC. NTRS 20170009505. https://ntrs.nasa.gov/citations/20170009505
+- Mars Climate Database v6.2, LMD (with ESA/CNES), https://www-mars.lmd.jussieu.fr/mcd_python/.
 
 ### Planner limitations
 Unsigned slope, 3 m cells, stop order given (not optimised), greedy re-planning, single astronaut: see

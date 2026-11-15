@@ -17,6 +17,7 @@ const O2_MIN = (val(suit.o2_hours) ?? 8) * 60, RESERVE = val(suit.reserve_pct) ?
 const USABLE = O2_MIN * (1 - RESERVE / 100);              // same as planner usableO2min()
 const GCR = val(params.gcr_mSv_per_h) ?? 0.028;          // mSv/h on the surface
 const MARGIN_WARN = 30;                                   // min of O2 margin below which the state is CAUTION (Ana's threshold)
+const MARGIN_CRIT = 10;                                   // min of O2 margin left: return NOW (team estimate)
 const SPEEDS = [60, 300, 600];
 let SIM = 60;
 const walkLabel = () => `▶ Walk (×${SIM})`;
@@ -35,8 +36,16 @@ const CHECK = {
   hold:    ['Reach the safe point', 'Report position to habitat', 'Hold until the alert clears'],
   habitat: ['Enter airlock', 'Repressurize', 'Stow samples'],
   task:    ['Reach the point', 'Site photo', 'Do the assigned task', 'Report to habitat'],
+  cache:   ['Connect O₂ line', 'Refill', 'Disconnect'],
 };
-const TASK_NOTE = { shelter: 'Muster point · NO radiation protection', hold: 'Alert: wait here, coordinate with habitat' };
+const TASK_NOTE = { shelter: 'Muster point', hold: 'Alert: wait here, coordinate with habitat', cache: 'O₂ cache' };
+const SAFE_KINDS = new Set(['shelter', 'hold', 'cache']);     // arriving at one of these = safe spot reached
+// Is the target at this point a radiation shelter? (targets.geojson properties.radiation_shelter, Dana/Marco)
+function targetAtLL(ll) {
+  let best = null, bd = 25;
+  for (const f of site.targets?.features || []) { const dd = dist(ll, f.geometry.coordinates); if (dd < bd) { bd = dd; best = f; } }
+  return best;
+}
 
 if (site.url('hillshade.png')) L.imageOverlay(site.url('hillshade.png'), bounds, { opacity: 0.9 }).addTo(map);
 L.circleMarker([meta.habitat[1], meta.habitat[0]], { radius: 8, color: '#000', weight: 2, fillColor: '#fff', fillOpacity: 1 }).bindTooltip('Habitat').addTo(map);
@@ -66,7 +75,7 @@ function photoFor(w) {
 
 let follow = true;
 // ---------- Alerts: HIGH priority (red, from the console, replans) / LOW priority (yellow, detected here) ----------
-const ALERT_NAMES = { SPE: 'Solar particle event', dust: 'Dust storm', suit: 'Suit failure', los: 'Loss of line of sight', deviation: 'Route deviation' };
+const ALERT_NAMES = { o2low: 'O₂ getting low', o2crit: 'O₂ critical', SPE: 'Solar particle event', dust: 'Dust storm', suit: 'Suit failure', los: 'Loss of line of sight', deviation: 'Route deviation' };
 const DEVIATION_M = 25;          // off-route distance that raises a low-priority alert (team estimate, ~8 grid cells)
 const DEV_SIM_M = 45;            // demo: lateral drift simulated from the console
 const LOS_SIM_MIN = 10;          // demo: EVA minutes without line of sight simulated from the console
@@ -79,16 +88,22 @@ function beep(n = 3, freq = 880) {               // high = 3 beeps, low = 1; bro
   } catch {}
 }
 let openLow = null; const lowQueue = [];
+// Alerts are NOT persistent: the popup and the banner show once and close by themselves (or earlier with Acknowledge).
+const ALARM_MS = { high: 6000, low: 4000, safe: 6000 };
+let alarmTimer = null, bannerTimer = null;
 function openAlarm(priority, type, body) {
   $('alarm').className = priority; openLow = priority === 'low' ? type : null;
-  $('alarmTitle').textContent = `${priority === 'high' ? 'HIGH' : 'LOW'} PRIORITY · ${ALERT_NAMES[type] || type}`;
+  $('alarmTitle').textContent = priority === 'safe' ? `SAFE SPOT REACHED · ${type}` : `${priority === 'high' ? 'HIGH' : 'LOW'} PRIORITY · ${ALERT_NAMES[type] || type}`;
   $('alarmBody').textContent = body; $('alarm').hidden = false;
-  beep(priority === 'high' ? 3 : 1, priority === 'high' ? 880 : 620);
+  const bar = $('alarmBar'); bar.style.animation = 'none'; void bar.offsetWidth; bar.style.animation = `alarmTime ${ALARM_MS[priority]}ms linear forwards`;
+  clearTimeout(alarmTimer); alarmTimer = setTimeout(closeAlarm, ALARM_MS[priority]);
+  beep(priority === 'high' ? 3 : 1, priority === 'high' ? 880 : priority === 'safe' ? 520 : 620);
 }
 function setBanner(priority, text) {
   const b = $('banner');
-  if (priority === 'low' && !b.hidden && b.classList.contains('high')) return;   // a high-priority banner stays on top
+  if (priority === 'low' && !b.hidden && b.classList.contains('high')) return;   // a high-priority banner stays on top while it lasts
   b.className = priority; b.textContent = text; b.hidden = false;
+  clearTimeout(bannerTimer); bannerTimer = setTimeout(() => { b.hidden = true; b.className = ''; }, ALARM_MS[priority]);
 }
 function showAlarm(msg) {                         // HIGH: msg = {alert, destination, destination_kind} (bus contract)
   const a = msg.alert || msg, e = a.effect || {};
@@ -98,17 +113,25 @@ function showAlarm(msg) {                         // HIGH: msg = {alert, destina
     (e.visibility != null && e.visibility < 1 ? ` · visibility ${Math.round(e.visibility * 100)} %` : '') +
     (msg.considered ? `\nOptions: ${msg.considered}` : ''));
 }
+function showCritO2(margin, homeMin) {           // HIGH: the astronaut has to leave now
+  lowQueue.length = 0;
+  openAlarm('high', 'o2crit', `Return to the habitat now. O₂ margin ${Math.max(0, margin).toFixed(0)} min, the way home needs ${homeMin.toFixed(0)} min. A route home is being sent.`);
+  setBanner('high', `HIGH · O₂ critical: return to the habitat now (margin ${Math.max(0, margin).toFixed(0)} min)`);
+}
 function lowAlert(type, body) {                   // LOW: no replan, the walk goes on; the console is told
   send('warning', { priority: 'low', type, message: body, t_min: spentNow.time_min, lon: lastPos?.[0], lat: lastPos?.[1] });
   setBanner('low', `${ALERT_NAMES[type]}: ${body}`);
   if (!$('alarm').hidden) { lowQueue.push([type, body]); return; }               // never cover an open alarm
   openAlarm('low', type, body);
 }
-$('alarmOk').onclick = () => {
+function closeAlarm() {
+  clearTimeout(alarmTimer);
+  if ($('alarm').hidden) return;
   $('alarm').hidden = true;
   if (openLow === 'deviation') drift.target = 0;  // acknowledged: the astronaut heads back to the route
   const n = lowQueue.shift(); if (n) openAlarm('low', ...n);
-};
+}
+$('alarmOk').onclick = closeAlarm;
 
 // Route deviation (simulated lateral drift) and loss of line of sight (simulated or from viewshed.u8)
 const drift = { m: 0, target: 0 };
@@ -216,6 +239,75 @@ function comms(pos) {
   return 'ok';
 }
 
+// ---------- Safe spot: how long can the astronaut stay, per alert type ----------
+// Limits we CAN compute from the data: O₂ (keep enough to walk home + ingress, reserve untouched), suit battery
+// (suit.json battery_Wh / base_power_W), daylight (params sunset_lmst − walk home − night buffer).
+// SPE outside a radiation shelter: also the dose limit. NASA-STD-3001 Vol. 1 Rev. C (2023), [V1 4031]: protect crew from the
+// design-reference SPE to < 250 mSv effective dose. We subtract the dose already taken in this EVA (conservative).
+// Pending: O₂ use while waiting at rest (Eric is looking for it); until then the work rate (conservative).
+const pv = x => (x && typeof x === 'object' && 'value' in x) ? x.value : x;
+const REST_FACTOR = pv(params.work_metabolic_factor) ?? 1;            // ASSUMPTION: O₂ use while waiting = task rate
+const BATT_WH = pv(suit.battery_Wh), BASE_W = pv(suit.base_power_W);
+const SPE_DOSE_LIMIT = pv(params.spe_dose_limit_mSv) ?? 250;   // mSv, NASA-STD-3001 V1 Rev C [V1 4031] (Ana can move it to params.json)
+const SUNSET = pv(params.sunset_lmst) ?? 18, NIGHT_BUF = pv(params.night_buffer_min) ?? 30, MARS_H = 88775.244 / 24 / 60;
+const fmtDur = m => m <= 0 ? 'leave now' : m >= 600 ? '10 h +' : `${Math.floor(m / 60) ? Math.floor(m / 60) + ' h ' : ''}${Math.round(m % 60)} min`;
+function stayLimits(ctx, a, radSafe = true) {
+  const o2x = Math.max(eff.o2_x, a ? (a.effect?.o2_x ?? 1) : 1);          // that alert active (or the current state if worse)
+  const homeO2 = (ctx.cthBase + ctx.ingressMin) * o2x;
+  const lim = [
+    { k: 'O₂', v: (USABLE - ctx.used - homeO2) / (REST_FACTOR * o2x) },
+    { k: 'daylight', v: (SUNSET - ctx.nowLmst) * MARS_H - ctx.walkHomeMin - ctx.ingressMin - NIGHT_BUF },
+  ];
+  if (BATT_WH && BASE_W) lim.push({ k: 'suit battery', v: (BATT_WH - ctx.evaMin / 60 * BASE_W) / BASE_W * 60 - ctx.walkHomeMin - ctx.ingressMin });
+  if (a && (a.action === 'shelter' || a.type === 'SPE') && !radSafe)       // not shielded: dose limit per SPE
+    lim.push({ k: `dose limit ${SPE_DOSE_LIMIT} mSv`, v: (SPE_DOSE_LIMIT - ctx.dose) / (GCR * (a.effect?.dose_x ?? 1)) * 60 });
+  return lim.reduce((m, x) => x.v < m.v ? x : m);
+}
+function stayNoteFor(a, radSafe) {
+  if (!a) return '';
+  if (a.action === 'shelter' || a.type === 'SPE') return radSafe ? 'radiation shelter' : `NOT radiation-protected · ${(GCR * (a.effect?.dose_x ?? 1)).toFixed(2)} mSv/h here`;
+  if (a.action === 'return' || a.action === 'resupply') return 'needs the habitat (repair / O₂): go when you can';
+  return '';
+}
+let stayKey = '';
+function renderStay(task, ctx) {
+  const show = !!task && SAFE_KINDS.has(task.kind);
+  $('stayCard').hidden = !show; if (!show) { stayKey = ''; return null; }
+  const tf = task.wp != null ? targetAtLL(P.wps[task.wp].ll) : null, radSafe = tf?.properties.radiation_shelter === true;
+  const rows = [{ name: 'No alert', a: null }, ...(site.alerts || []).map(a => ({ name: a.name || ALERT_NAMES[a.type] || a.type, a }))]
+    .map(r => ({ ...r, lim: stayLimits(ctx, r.a, radSafe), note: stayNoteFor(r.a, radSafe) }));
+  const html = rows.map(r => `<div class="srow ${r.lim.v <= 0 ? 'bad' : r.lim.v < 30 ? 'warn' : ''}"><span>${r.name}</span><b>${fmtDur(r.lim.v)}</b>` +
+    `<small>limited by ${r.lim.k}${r.note ? ' · ' + r.note : ''}</small></div>`).join('');
+  if (html !== stayKey) { stayKey = html; $('stayRows').innerHTML = html; }
+  $('stayWhere').textContent = tf?.properties.name?.split(' - ')[0] || task.name;
+  $('stayNote').textContent = `O₂ while waiting = work rate (×${REST_FACTOR}) until the resting value is in. SPE dose limit ${SPE_DOSE_LIMIT} mSv per event (NASA-STD-3001 Vol. 1, [V1 4031]).`;
+  return rows[0].lim;
+}
+
+// ---------- Report an emergency from the tablet (the console re-plans; if no console answers, the tablet does) ----------
+let reportTimer = null, reportPending = null;
+(site.alerts || []).forEach(a => {
+  const b = document.createElement('button'); b.textContent = a.name || ALERT_NAMES[a.type] || a.type;
+  b.onclick = () => { reportPending = a; $('reportQ').textContent = `Report "${b.textContent}" to the habitat? A new route will be sent.`; $('reportConfirm').hidden = false; $('reportBtns').hidden = true; };
+  $('reportBtns').appendChild(b);
+});
+$('reportNo').onclick = () => { reportPending = null; $('reportConfirm').hidden = true; $('reportBtns').hidden = false; };
+$('reportYes').onclick = () => {
+  const a = reportPending; $('reportConfirm').hidden = true; $('reportBtns').hidden = false; if (!a || !P) return;
+  send('alert_request', { alert_id: a.id, lon: lastPos?.[0], lat: lastPos?.[1], o2_used_min: spentNow.o2_min, t_min: spentNow.time_min });
+  $('reportStatus').textContent = `Reported: ${a.name || ALERT_NAMES[a.type] || a.type}. Waiting for the habitat…`;
+  clearTimeout(reportTimer);
+  reportTimer = setTimeout(async () => {                     // nobody at the console: re-plan here with the same planner
+    $('reportStatus').textContent = 'No answer from the habitat console: re-planning on the tablet.';
+    await plannerReady;
+    const r = await planner.replan({ current: lastPos, alert: a, state: eff, o2_used_min: spentNow.o2_min, now_lmst: startHour + spentNow.time_min / MARS_H });
+    if (r.error) { $('reportStatus').textContent = 'No safe destination found. Go back toward the habitat.'; return; }
+    showAlarm({ alert: a, destination: r.replan.destination, destination_kind: r.replan.destination_kind, fallback: r.replan.fallback_to_safe_point });
+    setPlan({ plan: r, waypoints: [{ name: r.replan.destination, ll: r.path.geometry.coordinates.at(-1), kind: r.replan.destination_kind }], replan: true, state: r.state });
+    $('reportStatus').textContent = `Re-planned on the tablet → ${r.replan.destination}.`;
+  }, 4000);
+};
+
 // ---------- Task card ----------
 // One button + confirmation (no per-item checklist). The console can also complete it (message 'task_done').
 function showConfirm(v) { $('confirmBox').hidden = !v; $('doneBtn').hidden = v || !(P && activeTask()); }
@@ -260,6 +352,30 @@ function render() {
   const homeMin = walkHome + ingressO2;
   const margin = USABLE - o2UsedMin - homeMin;                                        // planner rule: used + return <= usable
   const state = !(margin >= 0) || distHome > WALKBACK ? 'bad' : margin < MARGIN_WARN ? 'warn' : 'ok';
+  // Safe spot reached: green popup once + stay-time card while there
+  const cthHere = ring.costAt(pos[0], pos[1]);
+  const stayCtx = { used: o2UsedMin, evaMin, dose, nowLmst: startHour + evaMin / MARS_H, ingressMin: ingress ? Math.max(0, ingress.minutes - ingress.elapsed) : 0,
+    cthBase: cthHere != null && Number.isFinite(cthHere) ? cthHere / eff.o2_x : distHome / SPEED / 60, walkHomeMin: distHome / SPEED / 60 };
+  const nominal = renderStay(task, stayCtx);
+  if (task && SAFE_KINDS.has(task.kind) && P.safeShown !== task) {
+    P.safeShown = task;
+    const tf = task.wp != null ? targetAtLL(P.wps[task.wp].ll) : null;
+    openAlarm('safe', (tf?.properties.name || task.name).split(' - ')[0],
+      `You can stay about ${fmtDur(nominal.v)} with no alert (limited by ${nominal.k}). Check "How long you can stay" for each alert.`);
+    send('warning', { priority: 'safe', type: 'safe', message: `reached ${tf?.properties.name || task.name}`, t_min: spentNow.time_min });
+  }
+  // Low-O2 alerts: once per level per plan. Not while the only thing left is the habitat (already going home).
+  const goingHome = !P.tasks.some(t => !t.done && t.kind !== 'habitat' && t.kind !== 'egress') && P.wps.every(w => w.kind === 'habitat' || P.cumD[w.idx] <= d + 1);
+  if (Number.isFinite(margin) && !goingHome && (P.tasks.find(t => t.kind === 'egress')?.done ?? true)) {
+    if (margin < MARGIN_CRIT && !P.o2Crit) {
+      P.o2Crit = P.o2Low = true;
+      showCritO2(margin, homeMin);
+      send('o2_return', { margin_min: margin, o2_used_min: o2UsedMin, lon: pos[0], lat: pos[1] });   // console re-plans: route home
+    } else if (margin < MARGIN_WARN && !P.o2Low) {
+      P.o2Low = true;
+      lowAlert('o2low', `Only ${Math.max(0, margin).toFixed(0)} min of O₂ margin left. Finish the current task and head back to the habitat.`);
+    }
+  }
   const canReturn = state !== 'bad';
   ring.update(USABLE - o2UsedMin - ingressO2);
 
@@ -288,7 +404,9 @@ function render() {
   $('taskCard').classList.toggle('active', !!task);
   if (!shown) { $('taskName').textContent = 'All tasks done'; $('taskTimer').textContent = '–'; $('taskTodo').textContent = ''; $('doneBtn').hidden = true; $('confirmBox').hidden = true; }
   else if (task) {
-    if (shownTask !== task) { shownTask = task; $('taskName').innerHTML = `${task.name}${TASK_NOTE[task.kind] ? `<small>${TASK_NOTE[task.kind]}</small>` : ''}`; $('taskTodo').textContent = task.items.join(' · '); showConfirm(false); }
+    if (shownTask !== task) { shownTask = task; const tf = task.wp != null ? targetAtLL(P.wps[task.wp].ll) : null;
+      const note = (TASK_NOTE[task.kind] || '') + (SAFE_KINDS.has(task.kind) ? (tf?.properties.radiation_shelter === true ? ' · radiation-protected' : ' · NO radiation protection') : '');
+      $('taskName').innerHTML = `${task.name}${note ? `<small>${note}</small>` : ''}`; $('taskTodo').textContent = task.items.join(' · '); showConfirm(false); }
     const over = task.minutes && task.elapsed > task.minutes;
     $('taskTimer').textContent = task.minutes ? `${task.elapsed.toFixed(0)} / ${task.minutes} min${over ? ' · overtime' : ''}` : `${task.elapsed.toFixed(0)} min`;
     $('taskTimer').classList.toggle('over', !!over);
@@ -381,6 +499,7 @@ $('resetBtn').onclick = () => { if (!P) return; playing = false; resetWalk(); $(
 onMessage(m => {
   if (m.type === 'plan') setPlan(m.payload);
   if (m.type === 'alert') {                         // {alert, destination, destination_kind}; the replanned route follows as a 'plan'
+    if (reportTimer) { clearTimeout(reportTimer); reportTimer = null; $('reportStatus').textContent = `Habitat answered → ${m.payload.destination || 'new route'}.`; }
     const a = m.payload.alert || m.payload, e = a.effect || {};
     showAlarm(m.payload);
     setBanner('high', `HIGH · ${a.name || ALERT_NAMES[a.type] || a.type}: → ${m.payload.destination || (a.action === 'return' ? 'habitat' : 'safe place')} · O₂ ×${e.o2_x ?? 1} · dose ×${e.dose_x ?? 1}`);
