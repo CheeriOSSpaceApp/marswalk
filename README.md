@@ -112,9 +112,7 @@ Time spent on tasks is added to the walking time, so it counts toward O₂ use a
 | Habitat egress / ingress | 15 each |
 | Cache refill (O₂ top-off at a surface cache) | 10 |
 
-Task time counts toward O₂ use and dose, except habitat egress and ingress, which are assumed to happen in a shielded airlock (they cost O₂ and time, not dose). O₂ used during a task is its duration times the work metabolic factor (1.0) times the active alert’s o2_x.
-
-O₂ used during a task is its duration times a metabolic factor times the active alert's `o2_x`. Work at the depot and science stops uses `work_metabolic_factor` (1.0 × P_nom). Standing or sitting tasks (habitat egress and ingress, cache refill, shelter, hold) use `rest_metabolic_factor` (0.5 × P_nom, about 176 W), the top of the range reported for suited subjects at rest; both factors are team assumptions.
+Task time counts toward O₂ use and dose, except habitat egress and ingress, which are assumed to happen in a shielded airlock (they cost O₂ and time, not dose). O₂ used during a task is its duration times a metabolic factor times the active alert's `o2_x`. Work at the depot and science stops uses `work_metabolic_factor` (1.0 × P_nom). Standing or sitting tasks (habitat egress and ingress, cache refill, shelter, hold) use `rest_metabolic_factor` (0.5 × P_nom, about 176 W), the top of the range reported for suited subjects at rest; both factors are team assumptions.
 
 At a cache stop the crew tops up its oxygen: the refill task takes cache_refill minutes, and in the O₂ return rule the O₂ used so far is reduced by the amount stored in that cache (a property of the cache in `targets.geojson`, not of `params.json`).
 
@@ -156,6 +154,8 @@ Alerts stack: `dose_x` and `o2_x` multiply, and visibility takes the lowest valu
 | `w_obstacle_caution` | 2.0 | n/a | Tunable weight (team default); adjusted with the rover validation | Yes |
 | `task_min.cache_refill` | 10 | min | O₂ top-off at a pre-positioned surface cache via an umbilical (concept: suit Service and Cooling Umbilical, Campbell et al. 2017, sec. 3.2.5.5.2); duration is a MarsWalk assumption | Yes |
 | `w_nocomms`| 0.2 | n/a | Tunable weight (team default) | Yes |
+| `rest_metabolic_factor` | 0.5 | n/a | Top of the 300 to 600 BTU/h range reported for suited subjects at rest (Rhodes et al. 2013); cross-check: Ewert & Downs 2021. Applies to egress, ingress, cache refill, shelter and hold | Yes |
+| `spe_dose_limit_mSv` | 250 | mSv | NASA-STD-3001 Vol. 1 Rev. C (2023), requirement V1 4031: design-reference SPE effective dose limit; used by the tablet as the stay limit at places that are not radiation-protected | No |
 
 ### Model limitations
 - Slope is an unsigned magnitude, so descending costs the same as ascending. This is conservative; a signed-grade model (e.g. a Santee-type downhill correction) is future work.
@@ -181,6 +181,9 @@ Alerts stack: `dose_x` and `o2_x` multiply, and visibility takes the lowest valu
 - Guo, J. et al. (2017). *J. Geophys. Res. Planets* 122, 329-341. doi:10.1002/2016JE005206
 - Campbell, C., Rodriggs, L., Blanco, R. (2017). Schematics and Behavioral Description for the Advanced EMU (AEMU) Portable Life Support Subsystem (PLSS). CTSD-ADV-959 Rev A, NASA JSC. NTRS 20170009505. https://ntrs.nasa.gov/citations/20170009505
 - Mars Climate Database v6.2, LMD (with ESA/CNES), https://www-mars.lmd.jussieu.fr/mcd_python/.
+- Rhodes, Bue, Meginnis, Hakam, Radford (2013). Thermal Performance Testing of EMU and CSAFE Liquid Cooling Garments. AIAA ICES. NTRS 20130011117.
+- Ewert, M., Downs, M. (2021). Developing a Daily Metabolic Rate Profile for Human Exploration Missions. ICES-2021-365.
+- NASA-STD-3001 Vol. 1 Rev. C (2023), Crew Health.
 
 ### Planner limitations
 Unsigned slope, 3 m cells, stop order given (not optimised), greedy re-planning, single astronaut: see
