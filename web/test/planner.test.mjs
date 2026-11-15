@@ -1,7 +1,7 @@
 // Run from web/:  node test/planner.test.mjs [site]
 // Loads the contract files from disk (no browser) and checks the planner.
 import fs from 'node:fs';
-import { plan, astar, buildCostGrid } from '../src/planner.js';
+import { plan, astar, buildCostGrid, dijkstraFrom, getCostToHome } from '../src/planner.js';
 
 const site = process.argv[2] || 'mock';
 const dir = new URL(`../public/data/${site}/`, import.meta.url);
@@ -53,5 +53,21 @@ check('A* cost == Dijkstra cost (optimal)', Math.abs(costOf(a) - costOf(d)) < 1e
 // 6. Alert state changes the result (suit failure: O2 x1.5)
 r = plan(S, { start: T.habitat, goal: T.depot, state: { o2_x: 1.5 } });
 check('suit alert raises O2 use', !r.error, `o2 ${r.stats.o2_used_pct}%`);
+
+// 7. costToHome: 0 at habitat, symmetric with A* cost, timing
+let t = performance.now();
+const home = 850 * W + 150, depot = 200 * W + 600;
+const cth = dijkstraFrom(grid, home);
+const tD = Math.round(performance.now() - t);
+check('costToHome[habitat] == 0', cth[home] === 0, `(dijkstra full grid ${tD} ms)`);
+check('costToHome[depot] == A* cost habitat->depot', Math.abs(cth[depot] - costOf(a)) < 1e-2, `${cth[depot].toFixed(3)} vs ${costOf(a).toFixed(3)}`);
+check('forbidden cells are Infinity', cth.every((v, i) => S.layers.hazard[i] !== 2 || v === Infinity));
+
+// 8. walkback: normal EVA OK; tiny O2 tank must fail
+r = plan(S, { start: T.habitat, stops: [T.depot], goal: T.habitat });
+check('walkback_ok with normal suit', r.stats.walkback_ok === true, `margin ${r.stats.walkback_margin_min} min`);
+const S2 = { ...S, suit: { ...S.suit, o2_hours: { value: 0.5 } } };
+r = plan(S2, { start: T.habitat, stops: [T.depot], goal: T.habitat });
+check('walkback fails with 30-min tank', r.stats.walkback_ok === false, `margin ${r.stats.walkback_margin_min} min`);
 
 process.exit(fails ? 1 : 0);

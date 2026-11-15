@@ -82,6 +82,66 @@ export function astar(grid, start, goal) {
   return path.reverse();
 }
 
+// ---------- 2b. Dijkstra from one source over the WHOLE grid ----------
+// costToHome[i] = cheapest O2-minutes to walk from cell i back to the habitat.
+// Why running it FROM the habitat works: our edge cost is symmetric
+// (avg(cost[a], cost[b]) * dist is the same in both directions), so
+// cost(i -> home) == cost(home -> i). If Ana later makes cost direction-dependent
+// (uphill != downhill), this must run on reversed edges ("reverse Dijkstra").
+// Same loop as A* but: no heuristic (h = 0) and no goal (expand everything).
+export function dijkstraFrom(grid, source) {
+  const { cost, W, H, cellM } = grid;
+  const n = W * H;
+  const dist = new Float32Array(n).fill(Infinity);
+  const closed = new Uint8Array(n);
+  const open = new MinHeap(1 << 20);
+  if (!(cost[source] < Infinity)) return dist;
+  dist[source] = 0;
+  open.push(0, source);
+  while (open.size > 0) {
+    const cur = open.pop();
+    if (closed[cur]) continue;
+    closed[cur] = 1;
+    const r = Math.floor(cur / W), c = cur % W, dc = dist[cur];
+    for (let d = 0; d < 8; d++) {
+      const nr = r + DIRS[d][0], nc = c + DIRS[d][1];
+      if (nr < 0 || nr >= H || nc < 0 || nc >= W) continue;
+      const nb = nr * W + nc;
+      if (closed[nb] || !(cost[nb] < Infinity)) continue;
+      const diagonal = d >= 4;
+      if (diagonal && (!(cost[r * W + nc] < Infinity) || !(cost[nr * W + c] < Infinity))) continue;
+      const nd = dc + 0.5 * (cost[cur] + cost[nb]) * (diagonal ? SQRT2 * cellM : cellM);
+      if (nd < dist[nb]) { dist[nb] = nd; open.push(nd, nb); }
+    }
+  }
+  return dist;
+}
+
+// O2 the astronaut may spend, in minutes, keeping the mandatory reserve.
+export function usableO2min(suit) {
+  const total = (suit?.o2_hours?.value ?? 8) * 60;
+  return total * (1 - (suit?.reserve_pct?.value ?? 20) / 100);
+}
+
+// Walkback check: at EVERY point k of the route,
+//   O2 already used up to k + costToHome[k] <= usable O2
+// margin = worst (smallest) slack along the route, in O2-minutes.
+export function walkbackCheck(cells, grid, costToHome, usable) {
+  const W = grid.W;
+  let used = 0, margin = Infinity, worstIdx = 0;
+  for (let k = 0; k < cells.length; k++) {
+    const i = cells[k];
+    if (k > 0) {
+      const p = cells[k - 1];
+      const diag = Math.floor(p / W) !== Math.floor(i / W) && p % W !== i % W;
+      used += 0.5 * (grid.cost[p] + grid.cost[i]) * (diag ? SQRT2 : 1) * grid.cellM;
+    }
+    const slack = usable - (used + costToHome[i]);
+    if (slack < margin) { margin = slack; worstIdx = k; }
+  }
+  return { ok: margin >= 0, margin_min: +margin.toFixed(1), worst_point: worstIdx };
+}
+
 // ---------- 3. Stats for a list of cells ----------
 export function pathStats(cells, site, grid, params, state = {}) {
   const { layers, meta, suit } = site;
@@ -107,22 +167,32 @@ export function pathStats(cells, site, grid, params, state = {}) {
     o2_used_pct: +((100 * o2min) / o2Total).toFixed(1),
     dose_mSv: +((params.gcr_mSv_per_h ?? 0.028) * hours * (state.dose_x ?? 1)).toFixed(4),
     max_slope_deg: +maxSlope.toFixed(1),
-    walkback_ok: null, // TODO 20:30 block: reverse Dijkstra from habitat (costToHome)
+    walkback_ok: null, // filled by plan() with walkbackCheck (needs the whole route)
     comms_pct: Math.round((100 * comms) / cells.length),
   };
 }
 
 // ---------- 4. Public API: plan() ----------
 // req: { start:[lon,lat], stops:[[lon,lat],...], goal:[lon,lat], params?, state? }
-let cache = { key: null, grid: null };
+let cache = { key: null, grid: null, costToHome: null };
+
+// Cost grid + costToHome depend only on (params, state). Recompute only when those change
+// (i.e. when an alert arrives) — that's why replanning is cheap.
+export function getGrid(site, params, state) {
+  const key = JSON.stringify([params, state, site.meta.habitat]);
+  if (cache.key !== key) {
+    const grid = buildCostGrid(site.layers, site.meta, params, state);
+    const home = lonLatToCell(site.meta, ...site.meta.habitat).i;
+    cache = { key, grid, costToHome: dijkstraFrom(grid, home) };
+  }
+  return cache;
+}
 
 export function plan(site, req) {
   const t0 = performance.now();
   const params = { ...site.params, ...(req.params || {}) };
   const state = req.state || {};
-  const key = JSON.stringify([params, state]);
-  if (cache.key !== key) cache = { key, grid: buildCostGrid(site.layers, site.meta, params, state) };
-  const grid = cache.grid;
+  const { grid, costToHome } = getGrid(site, params, state);
   const tCost = performance.now();
 
   const pts = [req.start, ...(req.stops || []), req.goal];
@@ -134,14 +204,27 @@ export function plan(site, req) {
     segments.push({ from: pts[k], to: pts[k + 1], stats: pathStats(leg, site, grid, params, state) });
     all.push(...(k === 0 ? leg : leg.slice(1)));
   }
+  const stats = pathStats(all, site, grid, params, state);
+  const wb = walkbackCheck(all, grid, costToHome, usableO2min(site.suit));
+  stats.walkback_ok = wb.ok;
+  stats.walkback_margin_min = wb.margin_min;
   return {
     path: {
       type: 'Feature',
       properties: {},
       geometry: { type: 'LineString', coordinates: all.map((i) => cellToLonLat(site.meta, i)) },
     },
-    stats: pathStats(all, site, grid, params, state),
+    stats,
+    walkback_worst_point: cellToLonLat(site.meta, all[wb.worst_point]),
     segments,
     timing_ms: { cost_grid: Math.round(tCost - t0), astar: Math.round(performance.now() - tCost) },
   };
+}
+
+// For the tablet's "no-return ring": the raw costToHome raster (O2-min, Infinity = unreachable).
+// Tablet logic: cell i is beyond no-return if costToHome[i] > O2 remaining now.
+export function getCostToHome(site, req = {}) {
+  const params = { ...site.params, ...(req.params || {}) };
+  const { costToHome } = getGrid(site, params, req.state || {});
+  return { costToHome: costToHome.slice(), usable_o2_min: usableO2min(site.suit) };
 }

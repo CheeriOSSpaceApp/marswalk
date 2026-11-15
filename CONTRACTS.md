@@ -29,11 +29,20 @@ If you need to change a format: announce in #general FIRST, then update this fil
 | params.json | model weights & constants, with source | Ana | Eric | 19:00 |
 
 ## Code contracts (JavaScript, `web/src/`)
+
+**Cost units (decided 18:45, Eric + Ana):** `cellCost` returns **O₂-equivalent minutes per meter**.
+The planner computes the cost of moving between neighbor cells a→b as
+`edge = 0.5 * (cellCost(a) + cellCost(b)) * distance_m`, where distance_m = `cell_m` (straight) or `√2 · cell_m` (diagonal).
+So a route's total cost is in O₂-minutes and compares directly with `suit.o2_hours * 60`.
+Do NOT return per-cell cost (time to cross the cell × M): it would be off by a factor of `cell_m`.
+
 | Module | Signature | Owner | Used by |
 |---|---|---|---|
 | data.js | `loadSite(site) -> {meta, layers:{elevation, slope, roughness, hazard, viewshed}, targets, suit, params, alerts}` | Eric | All |
-| cost.js | `cellCost(i, layers, params, state) -> O2-equivalent minutes or Infinity` | Ana | Eric |
+| cost.js | `cellCost(i, layers, params, state) -> O2-equivalent MINUTES PER METER walked through cell i, or Infinity (impassable)`. Also exports `speedAt(i, layers) -> m/s` | Ana | Eric |
 | planner.worker.js | `plan({start, stops[], goal, params, state}) -> {path: GeoJSON LineString, stats, segments[]}` | Eric | Santiago |
-| stats | `{distance_m, duration_min, o2_used_pct, dose_mSv, max_slope_deg, walkback_ok, comms_pct}` | Eric + Ana | Santiago |
+| stats | `{distance_m, duration_min, o2_used_pct, dose_mSv, max_slope_deg, walkback_ok, walkback_margin_min, comms_pct}` | Eric + Ana | Santiago |
+| plannerClient.js | `createPlanner()` -> `{init(site), plan(req), costToHome(req), terminate()}` (all Promises) | Eric | Santiago |
+| costToHome | `planner.costToHome({state}) -> {costToHome: Float32Array (O2-min to walk back to habitat, Infinity = unreachable), usable_o2_min}`. Tablet: cell i is beyond no-return if `costToHome[i] > O2 remaining` | Eric | Santiago |
 | replan | `replan(currentCell, alert) -> new plan from current position` | Eric | Santiago |
 | bus.js | `BroadcastChannel('marswalk')`: `{type: 'plan'\|'alert'\|'position', payload}` | Santiago | All |

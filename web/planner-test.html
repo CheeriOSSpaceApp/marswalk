@@ -16,6 +16,8 @@
     <b>Click 1 = start, click 2 = goal.</b> Red = forbidden, yellow = caution.<br />
     <label><input id="suit" type="checkbox" /> Suit failure (O₂ ×1.5)</label><br />
     <label><input id="dust" type="checkbox" /> Dust (visibility 0.3)</label><br />
+    <label><input id="ring" type="checkbox" /> No-return ring</label>
+    <input id="o2" type="range" min="0" max="400" value="120" /> O₂ left: <span id="o2v">120</span> min<br />
     <button id="eva">Habitat → depot → science → habitat</button>
     <pre id="out">loading…</pre>
   </div>
@@ -44,8 +46,20 @@
     const toLonLat = (x, y) => { const [a, s, c, n] = meta.bbox; return [a + (x + 0.5) / W * (c - a), n - (y + 0.5) / H * (n - s)]; };
     const toXY = ([lon, lat]) => { const { row, col } = lonLatToCell(meta, lon, lat); return [col, row]; };
 
+    let cth = null, lastRes = null, lastPts = [];
+    function drawRing() {
+      if (!document.getElementById('ring').checked || !cth) return;
+      const left = +document.getElementById('o2').value;
+      const im = ctx.getImageData(0, 0, W, H), d = im.data;
+      for (let i = 0; i < W * H; i++) {
+        if (cth[i] > left) { d[4 * i] *= 0.35; d[4 * i + 1] *= 0.35; d[4 * i + 2] *= 0.5; } // beyond no-return: darken
+      }
+      ctx.putImageData(im, 0, 0);
+    }
     function draw(res, pts) {
+      lastRes = res; lastPts = pts;
       ctx.drawImage(bg, 0, 0);
+      drawRing();
       if (res?.path) {
         ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 3; ctx.beginPath();
         res.path.geometry.coordinates.forEach((p, k) => { const [x, y] = toXY(p); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
@@ -80,6 +94,14 @@
     };
     const T = Object.fromEntries(site.targets.features.map((f) => [f.properties.id, f.geometry.coordinates]));
     document.getElementById('eva').onclick = () => run({ start: T.habitat, stops: [T.depot, T.sci1, T.sci2], goal: T.habitat });
+
+    const refreshRing = async () => {
+      document.getElementById('o2v').textContent = document.getElementById('o2').value;
+      if (document.getElementById('ring').checked) ({ costToHome: cth } = await planner.costToHome({ state: state() }));
+      draw(lastRes, lastPts);
+    };
+    for (const id of ['ring', 'suit', 'dust']) document.getElementById(id).addEventListener('change', refreshRing);
+    document.getElementById('o2').oninput = refreshRing;
 
     draw(null, []);
     out.textContent = `site: ${SITE}, ${W}×${H}, cell ${meta.cell_m} m. Click to plan.`;

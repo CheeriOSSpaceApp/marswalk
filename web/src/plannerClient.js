@@ -29,6 +29,8 @@ export function createPlanner() {
   return {
     init: (site) => call('init', { site }),
     plan: (req) => call('plan', req),
+    // -> {costToHome: Float32Array (O2-min per cell), usable_o2_min}. For the no-return ring.
+    costToHome: (req = {}) => call('costToHome', req),
     terminate: () => worker.terminate(),
   };
 }
