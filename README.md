@@ -87,7 +87,7 @@ Cost is expressed in "O₂ minutes": one O₂ minute is one minute of suit suppl
 
 c = M / (V · 60 · P_nom)   [O₂ min / m]
 
-The planner multiplies c by the move length (cell size, or √2 times it on diagonals). Cells with hazard = 2, or with missing slope or roughness data, cost infinity.
+The cost of a step between neighbouring cells a and b is ½(c_a + c_b) times the step length (cell size, or √2 times it on diagonals). Walking time is the step length divided by the mean speed of the two cells. The planner also treats cells steeper than the suit’s max_slope_deg (15°) as impassable.
 
 ### Radiation
 The base galactic cosmic ray (GCR) rate is 0.0279 mSv/h, which is the 0.67 mSv/day average dose equivalent measured by MSL/RAD (Hassler et al. 2014) divided by 24 h. The dose of one route segment is
@@ -108,7 +108,9 @@ Time spent on tasks is added to the walking time, so it counts toward O₂ use a
 | Habitat egress / ingress | 15 each |
 | Cache refill (O₂ top-off at a surface cache) | 10 |
 
-O₂ used during a task is its duration times a work metabolic factor of 1.0, i.e. nominal metabolic rate (conservative: Apollo geology stations ran at about 0.81 to 0.89 of it).
+Task time counts toward O₂ use and dose, except habitat egress and ingress, which are assumed to happen in a shielded airlock (they cost O₂ and time, not dose). O₂ used during a task is its duration times the work metabolic factor (1.0) times the active alert’s o2_x.
+
+At a cache stop the crew tops up its oxygen: the refill task takes cache_refill minutes, and in the O₂ return rule the O₂ used so far is reduced by the amount stored in that cache (a property of the cache in `targets.geojson`, not of `params.json`).
 
 ### Constants
 
