@@ -19,7 +19,9 @@ Keep DevTools open (F12 → Console): any red error = bug, report it.
 | 6 | Tick **Suit failure**, press EVA again | Same route, O₂ ×1.5 (~68 %) |
 | 7 | Tick **Dust**, plan between 2 points crossing yellow areas | Route changes: avoids steep/rough terrain |
 | 8 | After an EVA, press **SPE → shelter** | Orange route from YOU to the habitat (jezero: Hawksbill isn't a radiation shelter), old route dashed, `round_trip_ms` < 1000 |
-| 9 | Press **dust → return**, then **suit → return** (without replanning) | `state` shows both alerts stacked (o2_x 1.65, visibility 0.3) |
+| 9 | Press **dust → safe_point**, then **suit → return** (without replanning) | `state` shows both alerts stacked (o2_x 1.65, visibility 0.3) |
+| 9b | Plan an EVA to Wildcat Ridge, press **dust → safe_point** | goes to Hawksbill (nearest safe point); `considered` lists Hawksbill and the habitat with minutes |
+| 9c | Press **suit → resupply** (O₂ leak) | home directly, or via an O₂ cache when one exists (`via_cache`) |
 | 10 | Tick **No-return ring**, move the O₂ slider down | Dark area grows from the edges inward; at ~30 min only the area near the habitat stays lit |
 | 11 | Repeat 2, 5, 8 with `?site=mock` | Works the same on the fake terrain (SPE goes to "Shelter A (mock)") |
 

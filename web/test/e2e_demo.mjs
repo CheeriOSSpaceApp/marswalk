@@ -22,21 +22,34 @@ const base = await page.evaluate(() => window.__last.base);
 check('base EVA planned', base.path.geometry.coordinates.length > 10, `${base.stats.distance_m} m`);
 await page.screenshot({ path: new URL('./screens/0_base.png', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1') });
 
-for (const [i, label] of ['SPE → shelter', 'dust → return', 'suit → return'].entries()) {
+// Data-driven (12:50): one scenario per alert BUTTON on the page, whatever alerts.json contains.
+// Checks the RULE of each action instead of a hard-coded label/name (labels changed when dust became safe_point).
+const RULES = {
+  shelter: (r) => r.replan.destination_kind === 'habitat' || r.replan.destination_kind === 'shelter',            // radiation-safe place
+  safe_point: (r) => { const el = (r.replan.considered || []).filter((c) => c.eligible && c.minutes != null);   // fastest of habitat / safe points
+    const chosen = (r.replan.considered || []).find((c) => c.chosen); return !!chosen && chosen.minutes === Math.min(...el.map((c) => c.minutes)); },
+  return: (r) => r.replan.destination_kind === 'habitat',                                                         // suit failure: habitat only
+  resupply: (r) => (r.replan.destination_kind === 'habitat' || r.replan.destination_kind === 'cache') && r.stats.o2_return_ok, // O2 leak
+};
+const labels = await page.$$eval('#alerts button', (bs) => bs.map((b) => b.textContent.trim()));
+check('alert buttons present', labels.length >= 3, labels.join(' | '));
+for (const [i, label] of labels.entries()) {
   await page.click('#eva'); // reset: alerts stack, so each scenario starts from a fresh plan
   await page.waitForFunction(() => window.__last?.base && !window.__last.replan, null, { timeout: 30000 });
   const t = Date.now();
-  await page.click(`text=${label}`);
+  await page.$$eval('#alerts button', (bs, k) => bs[k].click(), i);
   await page.waitForFunction(() => window.__last?.replan, null, { timeout: 30000 });
   const ms = Date.now() - t;
   const { replan: r, current } = await page.evaluate(() => window.__last);
+  const action = r.replan?.action ?? label.split('→').pop().trim();
   const c = r.path.geometry.coordinates;
   const d = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]);
   check(`${label}: new route starts at astronaut`, d(c[0], current) < 1e-4);
   check(`${label}: route actually changed`, JSON.stringify(c) !== JSON.stringify(base.path.geometry.coordinates));
-  check(`${label}: destination matches action`, label.includes('shelter') ? /shelter|habitat/i.test(r.replan.destination) : r.replan.destination === 'Habitat', `-> ${r.replan.destination}`);
+  check(`${label}: destination follows the '${action}' rule`, RULES[action] ? RULES[action](r) : false,
+    `-> ${r.replan.destination} (${r.replan.destination_kind})`);
   check(`${label}: under 1 s click-to-route`, ms < 1000, `${ms} ms`);
-  await page.screenshot({ path: new URL(`./screens/${i + 1}_${label.split(' ')[0]}.png`, import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1') });
+  await page.screenshot({ path: new URL(`./screens/${i + 1}_${label.replace(/[^a-z_]+/gi, '_')}.png`, import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1') });
 }
 check('no JS errors in page', errors.length === 0, errors.join(' | '));
 await browser.close();

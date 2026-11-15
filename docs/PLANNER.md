@@ -107,7 +107,7 @@ than 3 × 3 km.
 | **Usable O₂** | 8 h × 60 × (1 − **18 %** reserve) = **393.6 O₂-min** | 8 h: ICES-2026-158; reserve: team decision (below) |
 | **Walkback** | walking distance home ≤ **1770 m** everywhere (30 min at 2.2 mph) | NASA ICES-2026-127 |
 | **Battery** | EVA hours ≤ 1155 Wh / 120 W = 9.6 h (suit electronics, not metabolism) | NASA GRC PLSS target |
-| **Daylight** | home ≥ 30 min before sunset, and no departure before sunrise → GO / CAUTION / NO-GO | team rule; sunrise/sunset from MCD |
+| **Daylight** | home ≥ 30 min before sunset, and no departure before sunrise → GO / CAUTION / NO-GO | team rule; sunrise 06:50 / sunset 17:37 LMST at the habitat (MCD v6.2, Ls 270, Gabriel) |
 
 **Why an 18 % reserve.** It is 86.4 min of oxygen. The design worst case is a 30-min walkback at 1700 BTU/h with a suit
 failure (×1.5), which costs 63.75 O₂-min. A 15 % reserve (72 min) left only 8 min of slack and did not cover a
@@ -187,7 +187,7 @@ Habitat (certified MSR landing site at Three Forks) → 10 depot tubes → Wildc
 | max walkback | 601 m (limit 1770) |
 | dose | 0.075 mSv |
 | line of sight to the habitat | 100 % |
-| start 09:00 LMST | back 12:04 → **GO** (sunset 18:00) |
+| start 09:00 LMST | back 12:04 → **GO** (real sunset 17:37 LMST, MCD at Ls 270; 342 min of daylight left) |
 | same EVA starting 15:30 | back 18:34 → **NO-GO** |
 
 **Finding:** on EVA-1 the active limit is **work time, not walking**: 165 of 190 minutes are spent at the targets. The

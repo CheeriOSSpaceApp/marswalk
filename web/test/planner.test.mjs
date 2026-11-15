@@ -190,13 +190,16 @@ check('B: stop buried by an obstacle -> dropped as unreachable', ad.adapt.droppe
 console.log('--- E. day / night');
 r = plan(S, { start: T.habitat, stops: [T.shelter1], goal: T.habitat, start_lmst: 9 });
 check('E: 09:00 start, short EVA -> GO', r.stats.go === 'GO', `${r.stats.start_lmst_hhmm} -> ${r.stats.end_lmst_hhmm}, margin ${r.stats.daylight_margin_min} min`);
-r = plan(S, { start: T.habitat, stops: [T.shelter1], goal: T.habitat, start_lmst: 16.5 });
-check('E: 16:30 start, home 17:46 (< 30 min before sunset) -> CAUTION, still safe', r.stats.go === 'CAUTION' && r.stats.safe, `end ${r.stats.end_lmst_hhmm}, margin ${r.stats.daylight_margin_min} min`);
-r = plan(S, { start: T.habitat, stops: [T.shelter1], goal: T.habitat, start_lmst: 17.2 });
-check('E: 17:12 start -> home after sunset -> NO-GO, not safe', r.stats.go === 'NO-GO' && r.stats.safe === false, `end ${r.stats.end_lmst_hhmm}`);
-r = plan(S, { start: T.habitat, stops: [T.shelter1], goal: T.habitat, start_lmst: 5 });
+// Times derived from params (sunset/sunrise come from the MCD since 12:27), not hard-coded
+const MH = 88775.244 / 24 / 60, SUNSET = S.params.sunset_lmst?.value ?? 18, SUNRISE = S.params.sunrise_lmst?.value ?? 6;
+const evaMin = plan(S, { start: T.habitat, stops: [T.shelter1], goal: T.habitat }).stats.duration_min;
+r = plan(S, { start: T.habitat, stops: [T.shelter1], goal: T.habitat, start_lmst: SUNSET - (evaMin + 15) / MH });
+check('E: home 15 min before sunset (< 30 min buffer) -> CAUTION, still safe', r.stats.go === 'CAUTION' && r.stats.safe, `end ${r.stats.end_lmst_hhmm}, sunset ${r.stats.sunset_lmst_hhmm}, margin ${r.stats.daylight_margin_min} min`);
+r = plan(S, { start: T.habitat, stops: [T.shelter1], goal: T.habitat, start_lmst: SUNSET - (evaMin - 20) / MH });
+check('E: home 20 min after sunset -> NO-GO, not safe', r.stats.go === 'NO-GO' && r.stats.safe === false, `end ${r.stats.end_lmst_hhmm}`);
+r = plan(S, { start: T.habitat, stops: [T.shelter1], goal: T.habitat, start_lmst: SUNRISE - 0.5 });
 check('E: leaving before sunrise -> NO-GO', r.stats.go === 'NO-GO');
-ad = adapt(S, { current: T.habitat, stops: [T.shelter1, T.sci2], now_lmst: 16.6 });
+ad = adapt(S, { current: T.habitat, stops: [T.shelter1, T.sci2], now_lmst: SUNSET - 1.0 });
 check('E+B: late in the sol -> adapt drops stops to be home before sunset', ad.adapt.decision !== 'continue' && ad.stats.go !== 'NO-GO', `${ad.adapt.decision}: ${ad.adapt.dropped.map((d) => d.reason).join('; ')}, home ${ad.stats.end_lmst_hhmm}`);
 const g0 = getGrid(S, S.params, {}).grid, gNo = getGrid(S, S.params, { w_caution: 0 }).grid;
 let yc = 0; for (let i = 0; i < g0.cost.length; i++) if (S.layers.hazard[i] === 1 && g0.cost[i] < Infinity) { yc++; if (!(g0.cost[i] > gNo.cost[i])) { yc = -1e9; break; } }
