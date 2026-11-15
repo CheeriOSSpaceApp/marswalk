@@ -14,3 +14,4 @@ Format: `- [HH:MM] Name — Tool — What for — What we kept / changed`
 - [20:40] Eric — Claude — Checked Marco's Jezero targets/photos (distances verified 283–548 m), moved them from mock/ to jezero/, added task time per target, radiation_shelter rule for SPE, out-of-map guard; 31 tests.
 
 - [20:52] Ana - Claude - Checked "radiation.js" to validate that it functions correctly.
+- [22:36] Gabriel - ChatGPT - how to path within a repo to open files, in order to load de meta.json.
