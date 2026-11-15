@@ -20,7 +20,7 @@ const MARGIN_WARN = 30;                                   // min of O2 margin be
 const MARGIN_CRIT = 10;                                   // min of O2 margin left: return NOW (team estimate)
 const SPEEDS = [60, 300, 600];
 let SIM = 60;
-// ?demo=1 (Launch demo): the tablet walks by itself at ×300 and closes each task when its planned time is up
+// ?demo=1 (Launch demo): the tablet walks by itself at ×60 and closes each task when its planned time is up
 const DEMO = new URLSearchParams(location.search).has('demo');
 const DEMO_HOLD_MIN = 20;                          // a replan 'hold' (shelter) has no planned time: wait this long, then stop
 const walkLabel = () => `▶ Walk (×${SIM})`;
@@ -214,9 +214,9 @@ function setPlan(payload) {
     setTimeout(() => openAlarm('high', `NO-GO · EVA start ${st0.start_lmst_hhmm || ''}`, noGoText(st0), true), DEMO ? 1500 : 300);
     if (DEMO) return;
   }
-  if (DEMO && !replanned) setTimeout(() => {         // autopilot: ×300, walk
+  if (DEMO && !replanned) setTimeout(() => {         // autopilot: ×60 (real-time ×60), walk
     if (!P || playing || P.stats0 !== st0) return;
-    SIM = 300; $('speedBtn').textContent = '×300'; playing = true; $('playBtn').textContent = '⏸ Pause'; last = performance.now(); requestAnimationFrame(loop);
+    SIM = 60; $('speedBtn').textContent = '×60'; playing = true; $('playBtn').textContent = '⏸ Pause'; last = performance.now(); requestAnimationFrame(loop);
   }, 2500);
 }
 
