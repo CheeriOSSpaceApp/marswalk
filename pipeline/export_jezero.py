@@ -39,9 +39,12 @@ def roughness(z, k=5, cell_m=3.0):
     czy = ndimage.correlate(zf, Y)
     varx = np.mean(np.tile(off, (k, 1)) ** 2)
     var_resid = (mz2 - mz ** 2) - czx ** 2 / varx - czy ** 2 / varx
+
     r = np.sqrt(np.maximum(var_resid, 0))
-    bad = ndimage.uniform_filter((~valid).astype(np.float64), k) > 0
+
+    bad = ndimage.maximum_filter(~valid, size=k, mode="reflect")
     r[bad] = np.nan
+
     return r
 
 
