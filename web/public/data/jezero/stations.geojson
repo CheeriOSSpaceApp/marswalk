@@ -1,0 +1,80 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.41154831,
+          18.459408670000002
+        ]
+      },
+      "properties": {
+        "id": "cache-1",
+        "name": "Cache 1",
+        "kind": "shelter",
+        "station_type": "cache",
+        "radiation_shelter": false,
+        "supplies": {
+          "o2_min": {
+            "value": 120,
+            "source": "Marco"
+          }
+        },
+        "source": "pipeline/calcstations.py greedy k-center",
+        "notes": "Greedy k-center, k=1; worst case before/after: 78.28/73.88 nominal O2 min. Final worst case: 64.98; threshold: 10.00; threshold_met: false."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.390152554,
+          18.47155555
+        ]
+      },
+      "properties": {
+        "id": "cache-2",
+        "name": "Cache 2",
+        "kind": "shelter",
+        "station_type": "cache",
+        "radiation_shelter": false,
+        "supplies": {
+          "o2_min": {
+            "value": 120,
+            "source": "Marco"
+          }
+        },
+        "source": "pipeline/calcstations.py greedy k-center",
+        "notes": "Greedy k-center, k=2; worst case before/after: 73.88/69.16 nominal O2 min. Final worst case: 64.98; threshold: 10.00; threshold_met: false."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.391379742,
+          18.43258431
+        ]
+      },
+      "properties": {
+        "id": "cache-3",
+        "name": "Cache 3",
+        "kind": "shelter",
+        "station_type": "cache",
+        "radiation_shelter": false,
+        "supplies": {
+          "o2_min": {
+            "value": 120,
+            "source": "Marco"
+          }
+        },
+        "source": "pipeline/calcstations.py greedy k-center",
+        "notes": "Greedy k-center, k=3; worst case before/after: 69.16/64.98 nominal O2 min. Final worst case: 64.98; threshold: 10.00; threshold_met: false."
+      }
+    }
+  ]
+}
