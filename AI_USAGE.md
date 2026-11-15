@@ -45,3 +45,4 @@ Format: `- [HH:MM] Name — Tool — What for — What we kept / changed`
 - [12:50] Eric — Claude — e2e_demo.mjs made data-driven (one scenario per alert button, checks each action's rule instead of hard-coded labels); 19/19 against Santiago's redesigned test bench.
 - [13:00] Eric — Claude — Mock stations.geojson (2 O2 caches) so the Tier 2 UI can be built before Gabriel's real file; browser test 19/19 with caches; looked up NASA sources for the O2 top-off concept (EMU SCU, AEMU PLSS O2 recharge) for Ana.
 - [13:42] Ana - Claude - Help with formatting the Alerts section in models in the README.md file.
+- [13:47] Ana - Claude - Validated that the models section in the README.md file says exactly what the code does. 
