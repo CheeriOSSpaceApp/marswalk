@@ -7,7 +7,7 @@ Terrain is synthetic so it can be done with a calculator: every cell has the sam
 route goes straight east from the habitat, **333 cells × 3 m = 999 m**, so the return trip costs the same as the outbound.
 Constants from `data/common/params.json` and `suit.json`: W = 82 kg, L = 126.7 kg, g_ratio = 0.38, P_nom = 351.7 W,
 V_cap = 0.98 m/s, Tobler a=6, b=3.5, offset=0.05, η = 1.1 → 2.1 (rough_ref 0.5 m), GCR = 0.0279 mSv/h,
-O₂ = 8 h = 480 min, reserve 15 % → 408 usable.
+O₂ = 8 h = 480 min, reserve 18 % → 393.6 usable (15 % / 408 until 11:30).
 
 ## Formulas (one line each)
 1. Speed: `V = min( a·e^(−b·|tanθ + 0.05|) / 3.6 , V_cap )` (m/s)
@@ -17,7 +17,7 @@ O₂ = 8 h = 480 min, reserve 15 % → 408 usable.
 5. Cost per meter: `c = M / (V · 60 · P_nom)` (O₂-min per meter)
 6. O₂ of the walk: `c · 999`. Task: 1 O₂-min per minute (at P_nom).
 7. `o2_used_pct = 100 · (walk + task) / 480`
-8. `o2_margin_min = 408 − (walk + task + walk_back)` (worst point = goal, after the task)
+8. `o2_margin_min = 393.6 − (walk + task + walk_back)` (worst point = goal, after the task)
 9. `duration = 999 / V / 60 + task`;  `dose = 0.0279 · duration / 60`
 
 Shared pieces: `1.5W = 123`, `L/W = 1.54512`, `(L/W)² = 2.38740`, `2(W+L)(L/W)² = 417.4 · 2.38740 = 996.50`, `W+L = 208.7`,
@@ -33,7 +33,7 @@ Shared pieces: `1.5W = 123`, `L/W = 1.54512`, `(L/W)² = 2.38740`, `2(W+L)(L/W)�
 | c = 551.08 / 20 679.96 | **0.026648 O₂-min/m** |
 | walk O₂ = 0.026648 · 999 | 26.62 min |
 | o2_used_pct = 100 · 26.62 / 480 | **5.5 %** |
-| o2_margin = 408 − 2 · 26.62 | **354.8 min** |
+| o2_margin = 393.6 − 2 · 26.62 | **340.4 min** |
 | duration = 999 / 0.98 / 60 | **17.0 min** |
 | dose = 0.0279 · 16.99 / 60 | **0.0079 mSv** |
 
@@ -47,7 +47,7 @@ Shared pieces: `1.5W = 123`, `L/W = 1.54512`, `(L/W)² = 2.38740`, `2(W+L)(L/W)�
 | c = 989.0 / 20 679.96 | **0.047824 O₂-min/m** |
 | walk O₂ = 0.047824 · 999 | 47.78 min |
 | o2_used_pct = 100 · (47.78 + 30) / 480 | **16.2 %** |
-| o2_margin = 408 − (47.78 + 30 + 47.78) | **282.4 min** |
+| o2_margin = 393.6 − (47.78 + 30 + 47.78) | **268.0 min** |
 | duration = 16.99 + 30 | **47.0 min** |
 | dose = 0.0279 · 46.99 / 60 | **0.0219 mSv** |
 

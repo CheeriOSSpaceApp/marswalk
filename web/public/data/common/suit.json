@@ -5,8 +5,8 @@
     "assumption": false
   },
   "reserve_pct": {
-    "value": 15,
-    "source": "Supuesto de Martian Map. 15 % de 8 h equivale a 72 min de O2 a 1200 BTU/h. Cubre una caminata de regreso de 30 min desde el radio máximo a 1700 BTU/h (42.5 min equivalentes) incluso con la alerta de falla del traje x1.5 (63.75 min). Referencias: el EMU reserva 30 min en una EVA de 7 h (NTRS 20140009556, https://ntrs.nasa.gov/api/citations/20140009556/downloads/20140009556.pdf); el caso de 30 min y 1700 BTU/h viene de ICES-2026-127 (https://ntrs.nasa.gov/citations/20260005410). NASA no publica un porcentaje oficial.",
+    "value": 18,
+    "source": "Supuesto de Martian Map (decisión del equipo, 15 nov 11:30). 18 % de 8 h = 86.4 min de O2 a 1200 BTU/h. Peor caso de diseño: caminata de regreso de 30 min desde el radio máximo a 1700 BTU/h (42.5 min equivalentes) con la alerta de falla del traje x1.5 = 63.75 min; 18 % deja 22.65 min (+36 %) sobre ese caso y cubre también al tripulante del percentil 95 (análisis de Marco), mientras que 15 % (72 min) sólo dejaba 8.25 min y no lo cubría. Referencias: el EMU reserva 30 min en una EVA de 7 h (NTRS 20140009556, https://ntrs.nasa.gov/api/citations/20140009556/downloads/20140009556.pdf); el caso de 30 min y 1700 BTU/h viene de ICES-2026-127 (https://ntrs.nasa.gov/citations/20260005410). NASA no publica un porcentaje oficial.",
     "assumption": true
   },
   "battery_Wh": {
