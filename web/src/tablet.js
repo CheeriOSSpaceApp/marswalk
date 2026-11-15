@@ -6,6 +6,7 @@ import { dist, helmetIcon } from './geo.js';
 import { createPlanner } from './plannerClient.js';   // only for costToHome (no-return zone), docs/INTEGRATION.md §6
 import { routeModel } from './route.js';
 import { createRing } from './ring.js';
+import { loadEnv, envAt, scenarioFor, ltst, lmstAt } from './env.js';
 
 const { map, site, name, bounds } = await createSiteMap();
 const { meta, suit, params } = site;
@@ -20,10 +21,12 @@ const SPEEDS = [60, 300, 600];
 let SIM = 60;
 const walkLabel = () => `▶ Walk (×${SIM})`;
 const R = 3396190, rad = x => x * Math.PI / 180, deg = x => x * 180 / Math.PI;
+const env = await loadEnv(site);
+let startHour = 9;                                        // EVA start in LMST (Mars hours), from the console
 const photos = site.url('photos.json') ? await fetch(site.url('photos.json')).then(r => r.ok ? r.json() : []).catch(() => []) : [];
 
 // ---------- Tasks (Ana's HUD) ----------
-// Task minutes come from the planner (params.task_min via taskMinutesAt); here only the checklists.
+// Task minutes come from the planner (params.task_min via taskMinutesAt); here only what to do (shown as one line).
 const CHECK = {
   egress:  ['Suit leak check', 'Depressurize airlock', 'Comms check with habitat'],
   depot:   ['Locate the tube', 'In-situ photo', 'Inspect the seal', 'Collect and label'],
@@ -31,6 +34,7 @@ const CHECK = {
   shelter: ['Reach muster point', 'Report position to habitat'],
   hold:    ['Reach the safe point', 'Report position to habitat', 'Hold until the alert clears'],
   habitat: ['Enter airlock', 'Repressurize', 'Stow samples'],
+  task:    ['Reach the point', 'Site photo', 'Do the assigned task', 'Report to habitat'],
 };
 const TASK_NOTE = { shelter: 'Muster point · NO radiation protection', hold: 'Alert: wait here, coordinate with habitat' };
 
@@ -61,25 +65,77 @@ function photoFor(w) {
 }
 
 let follow = true;
-// ---------- Alarm popup ----------
-const ALERT_NAMES = { SPE: 'Solar particle event', dust: 'Dust storm', suit: 'Suit failure' };
-function beep() {                                   // three short beeps; browsers may block sound until the page has been clicked
+// ---------- Alerts: HIGH priority (red, from the console, replans) / LOW priority (yellow, detected here) ----------
+const ALERT_NAMES = { SPE: 'Solar particle event', dust: 'Dust storm', suit: 'Suit failure', los: 'Loss of line of sight', deviation: 'Route deviation' };
+const DEVIATION_M = 25;          // off-route distance that raises a low-priority alert (team estimate, ~8 grid cells)
+const DEV_SIM_M = 45;            // demo: lateral drift simulated from the console
+const LOS_SIM_MIN = 10;          // demo: EVA minutes without line of sight simulated from the console
+function beep(n = 3, freq = 880) {               // high = 3 beeps, low = 1; browsers may block sound until the page has been clicked
   try {
     const ac = new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume();
-    [0, 0.35, 0.7].forEach(t => { const o = ac.createOscillator(), g = ac.createGain(); o.type = 'square'; o.frequency.value = 880;
+    for (let k = 0; k < n; k++) { const t = k * 0.35, o = ac.createOscillator(), g = ac.createGain(); o.type = 'square'; o.frequency.value = freq;
       g.gain.setValueAtTime(0.15, ac.currentTime + t); g.gain.setValueAtTime(0, ac.currentTime + t + 0.2);
-      o.connect(g); g.connect(ac.destination); o.start(ac.currentTime + t); o.stop(ac.currentTime + t + 0.25); });
+      o.connect(g); g.connect(ac.destination); o.start(ac.currentTime + t); o.stop(ac.currentTime + t + 0.25); }
   } catch {}
 }
-function showAlarm(msg) {                         // msg = {alert, destination, destination_kind} (bus contract)
-  const a = msg.alert || msg, e = a.effect || {};
-  const where = msg.destination ? `Go to ${msg.destination_kind === 'habitat' ? 'the habitat' : msg.destination} now.` : a.action === 'shelter' ? 'Go to the shelter now.' : 'Return to the habitat now.';
-  $('alarmTitle').textContent = `ALERT · ${ALERT_NAMES[a.type] || a.type}`;
-  $('alarmBody').textContent = `${where}  O₂ use ×${e.o2_x ?? 1} · dose ×${e.dose_x ?? 1}` +
-    (e.visibility != null && e.visibility < 1 ? ` · visibility ${Math.round(e.visibility * 100)} %` : '');
-  $('alarm').hidden = false; beep();
+let openLow = null; const lowQueue = [];
+function openAlarm(priority, type, body) {
+  $('alarm').className = priority; openLow = priority === 'low' ? type : null;
+  $('alarmTitle').textContent = `${priority === 'high' ? 'HIGH' : 'LOW'} PRIORITY · ${ALERT_NAMES[type] || type}`;
+  $('alarmBody').textContent = body; $('alarm').hidden = false;
+  beep(priority === 'high' ? 3 : 1, priority === 'high' ? 880 : 620);
 }
-$('alarmOk').onclick = () => { $('alarm').hidden = true; };
+function setBanner(priority, text) {
+  const b = $('banner');
+  if (priority === 'low' && !b.hidden && b.classList.contains('high')) return;   // a high-priority banner stays on top
+  b.className = priority; b.textContent = text; b.hidden = false;
+}
+function showAlarm(msg) {                         // HIGH: msg = {alert, destination, destination_kind} (bus contract)
+  const a = msg.alert || msg, e = a.effect || {};
+  const where = msg.fallback ? `Can't make it home: go to ${msg.destination} now.` : msg.destination ? `Go to ${msg.destination_kind === 'habitat' ? 'the habitat' : msg.destination} now.` : a.action === 'return' ? 'Return to the habitat now.' : 'Go to the nearest safe place now.';
+  lowQueue.length = 0;
+  openAlarm('high', a.type, `${where}  O₂ use ×${e.o2_x ?? 1} · dose ×${e.dose_x ?? 1}` +
+    (e.visibility != null && e.visibility < 1 ? ` · visibility ${Math.round(e.visibility * 100)} %` : '') +
+    (msg.considered ? `\nOptions: ${msg.considered}` : ''));
+}
+function lowAlert(type, body) {                   // LOW: no replan, the walk goes on; the console is told
+  send('warning', { priority: 'low', type, message: body, t_min: spentNow.time_min, lon: lastPos?.[0], lat: lastPos?.[1] });
+  setBanner('low', `${ALERT_NAMES[type]}: ${body}`);
+  if (!$('alarm').hidden) { lowQueue.push([type, body]); return; }               // never cover an open alarm
+  openAlarm('low', type, body);
+}
+$('alarmOk').onclick = () => {
+  $('alarm').hidden = true;
+  if (openLow === 'deviation') drift.target = 0;  // acknowledged: the astronaut heads back to the route
+  const n = lowQueue.shift(); if (n) openAlarm('low', ...n);
+};
+
+// Route deviation (simulated lateral drift) and loss of line of sight (simulated or from viewshed.u8)
+const drift = { m: 0, target: 0 };
+let losUntil = -1, losArmed = false, simFired = false, devAlerted = false, lastPos = null;
+function simulate(kind) {
+  if (!P) return;
+  if (kind === 'deviation') { drift.target = DEV_SIM_M; if (!playing) drift.m = DEV_SIM_M; }
+  if (kind === 'los') { losUntil = spentNow.time_min + LOS_SIM_MIN; simFired = false; }
+  render();
+}
+function offsetPos(p, k) {                        // move p sideways (to the right of the walking direction) by drift.m metres
+  if (!drift.m) return p;
+  const a = P.c[k], b = P.c[k + 1], cos = Math.cos(rad(p[1]));
+  const ex = (b[0] - a[0]) * cos, ny = b[1] - a[1], L0 = Math.hypot(ex, ny) || 1;
+  const rx = ny / L0, ry = -ex / L0;              // unit vector to the right (east, north)
+  return [p[0] + deg(drift.m * rx / R) / cos, p[1] + deg(drift.m * ry / R)];
+}
+function offRoute(p, k) {                         // metres from p to the planned route (segments around k)
+  let best = Infinity; const cos = Math.cos(rad(p[1]));
+  for (let i = Math.max(0, k - 40); i < Math.min(P.c.length - 1, k + 40); i++) {
+    const a = P.c[i], b = P.c[i + 1];
+    const ax = rad(a[0] - p[0]) * cos * R, ay = rad(a[1] - p[1]) * R, bx = rad(b[0] - p[0]) * cos * R, by = rad(b[1] - p[1]) * R;
+    const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy, t = L2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / L2)) : 0;
+    best = Math.min(best, Math.hypot(ax + t * dx, ay + t * dy));
+  }
+  return best;
+}
 
 // ---------- Plan state ----------
 let P = null, d = 0, playing = false, last = 0, shownWp = null, shownTask = null;
@@ -97,7 +153,7 @@ function buildTasks(m, wps, replanned) {
     if (!CHECK[kind] || (!minutes && kind !== 'hold')) return;   // custom points (no task): walk straight through
     tasks.push({ kind, name: label, wp: n, at: P.cumD[w.idx], minutes });
   });
-  tasks.forEach(t => { t.items = CHECK[t.kind]; t.checked = t.items.map(() => false); t.elapsed = 0; t.done = false; });
+  tasks.forEach(t => { t.items = CHECK[t.kind]; t.elapsed = 0; t.done = false; });
   return tasks;
 }
 
@@ -105,18 +161,20 @@ let spentNow = { o2_min: 0, dose_mSv: 0, time_min: 0 };   // what the astronaut 
 function setPlan(payload) {
   if (!payload?.plan?.path) return;                       // old/unknown message
   const replanned = !!payload.replan, wasPlaying = playing;
+  if (!replanned && payload.start_hour != null) startHour = +payload.start_hour;
   const m = routeModel(payload.plan, site);
   P = { ...m, base: replanned ? { ...spentNow } : { o2_min: 0, dose_mSv: 0, time_min: 0 }, extra: { o2_min: 0, dose_mSv: 0, time_min: 0 } };
   const wps = (payload.waypoints || []).slice(0, m.legEnd.length);
   while (wps.length < m.legEnd.length) wps.push({ name: 'Waypoint', ll: m.c[m.legEnd[wps.length]] });
   P.wps = wps.map((w, k) => ({ ...w, idx: m.legEnd[k] }));
   P.tasks = buildTasks(m, P.wps, replanned);
+  P.sunset = payload.plan.stats?.sunset_lmst_hhmm || null;
   eff = { o2_x: 1, dose_x: 1, visibility: 1, ...(replanned ? payload.state : {}) };
   refreshRing(replanned ? payload.state : {});
   routeLine.setLatLngs(m.c.map(p => [p[1], p[0]]));
   if (m.total > 1) map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
   d = 0; playing = !!(replanned && wasPlaying); shownWp = null; shownTask = null; $('playBtn').textContent = playing ? '⏸ Pause' : walkLabel();
-  if (!replanned) $('banner').hidden = true;                 // a fresh plan clears the alert banner
+  if (!replanned) { $('banner').hidden = true; $('banner').className = ''; drift.m = drift.target = 0; losUntil = -1; devAlerted = false; losArmed = false; simFired = false; }   // a fresh plan clears alerts
   $('scrub').max = Math.round(m.total); $('scrub').value = 0;
   $('empty').hidden = true; $('hud').hidden = false; render();
   if (playing) { last = performance.now(); requestAnimationFrame(loop); }
@@ -147,6 +205,7 @@ const hm = min => `${Math.floor(min / 60)}:${String(Math.floor(min % 60)).padSta
 
 // Comms from viewshed.u8 (1 = line of sight to the habitat). "Weak" = no LOS within ~20 m around.
 function comms(pos) {
+  if (spentNow.time_min < losUntil) return 'bad';               // simulated loss of line of sight
   const vs = site.layers.viewshed; if (!vs) return null;
   const { row, col } = lonLatToCell(meta, pos[0], pos[1]);
   const inside = (r, c) => r >= 0 && c >= 0 && r < meta.height && c < meta.width;
@@ -157,32 +216,34 @@ function comms(pos) {
 }
 
 // ---------- Task card ----------
-function drawChecklist(t) {
-  $('checklist').innerHTML = t.items.map((it, i) => `<li><label><input type="checkbox" data-i="${i}"${t.checked[i] ? ' checked' : ''}><span>${it}</span></label></li>`).join('');
-  $('checklist').querySelectorAll('input').forEach(inp => inp.onchange = () => { t.checked[+inp.dataset.i] = inp.checked; updateDoneBtn(t); });
-  updateDoneBtn(t);
-}
-function updateDoneBtn(t) {
-  const ready = !!t && t.checked.every(Boolean);
-  $('doneBtn').disabled = !ready; $('doneBtn').classList.toggle('ready', ready);
-  $('doneBtn').textContent = !t ? '✓ Task done' : ready ? '✓ Task done · continue' : `✓ Task done (${t.checked.filter(Boolean).length}/${t.items.length})`;
-}
-$('doneBtn').onclick = () => {
-  const t = P && activeTask(); if (!t || !t.checked.every(Boolean)) return;
-  t.done = true; shownTask = null; shownWp = null; render();
+// One button + confirmation (no per-item checklist). The console can also complete it (message 'task_done').
+function showConfirm(v) { $('confirmBox').hidden = !v; $('doneBtn').hidden = v || !(P && activeTask()); }
+function completeTask(name = null) {
+  const t = P && activeTask(); if (!t || (name && name !== t.name)) return false;
+  t.done = true; shownTask = null; shownWp = null; showConfirm(false);
+  send('task_done', { name: t.name, t_min: spentNow.time_min });
+  render();
   if (playing) { last = performance.now(); requestAnimationFrame(loop); }
-};
+  return true;
+}
+$('doneBtn').onclick = () => { if (P && activeTask()) showConfirm(true); };
+$('confirmNo').onclick = () => showConfirm(false);
+$('confirmYes').onclick = () => completeTask();
 
 function render() {
   if (!P) return;
-  const pos = position(), tot = total(), task = activeTask();
+  const tot = total(), task = activeTask();
+  let k = 0; while (k < P.cumD.length - 2 && P.cumD[k + 1] <= d) k++;               // segment the astronaut is on
+  const pathPos = position(), pos = offsetPos(pathPos, k); lastPos = pos;
+  const offR = drift.m ? offRoute(pos, k) : 0;
+  if (offR > DEVIATION_M && !devAlerted) { devAlerted = true; lowAlert('deviation', `Off route by ${offR.toFixed(0)} m. Head back to the planned route.`); }
+  if (offR < DEVIATION_M / 2) devAlerted = false;
   astro.setLatLng([pos[1], pos[0]]);
   if (follow) map.panTo([pos[1], pos[0]], { animate: true, duration: 0.25 });
-  let k = 0; while (k < P.cumD.length - 2 && P.cumD[k + 1] <= d) k++;               // segment the astronaut is on
   if (dist(P.c[k], P.c[k + 1]) > 0.01) { const h = bearing(P.c[k], P.c[k + 1]); $('hdgTxt').textContent = h; $('needle').style.transform = `rotate(${parseFloat(h)}deg)`; }   // direction of travel
   const ll = p => [p[1], p[0]];
-  doneLine.setLatLngs([...P.c.slice(0, k + 1).map(ll), ll(pos)]);
-  routeLine.setLatLngs([ll(pos), ...P.c.slice(k + 1).map(ll)]);
+  doneLine.setLatLngs([...P.c.slice(0, k + 1).map(ll), ll(pathPos)]);
+  routeLine.setLatLngs([ll(pathPos), ...P.c.slice(k + 1).map(ll)]);
 
   // O2, dose, time = plan up to here + carried-over base + time spent on tasks
   const o2UsedMin = P.base.o2_min + at(P.cumO2) + P.extra.o2_min;
@@ -224,26 +285,38 @@ function render() {
   // Task card: active task (gate) or preview of the next one
   const shown = task || nextGate();
   $('taskCard').classList.toggle('active', !!task);
-  if (!shown) { $('taskName').textContent = 'All tasks done'; $('taskTimer').textContent = '–'; $('checklist').innerHTML = ''; updateDoneBtn(null); $('doneBtn').hidden = true; }
+  if (!shown) { $('taskName').textContent = 'All tasks done'; $('taskTimer').textContent = '–'; $('taskTodo').textContent = ''; $('doneBtn').hidden = true; $('confirmBox').hidden = true; }
   else if (task) {
-    $('doneBtn').hidden = false;
-    if (shownTask !== task) { shownTask = task; $('taskName').innerHTML = `${task.name}${TASK_NOTE[task.kind] ? `<small>${TASK_NOTE[task.kind]}</small>` : ''}`; drawChecklist(task); }
+    if (shownTask !== task) { shownTask = task; $('taskName').innerHTML = `${task.name}${TASK_NOTE[task.kind] ? `<small>${TASK_NOTE[task.kind]}</small>` : ''}`; $('taskTodo').textContent = task.items.join(' · '); showConfirm(false); }
     const over = task.minutes && task.elapsed > task.minutes;
     $('taskTimer').textContent = task.minutes ? `${task.elapsed.toFixed(0)} / ${task.minutes} min${over ? ' · overtime' : ''}` : `${task.elapsed.toFixed(0)} min`;
     $('taskTimer').classList.toggle('over', !!over);
   } else {
     if (shownTask !== 'preview:' + P.tasks.indexOf(shown)) {
       shownTask = 'preview:' + P.tasks.indexOf(shown);
-      $('taskName').innerHTML = `On arrival: ${shown.name}<small>${shown.items.length} checks${shown.minutes ? ` · ~${shown.minutes} min` : ''} · the walk stops there until every check is done</small>`;
-      $('checklist').innerHTML = ''; $('doneBtn').hidden = true;
+      $('taskName').innerHTML = `On arrival: ${shown.name}<small>${shown.minutes ? `~${shown.minutes} min · ` : ''}the walk stops there until the task is confirmed complete</small>`;
+      $('taskTodo').textContent = ''; $('doneBtn').hidden = true; $('confirmBox').hidden = true;
     }
     $('taskTimer').textContent = `in ${(shown.at - d).toFixed(0)} m`; $('taskTimer').classList.remove('over');
+  }
+
+  // Environment (env.json, MCD model) at the current local solar time
+  if (env) {
+    const sc = scenarioFor(eff), e = envAt(env, lmstAt(startHour, evaMin), sc);
+    $('envCard').hidden = false; $('envTime').textContent = `${ltst(e.hour)} LMST${P.sunset ? ` · sunset ${P.sunset}` : ''}`;
+    $('envT').textContent = `${(e.temp_K - 273.15).toFixed(0)} °C`; $('envW').textContent = `${e.wind_ms.toFixed(1)} m/s`;
+    $('envTau').textContent = e.tau.toFixed(2); $('envTau').className = e.tau > 1 ? 't-warn' : '';
+    $('envNote').textContent = `${sc} scenario · ${e.pressure_Pa.toFixed(0)} Pa · Mars Climate Database model, not observations`;
   }
 
   // Status row
   $('met').textContent = hm(evaMin);
   $('o2Lasts').textContent = hm(o2LeftMin / eff.o2_x);
   const cs = comms(pos);
+  // alert once when the link is lost; re-arm only after a full link ('ok'), so the coverage edge doesn't repeat it
+  const simLos = spentNow.time_min < losUntil;
+  if (cs === 'ok') losArmed = true;
+  if (cs === 'bad' && (losArmed || (simLos && !simFired))) { losArmed = false; if (simLos) simFired = true; lowAlert('los', 'No line of sight to the habitat. Move back toward the last point with link.'); }
   $('comms').textContent = cs ? { ok: '● Link', warn: '◐ Weak', bad: '○ No LOS' }[cs] : '–';
   $('comms').className = cs ? 't-' + cs : '';
   $('commsSub').textContent = cs ? { ok: 'line of sight OK', warn: 'leaving coverage', bad: 'no line of sight' }[cs] : 'no viewshed';
@@ -261,13 +334,14 @@ function render() {
   spentNow = { o2_min: o2UsedMin, dose_mSv: dose, time_min: evaMin };
   // bus contract: {lon, lat, o2_used_min, t_min} + extras the console shows
   send('position', { lon: pos[0], lat: pos[1], o2_used_min: o2UsedMin, t_min: evaMin, d, o2_left: o2Left, can_return: canReturn,
-    margin_min: Number.isFinite(margin) ? margin : null, ingress_min: ingressO2 / eff.o2_x,
-    task: task ? `${task.name} · ${task.checked.filter(Boolean).length}/${task.items.length} checks` : null, spent: spentNow });
+    margin_min: Number.isFinite(margin) ? margin : null, ingress_min: ingressO2 / eff.o2_x, comms: cs, off_route_m: offR,
+    task: task ? task.name : null, task_elapsed: task ? task.elapsed : null, task_min: task ? task.minutes : null, spent: spentNow });
 }
 
 function loop(t) {
   if (!playing || !P) return;
   const dtMin = Math.min(0.25, (t - last) / 1000) * SIM / 60; last = t;
+  if (drift.m !== drift.target) { const step = dtMin * SPEED * 60; drift.m += Math.sign(drift.target - drift.m) * Math.min(step, Math.abs(drift.target - drift.m)); }
   const task = activeTask();
   if (task) {                                       // standing still doing the task: time, O2 and dose keep running
     task.elapsed += dtMin; P.extra.time_min += dtMin; P.extra.o2_min += dtMin * eff.o2_x; P.extra.dose_mSv += GCR * dtMin / 60 * eff.dose_x;
@@ -285,7 +359,7 @@ $('speedBtn').onclick = () => { SIM = SPEEDS[(SPEEDS.indexOf(SIM) + 1) % SPEEDS.
 function resetWalk() {
   d = 0; shownWp = null; shownTask = null;
   P.extra = { o2_min: 0, dose_mSv: 0, time_min: 0 };
-  P.tasks.forEach(t => { t.done = false; t.elapsed = 0; t.checked = t.items.map(() => false); });
+  P.tasks.forEach(t => { t.done = false; t.elapsed = 0; }); showConfirm(false);
 }
 $('playBtn').onclick = () => {
   if (!P) return;
@@ -307,8 +381,10 @@ onMessage(m => {
   if (m.type === 'plan') setPlan(m.payload);
   if (m.type === 'alert') {                         // {alert, destination, destination_kind}; the replanned route follows as a 'plan'
     const a = m.payload.alert || m.payload, e = a.effect || {};
-    showAlarm(m.payload); const b = $('banner'); b.hidden = false;
-    b.textContent = `ALERT ${a.type}: → ${m.payload.destination || (a.action === 'shelter' ? 'shelter' : 'habitat')} · O₂ ×${e.o2_x ?? 1} · dose ×${e.dose_x ?? 1}`;
+    showAlarm(m.payload);
+    setBanner('high', `HIGH · ${ALERT_NAMES[a.type] || a.type}: → ${m.payload.destination || (a.action === 'return' ? 'habitat' : 'safe place')} · O₂ ×${e.o2_x ?? 1} · dose ×${e.dose_x ?? 1}`);
   }
+  if (m.type === 'sim') simulate(m.payload.kind);
+  if (m.type === 'task_done_cmd') completeTask(m.payload.name);   // habitat confirmed it from the console   // demo only: console simulates a low-priority event
 });
 try { const saved = localStorage.getItem('marswalk:plan'); if (saved) setPlan(JSON.parse(saved)); } catch {}

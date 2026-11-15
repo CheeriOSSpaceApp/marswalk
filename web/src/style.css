@@ -161,3 +161,63 @@ body.console #stops li { font-size:14px; }
 @keyframes blink { 50% { border-color:#3a3000; } }
 #banner { animation-name:blinkBg; } @keyframes blinkBg { 50% { background:#3a3000; color:#ffd400; } }
 @media (prefers-reduced-motion: reduce) { #alarm .box, #banner { animation:none; } }
+
+/* ---- console: task stops (double-click) ---- */
+.hint { font-size:11px; color:#999; margin:0 0 6px; } .hint b { color:#f2c94c; font-weight:600; }
+.stop.task { background:#f2c94c; color:#000; border-radius:0; font-size:11px; }
+#stops li.task { color:#fff; }
+#stops li { cursor:default; user-select:none; gap:6px; }
+#stops li span { flex:1; min-width:0; }
+.tbadge { color:#f2c94c; font-size:11px; letter-spacing:.04em; }
+#stops li input[type=number] { width:48px; padding:2px 4px; background:#000; color:#fff; border:1px solid #666; border-radius:0; font:inherit; }
+#stops li small { color:#999; }
+
+/* ---- alert priorities: HIGH = red, LOW = yellow (square, blinking, no glow) ---- */
+#alarm.high .box { border-color:#ff2b2b; animation-name:blinkRed; }
+#alarm.high .big-icon, #alarm.high h2 { color:#ff2b2b; }
+#alarm.high button { background:#ff2b2b; border-color:#ff2b2b; color:#fff; }
+@keyframes blinkRed { 50% { border-color:#3a0000; } }
+#banner.high { background:#ff2b2b; color:#fff; animation-name:blinkBgRed; }
+@keyframes blinkBgRed { 50% { background:#3a0000; color:#ff6b6b; } }
+#banner.low { background:#ffd400; color:#000; animation-name:blinkBg; }
+.prio { font-size:12px; margin:8px 0 4px; color:#bbb; } .prio:first-child { margin-top:0; }
+.prio.high b { color:#ff2b2b; } .prio.low b { color:#ffd400; } .prio small { color:#888; }
+#alerts button { border-radius:0; text-align:left; }
+#alerts button.high { border-color:#ff2b2b; color:#ff8080; } #alerts button.high:hover { background:#ff2b2b; color:#fff; }
+#alerts button.low { border-color:#ffd400; color:#ffd400; } #alerts button.low:hover { background:#ffd400; color:#000; }
+#alertLog { margin-top:8px; } #alertLog:empty { display:none; }
+#alertLog .ev { font-size:12px; padding:4px 6px; margin-top:4px; border-left:4px solid; background:#111; }
+#alertLog .ev.high { border-color:#ff2b2b; } #alertLog .ev.high b { color:#ff2b2b; }
+#alertLog .ev.low { border-color:#ffd400; } #alertLog .ev.low b { color:#ffd400; }
+
+/* ---- task: one button + confirmation (tablet and console) ---- */
+.todo { font-size:13px; color:#bbb; margin:2px 0 8px; line-height:1.4; } .todo:empty { display:none; }
+button.complete { border-radius:0; font-size:16px; padding:14px; font-weight:700; background:#6fcf97; color:#000; border:2px solid #6fcf97; margin-top:6px; }
+button.complete:hover { background:#000; color:#6fcf97; }
+.confirm { margin-top:6px; border:2px solid #6fcf97; padding:10px; background:#000; }
+.confirm .q { font-weight:700; margin-bottom:8px; }
+.confirm .row { display:flex; gap:8px; } .confirm .row button { flex:1; margin:0; border-radius:0; padding:12px; font-weight:700; }
+.confirm .row button:first-child { background:#6fcf97; color:#000; border:2px solid #6fcf97; }
+.confirm .row button:last-child { background:#000; color:#fff; border:2px solid #666; }
+#taskCtl { margin-top:10px; border-top:1px solid #2a2a2a; padding-top:8px; }
+#taskCtl .tc-name span { display:block; font-size:11px; color:#999; text-transform:uppercase; letter-spacing:.05em; }
+#taskCtl .tc-name b { font-size:15px; } #taskCtl .tc-name small { margin-left:8px; color:#999; }
+#alertLog .ev.done { border-color:#6fcf97; } #alertLog .ev.done b { color:#6fcf97; }
+
+/* ---- status messages + EVA start ---- */
+#status, #alertStatus { font-size:12px; margin-top:6px; } #alertStatus:empty { display:none; }
+.st-warn { color:#ffd400; } .st-high { color:#fff; border-left:4px solid #ff2b2b; padding:4px 6px; background:#1a0000; } .st-low { color:#ffd400; border-left:4px solid #ffd400; padding:4px 6px; background:#111; }
+.evastart { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:#bbb; margin:6px 0; }
+.evastart select { background:#000; color:#fff; border:1px solid #666; border-radius:0; padding:3px 6px; font:inherit; }
+
+/* ---- daylight GO / CAUTION / NO-GO (planner stats.go, INTEGRATION §8.1) ---- */
+.go { font:900 26px/1 system-ui; padding:8px 10px; margin-bottom:8px; border:3px solid; border-radius:0; }
+.go small { display:block; font-size:12px; font-weight:400; margin-top:4px; color:#ddd; }
+.go-GO { color:#6fcf97; border-color:#6fcf97; } .go-CAUTION { color:#ffd400; border-color:#ffd400; } .go-NO-GO { color:#ff2b2b; border-color:#ff2b2b; }
+
+/* ---- replan options considered (INTEGRATION §8.7) ---- */
+.opts { margin-top:6px; } .opts-h { font-size:11px; color:#999; text-transform:uppercase; letter-spacing:.04em; margin-bottom:2px; }
+.opt { display:grid; grid-template-columns:16px 1fr auto; column-gap:6px; align-items:baseline; font-size:12px; padding:3px 0; border-top:1px solid #222; }
+.opt b { text-align:center; } .opt em { font-style:normal; font-weight:700; } .opt small { grid-column:2 / 4; color:#888; font-size:11px; }
+.opt.chosen b, .opt.chosen span, .opt.chosen em { color:#6fcf97; } .opt.no b, .opt.no span { color:#ff6b6b; } .opt.no em { color:#888; }
+#alarm p { white-space:pre-line; }

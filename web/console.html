@@ -15,15 +15,19 @@
 
     </section>
     <section class="card"><h2>Route (habitat → stops → habitat)</h2>
+    <div class="hint">Click: waypoint · <b>Double-click: ⚑ task stop</b> · double-click a stop to toggle</div>
     <div id="stopsEmpty" class="empty">Click the map or a target to add stops.</div>
     <ul id="stops"></ul>
+    <label class="evastart">EVA start (LMST, Mars time) <select id="startHour"></select></label>
     <button id="planBtn">Plan</button>
     <button id="clearBtn">Clear</button>
     <div id="status"></div>
 
     </section>
-    <section class="card"><h2>Inject alert</h2>
+    <section class="card"><h2>Alerts</h2>
     <div id="alerts"></div>
+    <div id="alertStatus"></div>
+    <div id="alertLog"></div>
 
     </section>
     <section class="card"><h2>Route stats</h2>
@@ -32,6 +36,14 @@
     </section>
     <section class="card"><h2>Astronaut (from tablet)</h2>
     <div id="astro"><div class="empty">Waiting for the tablet. Press Walk there.</div></div>
+    <div id="taskCtl" hidden>
+      <div class="tc-name"><span>Task in progress</span><b id="tcName">–</b><small id="tcTime"></small></div>
+      <button id="tcBtn" class="complete">✓ Complete task</button>
+      <div id="tcConfirm" class="confirm" hidden>
+        <div class="q">Confirm the task is complete?</div>
+        <div class="row"><button id="tcYes">Confirm</button><button id="tcNo">Cancel</button></div>
+      </div>
+    </div>
 
     </section>
     <section class="card"><h2>Selected segment</h2>
