@@ -49,7 +49,10 @@ Re-plan after an alert: 11–65 ms. Full numbers and method: [docs/PLANNER.md](d
   constant with its source: [Models](#models) below.
 - **Data pipeline** and caches (Gabriel). Converts HiRISE DTM into elevation, slope, detrended roughness, hazard and map images; climate comes from MCD. Greedy k-center uses the planner's oxygen costs to place up to three caches in an 800 m operating area, covering EVA-1 targets while keeping supplies near Wildcat. The planner retains its 1770 m walkback limit. Exports stations.geojson, CSV metrics and a before/after figure. At 800 m, worst-case cost falls from 34.47 to 28.70 nominal O₂-min; the 10-minute target remains unmet. The 120 O₂-min per cache is a declared scenario assumption (a quarter of the 8 h supply).
 - **Life support, comms and validation (Marco).** Suit limits with NASA sources (`web/public/data/common/suit.json`);
-  line-of-sight viewshed from the habitat antenna; the rover traverse as validation: [Validation](#validation-against-perseverance) below.
+  line-of-sight viewshed from the habitat antenna; the rover traverse as validation. The EVA-1 route is compared with the
+  real Perseverance traverse: 50.6% of checked vertices are within 20 m, with a 19.8 m median distance. Rover-corridor
+  terrain is gentler than the full AOI (0–5°: 67.3% vs 57.8%; 15°+: 1.7% vs 7.3%); see the
+  [validation figure](pipeline/out/rover_route_validation.png) and [Validation](#validation-against-perseverance) below.
 - **Interface (Santiago).** Leaflet habitat console + field tablet, synced live over BroadcastChannel (same browser).
   Console: route planning with task stops, GO / CAUTION / NO-GO for every start hour, alert injection with the options the
   planner considered (why each was or wasn't chosen), O₂ cache inventory, built-in demo scenarios, mission report export
