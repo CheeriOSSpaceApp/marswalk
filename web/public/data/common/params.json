@@ -65,7 +65,7 @@
     },
    "cache_refill": {
    "value": 10,
-   "source": "Time to top off suit O2 at a pre-positioned surface cache via an umbilical (concept from the ISS EMU Service and Cooling Umbilical, which recharges PLSS oxygen and water). Duration is a MarsWalk assumption.",
+   "source": "Concept: top-off of suit O2 through the Service and Cooling Umbilical (SCU) mated to the suit DCU (NASA JSC CTSD-ADV-959 Rev A, 2017, sec. 3.2.5.5.2). The 10 min duration and the pre-positioned surface cache are MarsWalk assumptions.",
    "assumption": true
     }
 
