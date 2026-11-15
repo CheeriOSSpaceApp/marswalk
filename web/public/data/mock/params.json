@@ -7,7 +7,6 @@
   "w_slope": 1.0,
   "w_rough": 1.0,
   "w_nocomms": 0.2,
-  "base_speed_ms": 1.0,
   "V_cap": 0.98,
   "V_source": "ICES-2026-127 slide 9: 2.2 mph, maximum nominal Apollo walking speed",
   "W": 82,
