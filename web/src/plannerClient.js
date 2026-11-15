@@ -29,6 +29,9 @@ export function createPlanner() {
   return {
     init: (site) => call('init', { site }),
     plan: (req) => call('plan', req),
+    // req: {current:[lon,lat], alert, state?, o2_used_min?} -> plan + {state, replan:{destination,...}}
+    // Keep the returned `state` and pass it in the next call so alerts stack.
+    replan: (req) => call('replan', req),
     // -> {costToHome: Float32Array (O2-min per cell), usable_o2_min}. For the no-return ring.
     costToHome: (req = {}) => call('costToHome', req),
     terminate: () => worker.terminate(),

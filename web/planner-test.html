@@ -18,7 +18,9 @@
     <label><input id="dust" type="checkbox" /> Dust (visibility 0.3)</label><br />
     <label><input id="ring" type="checkbox" /> No-return ring</label>
     <input id="o2" type="range" min="0" max="400" value="120" /> O₂ left: <span id="o2v">120</span> min<br />
-    <button id="eva">Habitat → depot → science → habitat</button>
+    <button id="eva">Habitat → depot → science → habitat</button><br />
+    <b>Inject alert</b> (astronaut at 40% of current route):<br />
+    <span id="alerts"></span>
     <pre id="out">loading…</pre>
   </div>
   <script type="module">
@@ -56,10 +58,17 @@
       }
       ctx.putImageData(im, 0, 0);
     }
-    function draw(res, pts) {
+    function drawLine(coords, color, width, dash = []) {
+      ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dash); ctx.beginPath();
+      coords.forEach((p, k) => { const [x, y] = toXY(p); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+    function draw(res, pts, old = null, astro = null) {
       lastRes = res; lastPts = pts;
       ctx.drawImage(bg, 0, 0);
       drawRing();
+      if (old) drawLine(old.path.geometry.coordinates, 'rgba(0,229,255,0.45)', 2, [6, 6]);
+      if (res?.replan) { drawLine(res.path.geometry.coordinates, '#ff9800', 4); res = null; }
       if (res?.path) {
         ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 3; ctx.beginPath();
         res.path.geometry.coordinates.forEach((p, k) => { const [x, y] = toXY(p); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
@@ -68,19 +77,40 @@
       ctx.fillStyle = '#fff';
       for (const f of site.targets.features) { const [x, y] = toXY(f.geometry.coordinates); ctx.fillRect(x - 5, y - 5, 10, 10); ctx.fillText(f.properties.name, x + 8, y + 4); }
       ctx.fillStyle = '#0f0'; for (const p of pts) { const [x, y] = toXY(p); ctx.beginPath(); ctx.arc(x, y, 7, 0, 7); ctx.fill(); }
+      if (astro) { const [x, y] = toXY(astro); ctx.fillStyle = '#ff9800'; ctx.beginPath(); ctx.arc(x, y, 10, 0, 7); ctx.fill(); ctx.fillStyle = '#000'; ctx.fillText('YOU', x - 10, y + 4); }
     }
     const state = () => ({
       ...(document.getElementById('suit').checked ? { o2_x: 1.5 } : {}),
       ...(document.getElementById('dust').checked ? { visibility: 0.3 } : {}),
     });
 
-    let clicks = [];
+    let clicks = [], basePlan = null, alertState = {};
+    const alertsBox = document.getElementById('alerts');
+    for (const a of site.alerts) {
+      const btn = document.createElement('button');
+      btn.textContent = `${a.type} → ${a.action}`;
+      btn.onclick = async () => {
+        if (!basePlan) { out.textContent = 'plan a route first'; return; }
+        const coords = basePlan.path.geometry.coordinates;
+        const current = coords[Math.floor(coords.length * 0.4)];
+        const o2_used_min = basePlan.stats.o2_used_pct / 100 * (site.suit.o2_hours?.value ?? 8) * 60 * 0.4;
+        const t = performance.now();
+        const res = await planner.replan({ current, alert: a, state: alertState, o2_used_min });
+        const ms = Math.round(performance.now() - t);
+        if (res.error) { out.textContent = 'ERROR ' + JSON.stringify(res, null, 1); return; }
+        alertState = res.state;   // alerts stack
+        draw(res, lastPts, basePlan, current);
+        out.textContent = JSON.stringify({ round_trip_ms: ms, ...res.replan, state: res.state, ...res.stats }, null, 1);
+      };
+      alertsBox.appendChild(btn);
+    }
     async function run(req) {
       out.textContent = 'planning…';
       const t = performance.now();
       const res = await planner.plan({ ...req, state: state() });
       const roundTrip = Math.round(performance.now() - t);
       draw(res, [req.start, ...(req.stops || []), req.goal]);
+      basePlan = res.error ? null : res; alertState = {};
       out.textContent = res.error ? 'ERROR ' + JSON.stringify(res, null, 1)
         : JSON.stringify({ round_trip_ms: roundTrip, ...res.timing_ms, ...res.stats }, null, 1);
     }

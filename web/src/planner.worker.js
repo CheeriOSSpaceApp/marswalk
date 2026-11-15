@@ -1,11 +1,11 @@
 // planner.worker.js — Runs the planner OFF the main thread so the map never freezes.
 // Protocol (RPC over postMessage):
-//   in:  {id, type: 'init'|'plan'|'costToHome', payload}
+//   in:  {id, type: 'init'|'plan'|'replan'|'costToHome', payload}
 //   out: {id, ok: true, result} | {id, ok: false, error}
 // The worker loads its own copy of the layers (16 MB) once, on 'init'.
 
 import { loadSite } from './data.js';
-import { plan, getCostToHome } from './planner.js';
+import { plan, replan, getCostToHome } from './planner.js';
 
 let site = null;
 
@@ -19,6 +19,9 @@ self.onmessage = async (e) => {
     } else if (type === 'plan') {
       if (!site) throw new Error('planner not initialized: call init(site) first');
       result = plan(site, payload);
+    } else if (type === 'replan') {
+      if (!site) throw new Error('planner not initialized: call init(site) first');
+      result = replan(site, payload);
     } else if (type === 'costToHome') {
       if (!site) throw new Error('planner not initialized: call init(site) first');
       result = getCostToHome(site, payload);

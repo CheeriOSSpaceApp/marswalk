@@ -1,32 +1,32 @@
 {
   "o2_hours": {
     "value": 8,
-    "assumption": true,
-    "source": "mock"
+    "source": "Caso de diseño de 8 h de EVA primaria a 350 W (1194 BTU/h) de metabolismo promedio: Oliver et al., 'Mars Exploration PLSS Schematic Study', ICES-2026-158, NASA/Amentum, https://ntrs.nasa.gov/api/citations/20260005204/downloads/ICES_Mars_PLSS_Presentation_2026_1.pdf ; el requisito de diseño del xEMU también es de 8 h: SxEMU Testing Setup, ICES 2024, https://ntrs.nasa.gov/api/citations/20240004887/downloads/SxEMU%20Testing%20Setup%20ICES_Paper_Final%205-6-24_fix.pdf . Es un caso de diseño, no la especificación de un traje certificado.",
+    "assumption": false
   },
   "reserve_pct": {
-    "value": 20,
-    "assumption": true,
-    "source": "mock"
+    "value": 15,
+    "source": "Supuesto de Martian Map. 15 % de 8 h equivale a 72 min de O2 a 1200 BTU/h. Cubre una caminata de regreso de 30 min desde el radio máximo a 1700 BTU/h (42.5 min equivalentes) incluso con la alerta de falla del traje x1.5 (63.75 min). Referencias: el EMU reserva 30 min en una EVA de 7 h (NTRS 20140009556, https://ntrs.nasa.gov/api/citations/20140009556/downloads/20140009556.pdf); el caso de 30 min y 1700 BTU/h viene de ICES-2026-127 (https://ntrs.nasa.gov/citations/20260005410). NASA no publica un porcentaje oficial.",
+    "assumption": true
   },
   "battery_Wh": {
-    "value": 2000,
-    "assumption": true,
-    "source": "mock"
+    "value": 1155,
+    "source": "Requisito de energía para un PLSS futuro: 'Future PLSS requires 1155 Wh in 5 kg package', para EVAs de hasta 8 h. Irimies, 'EVA Power, Avionics, and Software (PAS) 101', NASA GRC, 2011, https://ntrs.nasa.gov/api/citations/20160013674/downloads/20160013674.pdf . Como comparación, el EMU de la ISS usa 532 Wh. Es un objetivo tecnológico, no una batería de vuelo.",
+    "assumption": false
   },
   "base_power_W": {
-    "value": 150,
-    "assumption": true,
-    "source": "mock"
+    "value": 120,
+    "source": "Supuesto derivado: 1155 Wh / (8 h x 1.2 de margen de diseño) = 120 W de consumo eléctrico promedio y constante del PLSS (ventiladores, bombas, calentador de LOX, radio, aviónica y luces). Queda entre los ~76 W del EMU (532 Wh / 7 h, NTRS 20160013674) y los 144 W que agotarían la batería en 8 h. NO equivale a los 352 W de metabolismo (1200 BTU/h), que son calor y consumo de O2 del astronauta, no electricidad.",
+    "assumption": true
   },
   "walkback_m": {
-    "value": 10000,
-    "assumption": true,
-    "source": "ICES 2026 (to verify)"
+    "value": 1770,
+    "source": "Supuesto preliminar de dimensionamiento de NASA: caminata de regreso de 30 min a 2.2 mph, con radio de 1.1 mi (= 1770 m). Ogilvie et al., 'Mars Spacesuit Mass Requirements', ICES-2026-127, slide 9, https://ntrs.nasa.gov/api/citations/20260005410/downloads/Mars_Mass_ICES2026_Presentation_Final.pdf . La prueba de 10 km (Vos, Gernhardt y Lee, SAE 2007-01-3133; Norcross et al., NASA/TP-2009-214796) solo demostró que es factible; no es un límite operativo.",
+    "assumption": true
   },
   "max_slope_deg": {
-    "value": 25.0,
-    "assumption": true,
-    "source": "mock"
+    "value": 15,
+    "source": "Supuesto de Martian Map. La conops lunar de NASA contempla caminar en pendientes de hasta 20° (EVA-EXP-0075, https://www.nasa.gov/wp-content/uploads/2020/01/topic_1-_eva_lunar_surface_concept_of_operations.pdf); en Apollo se caminó en pendientes menores de 15° (Iqbal et al., EPSC2024-196, https://meetingorganizer.copernicus.org/EPSC2024/EPSC2024-196.html). Se reduce a 15° porque en Marte la gravedad es 2.3 veces la lunar y porque una pendiente medida en celdas de 3 m suaviza tramos locales más empinados.",
+    "assumption": true
   }
 }

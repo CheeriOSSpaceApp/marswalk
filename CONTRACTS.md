@@ -44,5 +44,5 @@ Do NOT return per-cell cost (time to cross the cell × M): it would be off by a 
 | stats | `{distance_m, duration_min, o2_used_pct, dose_mSv, max_slope_deg, walkback_ok, walkback_margin_min, comms_pct}` | Eric + Ana | Santiago |
 | plannerClient.js | `createPlanner()` -> `{init(site), plan(req), costToHome(req), terminate()}` (all Promises) | Eric | Santiago |
 | costToHome | `planner.costToHome({state}) -> {costToHome: Float32Array (O2-min to walk back to habitat, Infinity = unreachable), usable_o2_min}`. Tablet: cell i is beyond no-return if `costToHome[i] > O2 remaining` | Eric | Santiago |
-| replan | `replan(currentCell, alert) -> new plan from current position` | Eric | Santiago |
+| replan | `planner.replan({current:[lon,lat], alert, state?, o2_used_min?}) -> plan + {state, replan:{alert, action, destination, total_ms}}`. SPE/`shelter` → nearest shelter **by walking time** (habitat counts); dust/suit/`return` → habitat. Keep returned `state` and send it on the next call (alerts stack multiplicatively). Position is lon/lat (same as the `position` bus message), not a cell index. | Eric | Santiago |
 | bus.js | `BroadcastChannel('marswalk')`: `{type: 'plan'\|'alert'\|'position', payload}` | Santiago | All |

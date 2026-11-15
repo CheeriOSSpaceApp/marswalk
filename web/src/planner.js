@@ -196,7 +196,9 @@ export function plan(site, req) {
   const tCost = performance.now();
 
   const pts = [req.start, ...(req.stops || []), req.goal];
-  const cellsOf = pts.map(([lon, lat]) => lonLatToCell(site.meta, lon, lat).i);
+  // Snap clicks/GPS positions that land on a forbidden cell (e.g. a rock) to the nearest walkable one
+  const cellsOf = pts.map(([lon, lat]) => snapToPassable(grid, lonLatToCell(site.meta, lon, lat).i));
+  if (cellsOf.some((c) => c < 0)) return { error: 'point_in_forbidden_zone' };
   const all = [], segments = [];
   for (let k = 0; k < cellsOf.length - 1; k++) {
     const leg = astar(grid, cellsOf[k], cellsOf[k + 1]);
@@ -205,7 +207,8 @@ export function plan(site, req) {
     all.push(...(k === 0 ? leg : leg.slice(1)));
   }
   const stats = pathStats(all, site, grid, params, state);
-  const wb = walkbackCheck(all, grid, costToHome, usableO2min(site.suit));
+  // req.o2_used_min: O2 already spent before this plan starts (used by replan mid-EVA)
+  const wb = walkbackCheck(all, grid, costToHome, usableO2min(site.suit) - (req.o2_used_min || 0));
   stats.walkback_ok = wb.ok;
   stats.walkback_margin_min = wb.margin_min;
   return {
@@ -218,6 +221,77 @@ export function plan(site, req) {
     walkback_worst_point: cellToLonLat(site.meta, all[wb.worst_point]),
     segments,
     timing_ms: { cost_grid: Math.round(tCost - t0), astar: Math.round(performance.now() - tCost) },
+  };
+}
+
+// Nearest walkable cell within `maxR` cells (square rings outward). -1 if none.
+export function snapToPassable(grid, i, maxR = 10) {
+  const { cost, W, H } = grid;
+  if (cost[i] < Infinity) return i;
+  const r0 = Math.floor(i / W), c0 = i % W;
+  for (let rad = 1; rad <= maxR; rad++) {
+    let best = -1, bestD = Infinity;
+    for (let dr = -rad; dr <= rad; dr++) for (let dc = -rad; dc <= rad; dc++) {
+      if (Math.max(Math.abs(dr), Math.abs(dc)) !== rad) continue; // only the ring
+      const r = r0 + dr, c = c0 + dc;
+      if (r < 0 || r >= H || c < 0 || c >= W) continue;
+      const j = r * W + c, d = dr * dr + dc * dc;
+      if (cost[j] < Infinity && d < bestD) { best = j; bestD = d; }
+    }
+    if (best >= 0) return best;
+  }
+  return -1;
+}
+
+// ---------- 5. Replanning ----------
+// req: { current:[lon,lat], alert: <item of alerts.json>, state?: current state,
+//        o2_used_min?: O2 already spent, params? }
+// 1) Apply the alert's effect to state (multipliers stack on top of previous alerts)
+// 2) Choose destination by alert.action:
+//      'shelter' -> nearest SHELTER BY TIME (dose ∝ exposure time), habitat counts as shelter
+//      'return'  -> habitat
+// 3) plan() from the current position. Cost grid + costToHome are rebuilt automatically
+//    because state changed (cache key) -> ~0.3-0.5 s total.
+export function applyAlert(state = {}, alert) {
+  const e = alert.effect || {};
+  return {
+    ...state,
+    dose_x: (state.dose_x ?? 1) * (e.dose_x ?? 1),
+    o2_x: (state.o2_x ?? 1) * (e.o2_x ?? 1),
+    visibility: Math.min(state.visibility ?? 1, e.visibility ?? 1),
+  };
+}
+
+export function replan(site, req) {
+  const t0 = performance.now();
+  const state = applyAlert(req.state, req.alert);
+  const base = { start: req.current, stops: [], params: req.params, state, o2_used_min: req.o2_used_min };
+  const habitat = site.meta.habitat;
+
+  let candidates;
+  if (req.alert.action === 'shelter') {
+    candidates = site.targets.features
+      .filter((f) => f.properties.kind === 'shelter' || f.properties.kind === 'habitat')
+      .map((f) => ({ name: f.properties.name, coords: f.geometry.coordinates }));
+  } else {
+    candidates = [{ name: 'Habitat', coords: habitat }];
+  }
+
+  let best = null;
+  for (const c of candidates) {
+    const p = plan(site, { ...base, goal: c.coords });
+    if (p.error) continue;
+    if (!best || p.stats.duration_min < best.plan.stats.duration_min) best = { plan: p, target: c };
+  }
+  if (!best) return { error: 'no_safe_destination', alert: req.alert.id, state };
+  return {
+    ...best.plan,
+    state, // the tablet keeps this and sends it back on the next replan (alerts stack)
+    replan: {
+      alert: req.alert.id, type: req.alert.type, action: req.alert.action,
+      destination: best.target.name, candidates: candidates.length,
+      total_ms: Math.round(performance.now() - t0),
+    },
   };
 }
 

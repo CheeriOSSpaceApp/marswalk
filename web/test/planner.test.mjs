@@ -1,7 +1,7 @@
 // Run from web/:  node test/planner.test.mjs [site]
 // Loads the contract files from disk (no browser) and checks the planner.
 import fs from 'node:fs';
-import { plan, astar, buildCostGrid, dijkstraFrom, getCostToHome } from '../src/planner.js';
+import { plan, replan, astar, buildCostGrid, dijkstraFrom, getCostToHome } from '../src/planner.js';
 
 const site = process.argv[2] || 'mock';
 const dir = new URL(`../public/data/${site}/`, import.meta.url);
@@ -10,7 +10,7 @@ const bin = (f, T) => { const b = fs.readFileSync(new URL(f, dir)); return new T
 
 const meta = json('meta.json');
 const S = {
-  meta, suit: json('suit.json'), params: json('params.json'),
+  meta, targets: json('targets.geojson'), alerts: json('alerts.json'), suit: json('suit.json'), params: json('params.json'),
   layers: {
     elevation: bin('elevation.f32', Float32Array), slope: bin('slope.f32', Float32Array),
     roughness: bin('roughness.f32', Float32Array), hazard: bin('hazard.u8', Uint8Array),
@@ -69,5 +69,35 @@ check('walkback_ok with normal suit', r.stats.walkback_ok === true, `margin ${r.
 const S2 = { ...S, suit: { ...S.suit, o2_hours: { value: 0.5 } } };
 r = plan(S2, { start: T.habitat, stops: [T.depot], goal: T.habitat });
 check('walkback fails with 30-min tank', r.stats.walkback_ok === false, `margin ${r.stats.walkback_margin_min} min`);
+
+// 9. Replanning: astronaut is halfway habitat -> depot when each alert arrives
+const out = plan(S, { start: T.habitat, goal: T.depot });
+const mid = out.path.geometry.coordinates[Math.floor(out.path.geometry.coordinates.length / 2)];
+const A = Object.fromEntries(S.alerts.map((a) => [a.type, a]));
+const end = (res) => res.path.geometry.coordinates.at(-1);
+const near = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]) < 1e-4;
+
+let rp = replan(S, { current: mid, alert: A.SPE, o2_used_min: 20 });
+check('SPE -> goes to a shelter', !rp.error && ['Shelter A (mock)', 'Habitat'].includes(rp.replan.destination),
+  `-> ${rp.replan?.destination} in ${rp.stats?.duration_min} min, ${rp.replan?.total_ms} ms`);
+check('SPE -> starts at current position', near(rp.path.geometry.coordinates[0], mid));
+check('SPE -> dose multiplied', rp.state.dose_x === A.SPE.effect.dose_x);
+
+rp = replan(S, { current: mid, alert: A.dust });
+check('dust -> returns to habitat', !rp.error && rp.replan.destination === 'Habitat' && near(end(rp), T.habitat), `${rp.replan.total_ms} ms`);
+
+const r0 = plan(S, { start: mid, goal: T.habitat });
+rp = replan(S, { current: mid, alert: A.suit });
+check('suit -> same route home but more O2', rp.stats.o2_used_pct > r0.stats.o2_used_pct, `${r0.stats.o2_used_pct}% -> ${rp.stats.o2_used_pct}%`);
+
+const rp2 = replan(S, { current: mid, alert: A.dust, state: rp.state });
+check('alerts stack (suit x dust)', Math.abs(rp2.state.o2_x - A.suit.effect.o2_x * A.dust.effect.o2_x) < 1e-9 && rp2.state.visibility === A.dust.effect.visibility, `o2_x ${rp2.state.o2_x}`);
+check('replan < 1 s', rp.replan.total_ms < 1000 && rp2.replan.total_ms < 1000, `${rp.replan.total_ms}, ${rp2.replan.total_ms} ms`);
+
+// 10. Snap: a click on a forbidden cell is moved to the nearest walkable cell
+const forb = S.layers.hazard.findIndex((v, i) => v === 2 && S.layers.hazard[i + 1] !== 2);
+const fp = [meta.bbox[0] + ((forb % W) + 0.5) / W * (meta.bbox[2] - meta.bbox[0]), meta.bbox[3] - (Math.floor(forb / W) + 0.5) / meta.height * (meta.bbox[3] - meta.bbox[1])];
+r = plan(S, { start: fp, goal: T.habitat });
+check('start on a rock gets snapped', !r.error);
 
 process.exit(fails ? 1 : 0);
