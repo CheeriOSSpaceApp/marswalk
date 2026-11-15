@@ -27,6 +27,13 @@ def main():
 
     print(f"\nAmanecer: {sunrise_lmst:.4f} h LMST")
     print(f"Atardecer: {sunset_lmst:.4f} h LMST")
+    # checkhours.py está dentro de pipeline/
+    repo_root = Path(__file__).resolve().parents[1]
+
+    # Cambia esta ruta para elegir el directorio de destino
+    output_dir = repo_root / "web/public/data/common"
+
+    save_solar_times(params_path=output_dir / "params.json",sunrise_lmst=sunrise_lmst,sunset_lmst=sunset_lmst,ls_deg=ls_deg,longitude=longitude,latitude=latitude,)
 
 def get_solar_data(longitude, latitude, ls_deg):
     url = ("https://www-mars.lmd.jussieu.fr/mcd_python/cgi-bin/mcdcgi.py")
@@ -96,6 +103,45 @@ def ltst_to_lmst(ltst_hour, ls_deg):
     correction = (0.712 * np.sin(np.radians(ls_deg - 251.0))- 0.190 * np.sin(np.radians(2.0 * ls_deg)))
 
     return (ltst_hour + correction) % 24
+def save_solar_times(
+    params_path,
+    sunrise_lmst,
+    sunset_lmst,
+    ls_deg,
+    longitude,
+    latitude,
+    mcd_version="6.2",
+):
+    params_path = Path(params_path)
+
+    params = json.loads(
+        params_path.read_text(encoding="utf-8")
+    )
+
+    source = (
+        f"MCD v{mcd_version}; Ls={ls_deg:g} deg; "
+        f"habitat: {longitude:.8f} E, {latitude:.8f} N; "
+        "hourly solar zenith crossing 90 deg; "
+        "linear interpolation; approximate LTST-to-LMST "
+        "conversion from LMD; flat horizon; "
+        "decimal Martian hours. "
+        "https://www-mars.lmd.jussieu.fr/mcd_python/"
+    )
+
+    for key, value in {
+        "sunrise_lmst": sunrise_lmst,
+        "sunset_lmst": sunset_lmst,
+    }.items():
+        params[key]["value"] = round(float(value), 4)
+        params[key]["source"] = source
+
+    content = json.dumps(params, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+
+    temporary_path = params_path.with_suffix(".json.tmp")
+    temporary_path.write_text(content, encoding="utf-8")
+    temporary_path.replace(params_path)
+
+    print("Horas guardadas en:", params_path)
 
 if __name__ == "__main__":
     main()

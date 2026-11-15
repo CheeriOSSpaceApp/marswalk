@@ -32,25 +32,66 @@
   "gcr_assumption": "RAD's 0.67 mSv/day is as per Earth day (24 h).",
   "gcr_uncertainty_mSv_per_day": 0.12,
   "gcr_uncertainty_source": "Hassler et al. 2014 as cited in SWSC 2016 reports 0.67 +/- 0.12 mSv/day, applied here to the 0.67 mSv/day rate as an approximation (our assumption)",
-
-    "task_min": {
-    "depot_per_tube": { "value": 8, "source": "Apollo 16: ~3 min per documented sample + seal check, packing and label (team estimate)", "assumption": true },
-    "depot_setup": { "value": 10, "source": "Team estimate (context photos and preparation)", "assumption": true },
-    "science": { "value": 45, "source": "Apollo 15 station 2: ~51 min; no coring or drilling", "assumption": true },
-    "shelter": { "value": 5, "source": "Team estimate (terrain check)", "assumption": true },
-    "habitat_egress": { "value": 15, "source": "EMU timeline (15 min egress); confirm with Marco that it is in suit.json", "assumption": true },
-    "habitat_ingress": { "value": 15, "source": "EMU timeline (15 min ingress); confirm with Marco that it is in suit.json", "assumption": true }
+  "task_min": {
+    "depot_per_tube": {
+      "value": 8,
+      "source": "Apollo 16: ~3 min per documented sample + seal check, packing and label (team estimate)",
+      "assumption": true
+    },
+    "depot_setup": {
+      "value": 10,
+      "source": "Team estimate (context photos and preparation)",
+      "assumption": true
+    },
+    "science": {
+      "value": 45,
+      "source": "Apollo 15 station 2: ~51 min; no coring or drilling",
+      "assumption": true
+    },
+    "shelter": {
+      "value": 5,
+      "source": "Team estimate (terrain check)",
+      "assumption": true
+    },
+    "habitat_egress": {
+      "value": 15,
+      "source": "EMU timeline (15 min egress); confirm with Marco that it is in suit.json",
+      "assumption": true
+    },
+    "habitat_ingress": {
+      "value": 15,
+      "source": "EMU timeline (15 min ingress); confirm with Marco that it is in suit.json",
+      "assumption": true
+    }
   },
-
   "work_metabolic_factor": {
     "value": 1.0,
     "source": "Design average (1200 BTU/h). Apollo geology-station rates were about 0.81-0.89 of it, but we have no Mars data, so we use the conservative value",
     "assumption": true
   },
-
-  "sunrise_lmst": { "value": 6.0, "source": "PLACEHOLDER until Gabriel provides MCD value for the chosen Ls (Jezero)", "assumption": true },
-  "sunset_lmst":  { "value": 18.0, "source": "PLACEHOLDER (same)", "assumption": true },
-  "night_buffer_min": { "value": 30, "source": "Team choice: margin to be back in the habitat before sunset", "assumption": true },
-  "w_caution": { "value": 0.5, "source": "Tunable weight (team default); adjusted with the rover validation", "assumption": true },
-  "w_obstacle_caution": { "value": 2.0, "source": "Tunable weight (team default); adjusted with the rover validation", "assumption": true }
+  "sunrise_lmst": {
+    "value": 6.8387,
+    "source": "MCD v6.2; Ls=270 deg; habitat: 77.41359752 E, 18.45369687 N; hourly solar zenith crossing 90 deg; linear interpolation; approximate LTST-to-LMST conversion from LMD; flat horizon; decimal Martian hours. https://www-mars.lmd.jussieu.fr/mcd_python/",
+    "assumption": true
+  },
+  "sunset_lmst": {
+    "value": 17.6249,
+    "source": "MCD v6.2; Ls=270 deg; habitat: 77.41359752 E, 18.45369687 N; hourly solar zenith crossing 90 deg; linear interpolation; approximate LTST-to-LMST conversion from LMD; flat horizon; decimal Martian hours. https://www-mars.lmd.jussieu.fr/mcd_python/",
+    "assumption": true
+  },
+  "night_buffer_min": {
+    "value": 30,
+    "source": "Team choice: margin to be back in the habitat before sunset",
+    "assumption": true
+  },
+  "w_caution": {
+    "value": 0.5,
+    "source": "Tunable weight (team default); adjusted with the rover validation",
+    "assumption": true
+  },
+  "w_obstacle_caution": {
+    "value": 2.0,
+    "source": "Tunable weight (team default); adjusted with the rover validation",
+    "assumption": true
+  }
 }

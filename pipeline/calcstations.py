@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 from scipy import ndimage
 import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
 
 def main():
     repo_root = Path(__file__).resolve().parents[1]
@@ -84,19 +85,27 @@ def find_reachable(walkable, start):
 def plot_reachable(slope, reachable, habitat_row, habitat_col):
     display = np.where(reachable, slope, np.nan)
 
-    fig, ax = plt.subplots(figsize=(9, 9))
-    ax.set_facecolor("lightgray")
+    cmap = LinearSegmentedColormap.from_list(
+        "access_purple",
+        ["#F1E6FF", "#BA80E6", "#692399"]
+    ).with_extremes(bad="black")
 
-    image = ax.imshow(display,cmap="YlOrRd",origin="upper",vmin=0)
+    fig, ax = plt.subplots(figsize=(9, 9))
+    ax.set_facecolor("black")
+
+    image = ax.imshow(display,cmap=cmap,origin="upper",vmin=0,interpolation="nearest")
 
     ax.scatter(habitat_col,habitat_row,color="cyan",marker="*",edgecolors="black",s=180,label="Habitat")
 
-    fig.colorbar(image, ax=ax, label="Slope (degrees)")
+    fig.colorbar(image,ax=ax,label="Slope on reachable terrain (degrees)")
+
     ax.set_xlabel("Grid column")
     ax.set_ylabel("Grid row")
     ax.set_title("Reachable terrain from habitat")
     ax.legend()
+
     plt.tight_layout()
     plt.show()
+
 if __name__ == "__main__":
     main()
