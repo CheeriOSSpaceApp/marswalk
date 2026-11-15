@@ -38,3 +38,4 @@ Format: `- [HH:MM] Name — Tool — What for — What we kept / changed`
 - [11:34] Gabriel - ChatGPT- help calculate hours at specific latitude on mars
 - [11:48] Marco — Copilot — Analyzed repository guidance and created `.github/copilot-instructions.md` for future sessions.
 - [11:54] Marco — Copilot — Created presenter context and video presentation script in `docs/PRESENTATION.md`, grounded in the project architecture and validation docs.
+- [12:00] Eric — Claude — Technical README of the planner (docs/PLANNER.md) and main README restructure; reserve decision 15 % → 18 % analysis (suit.json source updated). All numbers re-measured on the real grid.

@@ -69,8 +69,8 @@ Use `r.replan.destination_kind` ('habitat' | 'shelter') for logic, `destination`
 - HUD priority (Ana): O₂ remaining vs cost to get home (top), next waypoint (distance, bearing, ETA), dose, alert banner.
 
 ## 7. Real numbers to sanity-check the UI (Jezero, `node test/jezero_eva.mjs`)
-EVA-1 (habitat → 10 depot tubes → Wildcat Ridge → habitat): 1430 m, 190 min (165 working), O₂ 45.1 %,
-margin 191.5 min, max walkback 601 m, dose 0.075 mSv, safe. Replan: 11–63 ms. SPE → habitat (Hawksbill isn't a radiation shelter).
+EVA-1 (habitat → 10 depot tubes → Wildcat Ridge → habitat): 1432 m, 190 min (165 working), O₂ 45.1 %,
+margin 177 min (reserve 18 %), max walkback 601 m, dose 0.075 mSv, safe. Replan: 11–63 ms. SPE → habitat (Hawksbill isn't a radiation shelter).
 
 ---
 # 8. Tier 1 features (11:30) — planner side DONE, UI to wire
