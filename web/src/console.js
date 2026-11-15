@@ -3,11 +3,12 @@ import { createSiteMap } from './common.js';
 import { buildLayers } from './layers.js';
 import { createPlanner } from './plannerClient.js';   // Eric's real planner (A* in a Web Worker), docs/INTEGRATION.md
 import { routeModel } from './route.js';
-import { createRing } from './ring.js';
+import { createRing, liveZone } from './ring.js';
 import { send, onMessage } from './bus.js';
 import { helmetIcon } from './geo.js';
 import { loadEnv, envAt, scenarioFor, ltst, fmtEnv, lmstAt } from './env.js';
 import { loadPresets, removePreset, onPresetsChange, presetSummary } from './presets.js';
+import { buildReport, reportToMarkdown } from './report.js';   // Eric's mission report (pure functions)
 
 const { map, site, name, bounds, basemap } = await createSiteMap();
 const env = await loadEnv(site);
@@ -25,7 +26,7 @@ layerList.forEach((e, i) => {
                   (e.opacity ? `<input type="range" min="0" max="1" step="0.05" value="${e.layer.options.opacity}">` : '');
   if (e.legend) {
     const lg = document.createElement('div'); lg.className = 'legend';
-    lg.innerHTML = e.legend.map(l => `<div class="lg"><i style="background:${l.color}"></i><b>${l.name}</b><span>${l.meaning}</span></div>`).join('');
+    lg.innerHTML = e.legend.map(l => `<div class="lg"><i class="${l.square ? 'sq' : ''}" style="background:${l.color}"></i><b>${l.name}</b><span>${l.meaning}</span></div>`).join('');
     row.insertBefore(lg, row.querySelector('input[type=range]'));
   }
   const rg = row.querySelector('input[type=range]');
@@ -205,24 +206,35 @@ const plannerReady = planner.init(name).then(() => { $('planBtn').disabled = fal
   .catch(e => { $('status').textContent = 'Planner failed to load: ' + e.message; throw e; });
 
 let alertState = {};                 // alerts stack: keep what replan() returns
+// Tier 2 (INTEGRATION §8.8): O₂ taken from each cache. Counted when the tablet confirms the refill (not when a plan is
+// computed, so re-planning never double-counts). Sent to the planner as state.cache_used in every call.
+const cacheUsed = {};
+let builtIn = [], script = [];       // built-in demo presets (data/<site>/presets.json) · active scenario script
+const withCaches = st => ({ ...st, cache_used: { ...cacheUsed } });
 let baseState = {};                  // starting conditions set from the test bench (suit failure / dust)
 let baseUsed = 0;                    // O2-min already used at EVA start (test bench: tank not full)
 let lastPosition = null;             // from the tablet: {lon, lat, o2_used_min, ...}
 let ingressMin = 0;                  // pending habitat ingress of the current plan (O2-min reserved for it)
 async function refreshRing() {       // costToHome depends on the alert state -> fetch once per state
   await plannerReady;
-  ring.setData(await planner.costToHome({ state: alertState }));
+  ring.setData(await planner.costToHome({ state: withCaches(alertState) }));
   updateRing(true);
 }
 function updateRing(force = false) {
   if (!ring.ready) return;
   const used = lastPosition?.o2_used_min ?? baseUsed;
-  ring.update(ring.usable - used - ingressMin * (alertState.o2_x ?? 1), force);
+  ring.update(ring.usable - used - ingressMin * REST_F * (alertState.o2_x ?? 1), force);
+  zone.refresh(lastPosition ? [lastPosition.lon, lastPosition.lat] : habitat, used, force);
 }
+// O₂ while standing in the airlock = rest rate (params.rest_metabolic_factor, §9.1)
+const REST_F = pv(site.params?.rest_metabolic_factor) ?? pv(site.params?.work_metabolic_factor) ?? 1;
+// Live safe zone (§9.2) replaces the static ring once the planner answers; refreshed on moves / O₂ / alerts / refills
+const zone = liveZone(planner, ring, () => withCaches(alertState));
 refreshRing();
 
 function publish(res, waypoints, extra = {}) {
   const payload = { plan: res, stops: waypoints.map(w => w.ll), waypoints, start_hour: startHour(), o2_start_used: baseUsed, base_state: baseState, ...extra };
+  if (!extra.replan) missionStart(res);
   send('plan', payload);
   try { localStorage.setItem('marswalk:plan', JSON.stringify(payload)); } catch {}
 }
@@ -233,11 +245,12 @@ async function planRoute() {
   await plannerReady;
   // req.task_min[k] overrides the planner's task time at stop k (null = planner default from targets / params)
   const task_min = [...stops.map(s => s.task === true ? (s.kind ? null : s.task_min) : s.task === false ? 0 : null), null];
-  const res = await planner.plan({ start: habitat, stops: stops.map(s => s.ll), goal: habitat, task_min, start_lmst: startHour(), state: baseState, o2_used_min: baseUsed });
+  const res = await planner.plan({ start: habitat, stops: stops.map(s => s.ll), goal: habitat, task_min, start_lmst: startHour(), state: withCaches(baseState), o2_used_min: baseUsed });
   if (res.error) return showError(res);
   $('status').textContent = '';
   if (JSON.stringify(alertState) !== JSON.stringify(baseState)) { alertState = { ...baseState }; refreshRing(); }   // a fresh plan starts with no alerts (only the bench conditions)
   baseStats = res.stats; annotateHours(); lowO2Sent = false;
+  planned = res.refills || []; renderCaches();
   const m = drawRoute(res);
   ingressMin = m.legTask[m.legTask.length - 1] || 0; updateRing(true);
   publish(res, [...stops.map(s => ({ name: s.name, ll: s.ll, photo_id: s.photo_id, kind: isTask(s) ? (s.kind || 'task') : null })), { name: 'Habitat', ll: habitat, kind: 'habitat' }]);
@@ -301,13 +314,16 @@ async function injectAlert(a) {
     if (!routeGroup) { setStatus('warn', 'Plan a route first (Route → Plan), then inject an alert.', 'alertStatus'); return; }
     setStatus('', 'Replanning…', 'alertStatus');
     const current = lastPosition ? [lastPosition.lon, lastPosition.lat] : habitat;     // where the astronaut is right now
-    const r = await planner.replan({ current, alert: a, state: alertState, o2_used_min: lastPosition?.o2_used_min ?? 0, now_lmst: lmstAt(startHour(), lastPosition?.t_min) });
+    const r = await planner.replan({ current, alert: a, state: withCaches(alertState), o2_used_min: lastPosition?.o2_used_min ?? 0, now_lmst: lmstAt(startHour(), lastPosition?.t_min) });
     if (r.error) return showError(r, 'alertStatus');
     alertState = r.state;
-    const { destination, destination_kind, destination_id } = r.replan;
+    const { destination, destination_id } = r.replan;
+    // Tier 2 resupply: destination = the cache, but the route goes cache → habitat, so the route really ends at home
+    const viaCache = !!r.replan.via_cache && r.segments.length > 1, destination_kind = viaCache ? 'habitat' : r.replan.destination_kind;
     const fallback = !!r.replan.fallback_to_safe_point;      // §8.4: habitat doesn't fit (O₂ / daylight) -> nearest safe point
     const considered = r.replan.considered || [];
     send('alert', { alert: a, destination, destination_kind, fallback, considered: shortConsidered(considered) });
+    logEvent('alert', { alert_type: aname(a), destination: r.replan.via_cache ? `${destination} (refill) → habitat` : destination, destination_kind });
     logAlert('high', `${aname(a)} → ${destination}`);
     if (r.stats.distance_m < 5) {               // the astronaut is already there (e.g. still in the habitat): keep the route, just alert
       setStatus('high', `${aname(a)}: the astronaut is already at ${destination}. Stay there (EVA on hold). Alert sent to the tablet.`, 'alertStatus');
@@ -318,9 +334,15 @@ async function injectAlert(a) {
     ingressMin = destination_kind === 'habitat' ? (m.legTask[m.legTask.length - 1] || 0) : 0;
     refreshRing();
     const dest = (site.targets?.features || []).find(f => f.properties.id === destination_id);
-    publish(r, [{ name: destination, ll: r.path.geometry.coordinates.at(-1), kind: destination_kind, photo_id: dest?.properties.photo_id ?? null }],
-      { replan: true, state: r.state });
-    setStatus('high', `${fallback ? `Can't make it home: go to ${destination}. ` : ''}${aname(a)} sent → new route to ${destination} (${(r.stats.distance_m / 1000).toFixed(2)} km, ${r.replan.total_ms} ms) is on the tablet.${r.replan.via_cache ? ` Refill at ${r.replan.via_cache.name || r.replan.via_cache}.` : ''}`, 'alertStatus');
+    const wps = r.segments.map((leg, k) => {
+      const f = targetNear(leg.to), last = k === r.segments.length - 1;
+      if (last && !viaCache) return { name: destination, ll: leg.to, kind: destination_kind, photo_id: dest?.properties.photo_id ?? null };
+      if (last) return { name: f?.properties.name || 'Habitat', ll: leg.to, kind: 'habitat', photo_id: f?.properties.photo_id ?? null };
+      return { name: f?.properties.name || 'Waypoint', ll: leg.to, kind: f?.properties.station_type === 'cache' ? 'cache' : f?.properties.kind || null, photo_id: f?.properties.photo_id ?? null };
+    });
+    publish(r, wps, { replan: true, state: r.state });
+    planned = r.refills || []; renderCaches();
+    setStatus('high', `${fallback ? `Can't make it home: go to ${destination}. ` : ''}${aname(a)} sent → new route ${viaCache ? `via ${destination} to the habitat` : `to ${destination}`} (${(r.stats.distance_m / 1000).toFixed(2)} km, ${r.replan.total_ms} ms) is on the tablet.${(r.refills || []).length ? ` Refill ${r.refills.map(x => `${x.o2_min} O₂-min at ${x.name}`).join(', ')}, then home.` : ''}`, 'alertStatus');
     $('alertStatus').insertAdjacentHTML('beforeend', consideredHtml(considered));
 }
 // Low O2 (detected by the tablet): the tablet asks for a route home; same flow as an injected 'return' alert.
@@ -378,17 +400,20 @@ async function applyConfig(cfg, fromLive = false) {
   if (!cfg) return;
   if (cfg.site && cfg.site !== name) { setStatus('warn', `The test bench sent a ${cfg.site} configuration; this console shows ${name}. Open console.html?site=${cfg.site}.`); return; }
   stops.length = 0;
-  for (const ll of cfg.stops || []) {
-    const f = targetNear(ll);
+  script = (cfg.script || []).map(x => ({ ...x, fired: false }));
+  for (const k in cacheUsed) delete cacheUsed[k];          // a new scenario starts with full O₂ caches
+  for (const st of cfg.stops || []) {
+    if (st && !Array.isArray(st)) { addStop(st.ll, st.name, null, null, st.task_min ? true : null); if (st.task_min) stops.at(-1).task_min = st.task_min; continue; }   // {ll, name, task_min}: custom task point
+    const ll = st, f = targetNear(ll);
     if (f?.properties.kind === 'habitat') continue;         // the console adds the habitat at both ends
-    if (f) addStop(f.geometry.coordinates, f.properties.name, f.properties.photo_id, f.properties.kind); else addStop(ll);
+    if (f) addStop(f.geometry.coordinates, f.properties.name, f.properties.photo_id, f.properties.station_type === 'cache' ? 'cache' : f.properties.kind); else addStop(ll);
   }
   if (cfg.start_hour != null) $('startHour').value = String(Math.round(cfg.start_hour * 2) / 2);
   baseUsed = cfg.o2_start_min != null ? Math.max(0, O2_TOTAL - cfg.o2_start_min) : 0;
   baseState = cfg.state || {};
   const conds = [baseState.o2_x > 1 && 'suit failure (O₂ ×' + baseState.o2_x + ')', baseState.visibility < 1 && 'dust (visibility ' + baseState.visibility + ')'].filter(Boolean);
   $('cfgNote').hidden = false;
-  $('cfgNote').innerHTML = `<b>Configured from the test bench</b> · ${cfg.route_label || stops.length + ' stops'} · O₂ at start ${Math.round(O2_TOTAL - baseUsed)} min (${Math.round((O2_TOTAL - baseUsed) / O2_TOTAL * 100)} %)` +
+  $('cfgNote').innerHTML = `<b>${cfg.source || 'Configured from the test bench'}</b> · ${cfg.route_label || stops.length + ' stops'} · O₂ at start ${Math.round(O2_TOTAL - baseUsed)} min (${Math.round((O2_TOTAL - baseUsed) / O2_TOTAL * 100)} %)` +
     `${conds.length ? ' · ' + conds.join(', ') : ''} · start ${ltst(startHour())} <button id="cfgReset">Reset</button>`;
   $('cfgReset').onclick = () => { baseUsed = 0; baseState = {}; $('cfgNote').hidden = true; try { localStorage.removeItem('marswalk:config'); } catch {} if (stops.length) planRoute(); };
   await plannerReady;
@@ -400,16 +425,112 @@ onMessage(msg => { if (msg.type === 'config') applyConfig(msg.payload, true); })
 // ---------- Saved presets (created in the test bench with "Save preset") ----------
 let activePreset = null;
 function renderPresets() {
-  const list = loadPresets(name), box = $('presets'); box.innerHTML = '';
+  const list = [...builtIn, ...loadPresets(name)], box = $('presets'); box.innerHTML = '';
   if (!list.length) { box.innerHTML = '<div class="empty">None yet. Create them in the planner test bench (Console setup → Save preset).</div>'; return; }
   for (const p of list) {
     const row = document.createElement('div'); row.className = 'preset' + (p.id === activePreset ? ' active' : '');
-    row.innerHTML = '<div class="pn"><b></b><small></small></div><button class="ld">Load</button><button class="rm" title="Delete">×</button>';
-    row.querySelector('b').textContent = p.name; row.querySelector('small').textContent = presetSummary(p.cfg, O2_TOTAL);
-    row.querySelector('.ld').onclick = async () => { activePreset = p.id; renderPresets(); await applyConfig({ ...p.cfg, route_label: p.name }); };
-    row.querySelector('.rm').onclick = () => { if (activePreset === p.id) activePreset = null; removePreset(p.id); };
+    row.innerHTML = `<div class="pn"><b></b><small></small></div><button class="ld">Load</button>${p.builtin ? '<span class="bi" title="Ships with the repo (data/<site>/presets.json)">demo</span>' : '<button class="rm" title="Delete">×</button>'}`;
+    row.querySelector('b').textContent = p.name; row.querySelector('small').textContent = p.description || presetSummary(p.cfg, O2_TOTAL);
+    row.querySelector('.ld').onclick = async () => { activePreset = p.id; renderPresets(); await applyConfig({ ...p.cfg, route_label: p.name, source: p.builtin ? 'Demo scenario' : 'Saved preset' }); };
+    if (!p.builtin) row.querySelector('.rm').onclick = () => { if (activePreset === p.id) activePreset = null; removePreset(p.id); };
     box.appendChild(row);
   }
 }
 onPresetsChange(renderPresets); renderPresets();
-try { const c = JSON.parse(localStorage.getItem('marswalk:config') || 'null'); if (c && Date.now() - (c.t || 0) < 12 * 3600e3) applyConfig(c); } catch {}
+// Built-in demo scenarios that ship with the repo: data/<site>/presets.json (can't be deleted). ?demo=1 loads the first, ?demo=<id> that one.
+const demoArg = new URLSearchParams(location.search).get('demo');
+const builtInReady = (async () => {
+  try {
+    const u = site.url('presets.json'); if (!u) return;
+    const r = await fetch(u); if (!r.ok) return;
+    const j = await r.json();
+    builtIn = (Array.isArray(j) ? j : j.presets || []).filter(p => (p.cfg?.site ?? name) === name).map(p => ({ ...p, builtin: true }));
+    renderPresets();
+  } catch (e) { console.warn('[console] presets.json', e); }
+})();
+if (demoArg != null) builtInReady.then(async () => {
+  const p = builtIn.find(x => x.id === demoArg) || builtIn[0]; if (!p) return;
+  activePreset = p.id; renderPresets(); await applyConfig({ ...p.cfg, route_label: p.name, source: 'Demo scenario' });
+});
+else try { const c = JSON.parse(localStorage.getItem('marswalk:config') || 'null'); if (c && Date.now() - (c.t || 0) < 12 * 3600e3) applyConfig(c); } catch {}
+
+// Scenario script (built-in presets): inject an alert when the astronaut arrives at / finishes a stop
+function runScript(on, stopName) {
+  for (const s of script) {
+    if (s.fired || s.on !== on || stops[s.stop]?.name !== stopName) continue;
+    const a = (site.alerts || []).find(x => x.id === s.alert); if (!a) continue;
+    s.fired = true;
+    logAlert('high', `Scenario: ${aname(a)} at ${stopName.split(' - ')[0]}`);
+    setTimeout(() => injectAlert(a), 1200);
+  }
+}
+onMessage(msg => {
+  if (!script.length) return;
+  if (msg.type === 'position' && msg.payload.task) runScript('arrive', msg.payload.task);
+  if (msg.type === 'task_done') runScript('task_done', msg.payload.name);
+});
+
+// ---------- O₂ caches inventory (Tier 2) ----------
+let planned = [];                          // refills in the current plan [{id, name, o2_min}]
+const caches = () => (site.targets?.features || []).filter(f => f.properties.station_type === 'cache');
+function renderCaches() {
+  const list = caches(), card = $('cacheCard'); card.hidden = !list.length; if (!list.length) return;
+  $('caches').innerHTML = list.map(f => {
+    const p = f.properties, stored = pv(p.supplies?.o2_min) ?? 0, used = cacheUsed[p.id] || 0, plan = planned.filter(r => r.id === p.id).reduce((s, r) => s + r.o2_min, 0);
+    const left = Math.max(0, stored - used), pct = stored ? left / stored * 100 : 0;
+    return `<div class="cache"><div class="ch"><b>${p.name}</b><span>${left.toFixed(0)} / ${stored} O₂-min</span></div>` +
+      `<div class="cbar"><i style="width:${pct}%"></i>${plan ? `<em style="width:${Math.min(pct, plan / stored * 100)}%"></em>` : ''}</div>` +
+      `<small>${used ? `used ${used.toFixed(0)}` : 'unused'}${plan ? ` · this plan takes ${plan.toFixed(0)}` : ''}${left === 0 ? ' · EMPTY: restock' : ''}</small></div>`;
+  }).join('');
+}
+onMessage(msg => {                         // the tablet confirmed a refill at a cache
+  if (msg.type !== 'refill') return;
+  cacheUsed[msg.payload.id] = (cacheUsed[msg.payload.id] || 0) + msg.payload.o2_min;
+  planned = planned.filter(r => r.id !== msg.payload.id);
+  logAlert('safe', `Refill: ${msg.payload.o2_min} O₂-min at ${msg.payload.name}`);
+  renderCaches(); refreshRing();
+});
+renderCaches();
+
+// ---------- Mission log → report (Eric's report.js). The console hears everything on the bus, so it keeps the log. ----------
+let mission = null, lastSample = -Infinity, phase = null, curTask = null, replanned = false;
+function missionStart(res) {
+  const now = new Date();
+  mission = { mission_id: `EVA-${now.toISOString().slice(0, 10)}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`,
+    site: site.meta?.site || null, crew: ['EV1'], start_lmst: startHour(), planned: { stats: res.stats }, events: [] };
+  lastSample = -Infinity; phase = null; curTask = null; replanned = false; $('reportCard').hidden = false; renderReportInfo();
+}
+function logEvent(type, payload, t) {
+  if (!mission) return;
+  if (type === 'alert') replanned = true;
+  mission.events.push({ t_min: +(t ?? lastPosition?.t_min ?? 0).toFixed(2), type, ...payload });
+  renderReportInfo();
+}
+onMessage(msg => {
+  if (!mission) return;
+  const p = msg.payload || {};
+  if (msg.type === 'position') {
+    const t = p.t_min ?? 0;
+    if (p.task) curTask = { name: p.task, elapsed: p.task_elapsed, planned: p.task_min };
+    const ph = p.task ? (/egress/i.test(p.task) ? 'prep' : /ingress/i.test(p.task) ? 'ingress' : 'working')
+      : replanned ? 'returning' : mission.events.some(e => e.type === 'task_done' && !/egress/i.test(e.name)) ? 'transit' : 'outbound';
+    if (ph !== phase) { phase = ph; logEvent('phase', { phase: ph }, t); }
+    if (t - lastSample >= 2) { lastSample = t; logEvent('position', { lon: p.lon, lat: p.lat, o2_used_min: p.o2_used_min, dose_mSv: p.spent?.dose_mSv ?? null }, t); }
+  } else if (msg.type === 'task_done') {
+    const planned = curTask?.name === p.name ? curTask.planned : null, actual = curTask?.name === p.name ? curTask.elapsed : null;
+    logEvent('task_done', { id: p.name, name: p.name, planned_min: planned ?? 0, actual_min: actual ?? planned ?? 0 }, p.t_min);
+    if (/ingress/i.test(p.name)) logEvent('phase', { phase: 'done' }, p.t_min);
+  } else if (msg.type === 'refill') logEvent('note', { template: 'refill', text: `Refill ${p.o2_min} O₂-min at ${p.name}` }, p.t_min);
+  else if (msg.type === 'warning') logEvent('note', { template: p.priority || 'warning', text: `${ALERT_NAMES[p.type] || p.type}: ${p.message}` }, p.t_min);
+});
+function renderReportInfo() {
+  if (!mission) return;
+  const n = t => mission.events.filter(e => e.type === t).length;
+  $('reportInfo').textContent = `${mission.mission_id} · ${n('position')} track points · ${n('task_done')} tasks · ${n('alert')} alerts`;
+}
+function download(name, text, type) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+$('reportMd').onclick = () => { if (mission) download(`${mission.mission_id}.md`, reportToMarkdown(buildReport(mission, site)), 'text/markdown'); };
+$('reportJson').onclick = () => { if (mission) download(`${mission.mission_id}.json`, JSON.stringify({ report: buildReport(mission, site), log: mission }, null, 1), 'application/json'); };

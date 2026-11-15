@@ -33,8 +33,7 @@ Re-plan after an alert: 11–65 ms. Full numbers and method: [docs/PLANNER.md](d
   1770 m walkback, battery, daylight. Details, complexity and verification: [docs/PLANNER.md](docs/PLANNER.md).
 - **Models (Ana).** Pandolf metabolic cost on Mars gravity, Tobler speed capped at 2.2 mph, GCR dose, task times. Every
   constant with its source: [Models](#models) below.
-- **Data pipeline (Gabriel).** HiRISE DTM → elevation, slope, detrended roughness, hazard, hillshade, ortho; climate from
-  the MCD. `pipeline/export_jezero.py`. *Section in progress: Gabriel.*
+- **Data pipeline** and caches (Gabriel). Converts HiRISE DTM into elevation, slope, detrended roughness, hazard and map images; climate comes from MCD. Greedy k-center uses the planner's oxygen costs to place up to three caches in an 800 m operating area, covering EVA-1 targets while keeping supplies near Wildcat. The planner retains its 1770 m walkback limit. Exports stations.geojson, CSV metrics and a before/after figure. At 800 m, worst-case cost falls from 34.47 to 28.70 nominal O₂-min; the 10-minute target remains unmet. The 120-minute cache supply is an explicit scenario assumption, pending its technical reference from Marco.
 - **Life support, comms and validation (Marco).** Suit limits with NASA sources (`web/public/data/common/suit.json`);
   line-of-sight viewshed from the habitat antenna; the rover traverse as validation. *Validation results in progress: Marco.*
 - **Interface (Santiago).** Leaflet console + tablet, synced live over BroadcastChannel; no-return ring, HUD, checklists, alerts.

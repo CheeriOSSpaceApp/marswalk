@@ -1,0 +1,47 @@
+{
+ "note": "MOCK demo scenarios (synthetic terrain, for UI testing). Same format as jezero/presets.json.",
+ "presets": [
+  {
+   "id": "mock-nominal",
+   "name": "Mock: crater rim 09:00",
+   "description": "Nominal mock EVA.",
+   "cfg": {
+    "site": "mock",
+    "stops": [
+     [
+      77.451094,
+      18.453012
+     ]
+    ],
+    "start_hour": 9
+   }
+  },
+  {
+   "id": "mock-leak",
+   "name": "Mock: O2 leak \u2192 cache rescue",
+   "description": "O\u2082 leak after the crater rim task \u2192 O2 Cache 1 (mock).",
+   "cfg": {
+    "site": "mock",
+    "stops": [
+     {
+      "ll": [
+       77.451094,
+       18.453012
+      ],
+      "name": "Crater rim (mock)",
+      "task_min": 15
+     }
+    ],
+    "start_hour": 9,
+    "o2_start_min": 300,
+    "script": [
+     {
+      "on": "task_done",
+      "stop": 0,
+      "alert": "leak1"
+     }
+    ]
+   }
+  }
+ ]
+}
