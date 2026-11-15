@@ -71,7 +71,7 @@ with a = 6 km/h, b = 3.5, c = 0.05 and V_cap = 0.98 m/s (2.2 mph, ICES-2026-127)
 ### Metabolic cost (Pandolf)
 Metabolic power on Mars, in watts, uses the Pandolf load-carriage equation:
 
-M = g_r · [ 1.5·W + 2·(W + L)·(L/W)² + η·(W + L)·(1.5·V² + 0.35·V·G) ] (Pandolf et al. 1977, as presented in Kim et al. 2024.)
+M = g_r · [ 1.5·W + 2·(W + L)·(L/W)² + η·(W + L)·(1.5·V² + 0.35·V·G) ] (Pandolf load-carriage equation, eq. 2 in Kim et al. 2024; base term only.)
 
 - W: body mass (kg). 
 - L: suit plus tools and samples (kg).
@@ -166,7 +166,8 @@ Alerts stack: `dose_x` and `o2_x` multiply, and visibility takes the lowest valu
 - Dust storms are modeled with a fixed visibility of 0.3 (`alerts.json`); low visibility only raises the routing cost of steep and rough cells, it does not change O₂ beyond the alert's `o2_x`.
 - The hand check verifies that the planner computes its statistics correctly from these equations; it does not validate the model itself. That is done against the real rover traverse.
 - The dependence of GCR dose on atmospheric pressure (Rafkin et al. 2014; Guo et al. 2017) is not modeled; a constant rate is used.
-- The standing terms of the Pandolf equation, 1.5W + 2(W + L)(L/W)², are large here because the load (suit and tools, 126.7 kg) is heavier than the astronaut (82 kg). After the 0.38 gravity factor they add up to about 425 W, more than twice the 176 W we use for a suited crew at rest and above the nominal 351.7 W. Pandolf's equation was not validated for loads heavier than the carrier's body mass (to be checked in the source), so this is an extrapolation. It is conservative: walking oxygen use is likely overestimated.
+- The standing terms of the Pandolf equation, 1.5W + 2(W + L)(L/W)², are large here because the load (suit and tools, 126.7 kg) is heavier than the astronaut (82 kg). After the 0.38 gravity factor they add up to about 425 W, more than twice the 176 W we use for a suited crew at rest and above the nominal 351.7 W. We could not verify that the equation covers loads heavier than the carrier's body mass, so this is an extrapolation. It is conservative: walking oxygen use is likely overestimated.
+- We use only the base Pandolf term (eq. 2 in Kim et al. 2024). The correction and delay factors of that paper, which improved agreement with field measurements in a preliminary test with four unsuited subjects, are not implemented.
 
 ## References
 - Ogilvie et al. (2026). ICES-2026-127, NASA JSC. https://ntrs.nasa.gov/citations/20260003038 (paper); https://ntrs.nasa.gov/citations/20260005410 (presentation). 
