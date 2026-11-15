@@ -62,7 +62,13 @@
       "value": 15,
       "source": "EMU timeline (15 min ingress); confirm with Marco that it is in suit.json",
       "assumption": true
+    },
+    "cache-refill":{
+      "value": 10,
+      "source": "Team estimate (placeholder): time to refill/restock at a cache during the EVA; no NASA timeline used yet",
+      "assumption": true
     }
+
   },
   "work_metabolic_factor": {
     "value": 1.0,
