@@ -1,7 +1,7 @@
 {
   "type": "FeatureCollection",
   "metadata": {
-    "source": "pipeline/weather_stations.py VIKOR terrain-screened proposal",
+    "source": "pipeline/weateher_stations.py VIKOR terrain-screened proposal",
     "complete": false,
     "selection": {
       "center": [
@@ -13,39 +13,62 @@
         470.46774193548373
       ],
       "reference": [
-        69.66129032258073,
-        956.7580645161288
+        0.0,
+        999.0
       ]
     },
     "crater": {
       "radius_m": 2345.274712170475,
-      "floor_median_m": -2511.815185546875,
-      "north_rim_median_m": -2470.530517578125,
-      "zones": "floor <=0.45R; north rim 0.85R..1.20R; reference >=1.25R near selected point"
+      "floor_median_m": -2510.6328125,
+      "north_rim_median_m": -2475.51416015625,
+      "midpoint_elevation_m": -2493.073486328125,
+      "definitions": {
+        "WS-1": "Exterior NE; r ≥ 3049 m; excluye el borde norte.",
+        "WS-2": "Centro: r ≤ 1290 m; z ≤ -2493.1 m.",
+        "WS-3": "Norte ±60°; r 1993–3518 m; z ≥ -2493.1 m."
+      },
+      "reference_anchor_is_soft_preference": true,
+      "cell_m": 3.0
     },
     "assumptions": {
       "team_configurable": true,
       "site_slope_deg": 5.0,
       "site_roughness_m": 0.25,
-      "flat_terrain_setback_m": 15.0,
+      "setback_m": 15.0,
+      "setback_metric": "Euclidean distance to nearest non-installable cell center; does not certify subpixel clearance",
       "max_shortest_walking_distance_m": 800.0,
-      "reference_search_radius_m": 200.0,
-      "default_weights": "equal normalized weights per role",
+      "weights": "Equal among varying criteria by default: w_j=1/n_active; constant criteria get zero. These are team preferences, not weights learned from NASA weather data.",
       "v": 0.5,
-      "geographic_grid": "north-up equirectangular bbox, matching the current terrain exporter",
-      "review": "DEM/roughness screen only; inspect rocks, structures, sensor exposure, full EVA route and planner walkback."
+      "operation_grid": "8 neighbors, meta.cell_m; nominal-energy-equivalent O2 minutes from the planner's exported cost_grid.f32",
+      "georeferencing": "north-up equirectangular bbox matching the terrain exporter; output uses pixel centers"
     },
     "roles": {
       "WS-1": {
-        "region_cells": 12255,
-        "reachable_cells": 8853,
+        "filter_counts": {
+          "zona": 0,
+          "alcanzable": 0,
+          "radio": 0,
+          "hazard0": 0,
+          "pendiente": 0,
+          "rugosidad": 0,
+          "margen": 0
+        },
+        "first_empty_filter": "zona",
         "candidate_cells": 0,
-        "status": "no_candidate_meets_installation_and_operation_filters"
+        "status": "no_feasible_candidate"
       },
       "WS-2": {
-        "region_cells": 260070,
-        "reachable_cells": 255963,
-        "candidate_cells": 2024,
+        "filter_counts": {
+          "zona": 316736,
+          "alcanzable": 305323,
+          "radio": 46260,
+          "hazard0": 43048,
+          "pendiente": 28025,
+          "rugosidad": 28025,
+          "margen": 9855
+        },
+        "first_empty_filter": null,
+        "candidate_cells": 9855,
         "status": "proposal",
         "vikor": {
           "v": 0.5,
@@ -57,29 +80,94 @@
             "role_distance_m": 0.16666666666666666,
             "elevation_m": 0.16666666666666666
           },
-          "directions": {
-            "slope_deg": "cost",
-            "roughness_m": "cost",
-            "oxygen_to_habitat_min": "cost",
-            "clearance_m": "benefit",
-            "role_distance_m": "cost",
-            "elevation_m": "cost"
-          },
+          "weight_audit": [
+            {
+              "criterion": "slope_deg",
+              "direction": "cost",
+              "minimum": 0.01922483928501606,
+              "maximum": 4.978276252746582,
+              "active": true,
+              "raw_weight": 1.0,
+              "weight": 0.16666666666666666,
+              "method": "equal_active"
+            },
+            {
+              "criterion": "roughness_m",
+              "direction": "cost",
+              "minimum": 0.010390328243374825,
+              "maximum": 0.1457369327545166,
+              "active": true,
+              "raw_weight": 1.0,
+              "weight": 0.16666666666666666,
+              "method": "equal_active"
+            },
+            {
+              "criterion": "oxygen_to_habitat_min",
+              "direction": "cost",
+              "minimum": 8.654314575904987,
+              "maximum": 28.162293326952476,
+              "active": true,
+              "raw_weight": 1.0,
+              "weight": 0.16666666666666666,
+              "method": "equal_active"
+            },
+            {
+              "criterion": "clearance_m",
+              "direction": "benefit",
+              "minimum": 15.0,
+              "maximum": 83.67795408588812,
+              "active": true,
+              "raw_weight": 1.0,
+              "weight": 0.16666666666666666,
+              "method": "equal_active"
+            },
+            {
+              "criterion": "role_distance_m",
+              "direction": "cost",
+              "minimum": 829.2541992990757,
+              "maximum": 1289.8950487278298,
+              "active": true,
+              "raw_weight": 1.0,
+              "weight": 0.16666666666666666,
+              "method": "equal_active"
+            },
+            {
+              "criterion": "elevation_m",
+              "direction": "cost",
+              "minimum": -2549.05419921875,
+              "maximum": -2518.255615234375,
+              "active": true,
+              "raw_weight": 1.0,
+              "weight": 0.16666666666666666,
+              "method": "equal_active"
+            }
+          ],
           "acceptable_advantage": true,
           "acceptable_stability": false,
-          "DQ": 0.0004943153732081067,
-          "compromise_candidates": 2
+          "DQ": 0.00010148163182463974,
+          "compromise_candidates": 2,
+          "uninformative": false
         },
-        "reported_alternatives": 3
+        "reported_alternatives": 5
       },
       "WS-3": {
-        "region_cells": 90256,
-        "reachable_cells": 82066,
+        "filter_counts": {
+          "zona": 139001,
+          "alcanzable": 126233,
+          "radio": 0,
+          "hazard0": 0,
+          "pendiente": 0,
+          "rugosidad": 0,
+          "margen": 0
+        },
+        "first_empty_filter": "radio",
         "candidate_cells": 0,
-        "status": "no_candidate_meets_installation_and_operation_filters"
+        "status": "no_feasible_candidate"
       }
     },
-    "vikor_score_scope": "Qi is normalized independently within each role; compare alternatives of the same role only.",
+    "example_synthetic": false,
+    "score_scope": "Qi is role-relative; a lowest-Qi proposal is not a unique compromise unless both VIKOR C1/C2 tests pass.",
+    "review": "Inspect rocks, local obstructions, sensor exposure and full EVA route in the planner before adoption.",
     "vikor_reference": "Opricovic & Tzeng (2004), DOI:10.1016/S0377-2217(03)00020-1"
   },
   "features": [
@@ -88,37 +176,42 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          77.402264366,
-          18.452879722000002
+          77.407173118,
+          18.450905854000002
         ]
       },
       "properties": {
         "station_id": "WS-2",
-        "name": "Crater Floor",
-        "status": "proposal",
-        "alternative": 1,
-        "longitude": 77.402264366,
-        "latitude": 18.452879722000002,
-        "row": 531,
-        "column": 398,
-        "elevation_m": -2525.267822265625,
-        "slope_deg": 0.8787155747413635,
-        "roughness_m": 0.02261367253959179,
-        "walking_distance_m": 680.7350647362949,
-        "oxygen_to_habitat_min": 24.097128036657505,
-        "clearance_m": 60.0,
-        "Si": 0.3876239083541628,
-        "Ri": 0.12060814819803783,
-        "Qi": 0.03628079884089293,
+        "candidate_id": "WS-2-A",
+        "label": "2A",
+        "name": "Fondo del cráter",
+        "alternative": "A",
+        "rank": 1,
+        "longitude": 77.407173118,
+        "latitude": 18.450905854000002,
+        "row": 570,
+        "column": 490,
         "compromise": true,
+        "slope_deg": 0.03110414184629917,
+        "roughness_m": 0.039186809211969376,
+        "oxygen_to_habitat_min": 13.0956653222125,
+        "clearance_m": 51.088159097779204,
+        "role_distance_m": 1151.032276371388,
+        "elevation_m": -2546.181396484375,
+        "walking_distance_m": 428.3452377915597,
+        "Si": 0.2848628439021823,
+        "Ri": 0.11642406351620534,
+        "Qi": 0.1358873384552926,
+        "selected": true,
         "id": "WS-2",
         "kind": "weather_station",
         "station_type": "crater_floor",
-        "purpose": "Compare crater-floor temperature and possible local wind circulation",
-        "source": "pipeline/weather_stations.py VIKOR terrain-screened proposal",
+        "purpose": "Compare crater-floor temperature and possible local circulation",
+        "source": "pipeline/weateher_stations.py VIKOR terrain-screened proposal",
+        "selection_method": "lowest_Qi",
         "requires_visual_review": true,
         "requires_planner_validation": true,
-        "notes": "VIKOR terrain-screened proposal. Open terrain and wind exposure require inspection; no measured weather prediction is inferred from the DEM."
+        "notes": "Terrain-screened proposal; no measured wind, dust or unobstructed sensor exposure is inferred from the DEM."
       }
     }
   ]
