@@ -23,6 +23,16 @@
     .sendrow { display:flex; justify-content:space-between; gap:8px; font-size:13px; padding:4px 0; border-bottom:1px solid #222; }
     .sendrow b { text-align:right; font-weight:600; }
     .openlink { display:block; margin-top:8px; font-size:12px; color:#56ccf2; }
+    .presetrow { display:flex; gap:6px; margin-top:10px; }
+    .presetrow input { flex:1; min-width:0; background:#000; color:#fff; border:1px solid #666; padding:8px; font:inherit; font-size:13px; }
+    .presetrow button { width:auto; margin:0; border-radius:0; border-color:#56ccf2; color:#56ccf2; }
+    .presetrow button:hover { background:#56ccf2; color:#000; }
+    #sendBtn { margin-top:6px; }
+    .presets-h { margin-top:12px; font-size:11px; color:#999; text-transform:uppercase; letter-spacing:.05em; } .presets-h small { text-transform:none; letter-spacing:0; }
+    .presetlist .pr { display:grid; grid-template-columns:1fr auto; gap:2px 8px; padding:6px 0; border-top:1px solid #222; font-size:13px; }
+    .presetlist .pr small { grid-column:1; color:#999; font-size:11px; }
+    .presetlist .pr button { grid-row:1 / 3; grid-column:2; width:auto; margin:0; padding:2px 8px; border-radius:0; }
+    .presetlist .none { color:#888; font-size:12px; padding:4px 0; }
     .sendstatus { margin-top:6px; font-size:12px; color:#bbb; } .sendstatus.ok { color:#6fcf97; } .sendstatus.warn { color:#ffd400; }
     #out { margin:0; background:#0b0b0b; border:1px solid #333; padding:8px; font:12px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
            white-space:pre-wrap; word-break:break-word; max-height:42vh; overflow:auto; color:#ddd; }
@@ -71,7 +81,7 @@
       <div id="alerts"></div>
     </section>
 
-    <section class="card"><h2>Send to console</h2>
+    <section class="card"><h2>Console setup</h2>
       <div class="sendrow"><span>Route</span><b id="sRoute">none yet: plan one above</b></div>
       <label class="evastart">EVA start (LMST) <select id="sHour"></select></label>
       <div class="layer o2row">
@@ -79,9 +89,13 @@
         <input id="sO2" type="range" min="10" max="100" step="5" value="100" />
       </div>
       <div class="sendrow"><span>Conditions</span><b id="sCond">normal</b></div>
-      <button id="sendBtn">Send to console</button>
+      <div class="presetrow"><input id="pName" type="text" maxlength="40" placeholder="Preset name, e.g. EVA-1 low O₂" />
+        <button id="saveBtn">Save preset</button></div>
+      <button id="sendBtn">Send to console now</button>
       <a id="openConsole" class="openlink" target="_blank" rel="noopener">Open the console in a new tab ↗</a>
       <div id="sendStatus" class="sendstatus"></div>
+      <div class="presets-h">Saved presets <small>(listed in the console)</small></div>
+      <div id="presetList" class="presetlist"></div>
     </section>
 
     <section class="card"><h2>Planner output</h2>
@@ -92,6 +106,7 @@
     import { createPlanner } from './src/plannerClient.js';
     import { loadSite, lonLatToCell } from './src/data.js';
     import { send, onMessage } from './src/bus.js';
+    import { addPreset, loadPresets, removePreset, onPresetsChange, presetSummary } from './src/presets.js';
 
     const SITE = new URLSearchParams(location.search).get('site') || 'mock';
     const cv = document.getElementById('c'), ctx = cv.getContext('2d'), out = document.getElementById('out');
@@ -244,6 +259,27 @@
     };
     onMessage((m) => { if (m.type !== 'config_ack') return; clearTimeout(ackTimer);
       $('sendStatus').className = 'sendstatus ok'; $('sendStatus').textContent = `Console configured and planned (${m.payload.stops} stops).`; });
+    // Save the current set-up as a named preset: it appears in the console's "Saved presets" card
+    function renderPresets() {
+      const list = loadPresets(SITE);
+      $('presetList').innerHTML = list.length ? '' : '<div class="none">None yet.</div>';
+      for (const p of list) {
+        const row = document.createElement('div'); row.className = 'pr';
+        row.innerHTML = `<b></b><small></small><button title="Delete preset">×</button>`;
+        row.querySelector('b').textContent = p.name; row.querySelector('small').textContent = presetSummary(p.cfg, O2_TOTAL);
+        row.querySelector('button').onclick = () => removePreset(p.id);
+        $('presetList').appendChild(row);
+      }
+    }
+    $('saveBtn').onclick = () => {
+      if (!lastReq) { $('sendStatus').className = 'sendstatus warn'; $('sendStatus').textContent = 'Plan a route first (click two points or press EVA).'; return; }
+      const name = $('pName').value.trim() || `${lastLabel} · ${fmtH(+$('sHour').value)} · O₂ ${$('sO2').value} %`;
+      addPreset(name, benchConfig());
+      $('pName').value = ''; renderPresets();
+      $('sendStatus').className = 'sendstatus ok'; $('sendStatus').textContent = `Saved "${name}". It is now in the console's Saved presets list.`;
+    };
+    $('pName').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('saveBtn').click(); });
+    onPresetsChange(renderPresets); renderPresets();
     updateSend();
 
     draw(null, []);

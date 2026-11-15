@@ -7,6 +7,7 @@ import { createRing } from './ring.js';
 import { send, onMessage } from './bus.js';
 import { helmetIcon } from './geo.js';
 import { loadEnv, envAt, scenarioFor, ltst, fmtEnv, lmstAt } from './env.js';
+import { loadPresets, removePreset, onPresetsChange, presetSummary } from './presets.js';
 
 const { map, site, name, bounds, basemap } = await createSiteMap();
 const env = await loadEnv(site);
@@ -377,4 +378,20 @@ async function applyConfig(cfg, fromLive = false) {
   if (fromLive) send('config_ack', { stops: stops.length, ok: !!routeGroup });
 }
 onMessage(msg => { if (msg.type === 'config') applyConfig(msg.payload, true); });
+
+// ---------- Saved presets (created in the test bench with "Save preset") ----------
+let activePreset = null;
+function renderPresets() {
+  const list = loadPresets(name), box = $('presets'); box.innerHTML = '';
+  if (!list.length) { box.innerHTML = '<div class="empty">None yet. Create them in the planner test bench (Console setup → Save preset).</div>'; return; }
+  for (const p of list) {
+    const row = document.createElement('div'); row.className = 'preset' + (p.id === activePreset ? ' active' : '');
+    row.innerHTML = '<div class="pn"><b></b><small></small></div><button class="ld">Load</button><button class="rm" title="Delete">×</button>';
+    row.querySelector('b').textContent = p.name; row.querySelector('small').textContent = presetSummary(p.cfg, O2_TOTAL);
+    row.querySelector('.ld').onclick = async () => { activePreset = p.id; renderPresets(); await applyConfig({ ...p.cfg, route_label: p.name }); };
+    row.querySelector('.rm').onclick = () => { if (activePreset === p.id) activePreset = null; removePreset(p.id); };
+    box.appendChild(row);
+  }
+}
+onPresetsChange(renderPresets); renderPresets();
 try { const c = JSON.parse(localStorage.getItem('marswalk:config') || 'null'); if (c && Date.now() - (c.t || 0) < 12 * 3600e3) applyConfig(c); } catch {}
