@@ -237,7 +237,7 @@ async function planRoute() {
   if (res.error) return showError(res);
   $('status').textContent = '';
   if (JSON.stringify(alertState) !== JSON.stringify(baseState)) { alertState = { ...baseState }; refreshRing(); }   // a fresh plan starts with no alerts (only the bench conditions)
-  baseStats = res.stats; annotateHours();
+  baseStats = res.stats; annotateHours(); lowO2Sent = false;
   const m = drawRoute(res);
   ingressMin = m.legTask[m.legTask.length - 1] || 0; updateRing(true);
   publish(res, [...stops.map(s => ({ name: s.name, ll: s.ll, photo_id: s.photo_id, kind: isTask(s) ? (s.kind || 'task') : null })), { name: 'Habitat', ll: habitat, kind: 'habitat' }]);
@@ -271,7 +271,7 @@ onMessage(msg => {
 
 // ---------- Alerts (docs/INTEGRATION.md §4): console owns replanning, tablet only renders ----------
 const alertBox = $('alerts');
-const ALERT_NAMES = { SPE: 'Solar particle event', dust: 'Dust storm', suit: 'Suit failure', los: 'Loss of line of sight', deviation: 'Route deviation' };
+const ALERT_NAMES = { safe: 'Safe spot', o2low: 'Low O₂', SPE: 'Solar particle event', dust: 'Dust storm', suit: 'Suit failure', los: 'Loss of line of sight', deviation: 'Route deviation' };
 const ACTION_LABEL = { shelter: 'radiation shelter', safe_point: 'nearest safe point', return: 'habitat', resupply: 'resupply O₂' };
 const aname = a => a.name || ALERT_NAMES[a.type] || a.type;          // alerts.json may give its own name (e.g. 'O2 leak')
 // INTEGRATION §8.7: every replan says which places it considered, how many walking minutes each, and why
@@ -286,7 +286,7 @@ const shortConsidered = (list = []) => list.slice(0, 4).map(c => `${c.name.split
 const head = (cls, html) => { const h = document.createElement('div'); h.className = 'prio ' + cls; h.innerHTML = html; alertBox.appendChild(h); };
 function logAlert(priority, text) {
   const log = $('alertLog'), li = document.createElement('div'); li.className = 'ev ' + priority;
-  li.innerHTML = `<b>${priority === 'high' ? 'HIGH' : priority === 'low' ? 'LOW' : '✓'}</b> ${lastPosition?.t_min != null ? hm(lastPosition.t_min) + ' · ' : ''}${text}`;
+  li.innerHTML = `<b>${priority === 'high' ? 'HIGH' : priority === 'low' ? 'LOW' : priority === 'safe' ? 'SAFE' : '✓'}</b> ${lastPosition?.t_min != null ? hm(lastPosition.t_min) + ' · ' : ''}${text}`;
   log.prepend(li); while (log.children.length > 5) log.lastChild.remove();
 }
 head('high', '<b>■ High priority</b> · replans the route');
@@ -294,7 +294,10 @@ head('high', '<b>■ High priority</b> · replans the route');
   const b = document.createElement('button'); b.className = 'high';
   b.textContent = `${aname(a)} → ${ACTION_LABEL[a.action] || a.action}`;
   b.title = `O₂ ×${a.effect?.o2_x ?? 1} · dose ×${a.effect?.dose_x ?? 1} · visibility ${a.effect?.visibility ?? 1}`;
-  b.onclick = async () => {
+  b.onclick = () => injectAlert(a);
+  alertBox.appendChild(b);
+});
+async function injectAlert(a) {
     if (!routeGroup) { setStatus('warn', 'Plan a route first (Route → Plan), then inject an alert.', 'alertStatus'); return; }
     setStatus('', 'Replanning…', 'alertStatus');
     const current = lastPosition ? [lastPosition.lon, lastPosition.lat] : habitat;     // where the astronaut is right now
@@ -319,8 +322,23 @@ head('high', '<b>■ High priority</b> · replans the route');
       { replan: true, state: r.state });
     setStatus('high', `${fallback ? `Can't make it home: go to ${destination}. ` : ''}${aname(a)} sent → new route to ${destination} (${(r.stats.distance_m / 1000).toFixed(2)} km, ${r.replan.total_ms} ms) is on the tablet.${r.replan.via_cache ? ` Refill at ${r.replan.via_cache.name || r.replan.via_cache}.` : ''}`, 'alertStatus');
     $('alertStatus').insertAdjacentHTML('beforeend', consideredHtml(considered));
-  };
-  alertBox.appendChild(b);
+}
+// Low O2 (detected by the tablet): the tablet asks for a route home; same flow as an injected 'return' alert.
+// Multipliers 1: nothing about the suit changed, the astronaut just has to go back now.
+const LOW_O2_ALERT = { id: 'o2low', type: 'o2low', name: 'Low O₂', action: 'return', effect: { o2_x: 1, dose_x: 1, visibility: 1 } };
+let lowO2Sent = false;
+onMessage(msg => {                         // an emergency reported from the tablet
+  if (msg.type !== 'alert_request') return;
+  const a = (site.alerts || []).find(x => x.id === msg.payload.alert_id); if (!a) return;
+  if (msg.payload.lon != null) lastPosition = { ...(lastPosition || {}), lon: msg.payload.lon, lat: msg.payload.lat, o2_used_min: msg.payload.o2_used_min, t_min: msg.payload.t_min };
+  logAlert('high', `Reported by the astronaut: ${aname(a)}`);
+  injectAlert(a);
+});
+onMessage(msg => {
+  if (msg.type !== 'o2_return' || lowO2Sent) return;
+  lowO2Sent = true;
+  logAlert('high', `Low O₂ on the tablet (margin ${Math.round(msg.payload.margin_min)} min): sending the astronaut home`);
+  injectAlert(LOW_O2_ALERT);
 });
 
 // LOW priority: the tablet detects them (viewshed / distance to the route) and reports them as 'warning'.
@@ -331,7 +349,7 @@ head('low', '<b>■ Low priority</b> · detected by the tablet, no replan <small
   b.onclick = () => { if (!routeGroup) { setStatus('warn', 'Plan a route first (Route → Plan).', 'alertStatus'); return; } send('sim', { kind }); setStatus('low', `${label} simulated on the tablet (press Walk there to see it move).`, 'alertStatus'); };
   alertBox.appendChild(b);
 });
-onMessage(msg => { if (msg.type === 'warning') logAlert('low', `${ALERT_NAMES[msg.payload.type] || msg.payload.type}: ${msg.payload.message}`); });
+onMessage(msg => { if (msg.type === 'warning') logAlert(msg.payload.priority === 'safe' ? 'safe' : 'low', `${ALERT_NAMES[msg.payload.type] || msg.payload.type}: ${msg.payload.message}`); });
 
 // ---------- Task in progress: one button + confirmation (habitat can close the task too) ----------
 let tcTask = null;
