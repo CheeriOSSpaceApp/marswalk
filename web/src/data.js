@@ -4,9 +4,11 @@
 // Folders under web/public/data/:
 //   <site>/  = terrain + places of ONE site (mock, jezero): meta, rasters, PNGs, targets, photos, env, rover traverse
 //   common/  = mission config shared by every site: suit.json (Marco), params.json (Ana), alerts.json (Marco + Ana)
-const ROOT = `${import.meta.env?.BASE_URL ?? '/'}data/`;
+// IMPORTANT (deploy, 12:05): inside the Web Worker, relative URLs resolve against the WORKER script
+// (/marswalk/assets/...), not the page. So the page passes an absolute base (plannerClient -> init).
+let ROOT = `${import.meta.env?.BASE_URL ?? '/'}data/`;
 const BASE = (site) => `${ROOT}${site}/`;
-const COMMON = `${ROOT}common/`;
+const COMMONDIR = () => `${ROOT}common/`;
 
 async function getJSON(url, fallback = null) {
   const r = await fetch(url);
@@ -21,7 +23,8 @@ async function getBin(url, Type) {
   return new Type(await r.arrayBuffer());
 }
 
-export async function loadSite(site = 'mock') {
+export async function loadSite(site = 'mock', baseUrl = null) {
+  if (baseUrl) ROOT = new URL('data/', baseUrl).href;   // absolute, works from the worker
   const b = BASE(site);
   const meta = await getJSON(b + 'meta.json');
   const [elevation, slope, roughness, hazard, viewshed] = await Promise.all([
@@ -33,9 +36,9 @@ export async function loadSite(site = 'mock') {
   ]);
   const [targets, suit, params, alerts] = await Promise.all([
     getJSON(b + 'targets.geojson', { type: 'FeatureCollection', features: [] }),
-    getJSON(COMMON + 'suit.json', {}),
-    getJSON(COMMON + 'params.json', {}),
-    getJSON(COMMON + 'alerts.json', []),
+    getJSON(COMMONDIR() + 'suit.json', {}),
+    getJSON(COMMONDIR() + 'params.json', {}),
+    getJSON(COMMONDIR() + 'alerts.json', []),
   ]);
   const n = meta.width * meta.height;
   for (const [k, v] of Object.entries({ elevation, slope, roughness, hazard, viewshed }))

@@ -99,7 +99,8 @@ check('SPE -> starts at current position', near(rp.path.geometry.coordinates[0],
 check('SPE -> dose multiplied', rp.state.dose_x === A.SPE.effect.dose_x);
 
 rp = replan(S, { current: mid, alert: A.dust });
-check('dust -> returns to habitat', !rp.error && rp.replan.destination_kind === 'habitat' && near(end(rp), T.habitat), `${rp.replan.total_ms} ms`);
+{ const el = rp.replan.considered.filter((c) => c.eligible && c.minutes != null), m = Math.min(...el.map((c) => c.minutes));
+  check('dust (safe_point) -> fastest of habitat / safe points', !rp.error && rp.replan.considered.find((c) => c.chosen).minutes === m && near(end(rp), rp.path.geometry.coordinates.at(-1)), `${rp.replan.destination} ${m} min, ${rp.replan.total_ms} ms`); }
 
 const r0 = plan(S, { start: mid, goal: T.habitat });
 rp = replan(S, { current: mid, alert: A.suit });
@@ -203,7 +204,7 @@ check('E: yellow (caution) cells cost more to route through; O2 unchanged', yc >
 
 console.log('--- F. storm -> nearest safe point');
 const P = llOf(520, 420);
-const dust = A.dust;
+const dust = { ...A.dust, action: 'return' };   // fallback logic applies to 'return' alerts
 const toShel = plan(S, { start: P, goal: T.shelter1, state: { visibility: dust.effect.visibility, o2_x: dust.effect.o2_x }, start_task_min: 0 });
 const toHab = plan(S, { start: P, goal: T.habitat, state: { visibility: dust.effect.visibility, o2_x: dust.effect.o2_x }, start_task_min: 0 });
 const usable = usableO2min(S.suit);
@@ -213,5 +214,18 @@ check('F: dust, not enough O2 for home -> nearest safe point', rp.replan.fallbac
   `shelter ${toShel.stats.o2_used_min} vs home ${toHab.stats.o2_used_min} O2-min, used ${used.toFixed(0)} -> ${rp.replan.destination}`);
 rp = replan(S, { current: P, alert: dust, o2_used_min: 0 });
 check('F: dust with plenty of O2 -> still the habitat', !rp.replan.fallback_to_safe_point && rp.replan.destination_kind === 'habitat');
+
+console.log('--- shelters (12:10): three behaviours');
+const nearShel = llOf(560, 380);            // close to Shelter A (600,350), far from the habitat (850,150)
+rp = replan(S, { current: nearShel, alert: A.dust });
+check('dust (safe_point) near a shelter -> the SHELTER, not the habitat', rp.replan.destination_kind === 'shelter',
+  rp.replan.considered.map((c) => `${c.name} ${c.minutes} min${c.chosen ? ' ✓' : ''}`).join(' · '));
+rp = replan(S, { current: nearShel, alert: A.suit });
+check('suit failure -> habitat only, shelter listed as not eligible', rp.replan.destination_kind === 'habitat' && rp.replan.considered.some((c) => c.kind === 'shelter' && !c.eligible));
+rp = replan(noRad, { current: nearShel, alert: A.SPE });
+check('SPE with a non-shielded shelter nearby -> habitat, and the UI can say why', rp.replan.destination_kind === 'habitat' &&
+  rp.replan.considered.some((c) => c.why === 'not radiation-protected'), rp.replan.considered.map((c) => `${c.name} ${c.minutes} min (${c.why})${c.chosen ? ' ✓' : ''}`).join(' · '));
+rp = replan(S, { current: nearShel, alert: A.SPE });
+check('SPE with a radiation shelter nearby -> that shelter', rp.replan.destination_kind === 'shelter');
 
 process.exit(fails ? 1 : 0);

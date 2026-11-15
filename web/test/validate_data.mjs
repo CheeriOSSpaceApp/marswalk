@@ -91,7 +91,7 @@ const params = has('params.json') ? json('params.json') : (err('params.json miss
 const alerts = has('alerts.json') ? json('alerts.json') : (warn('alerts.json missing'), null);
 if (alerts) for (const a of alerts) {
   if (!['SPE', 'dust', 'suit'].includes(a.type)) err(`alert ${a.id}: type ${a.type}`);
-  if (!['return', 'shelter'].includes(a.action)) err(`alert ${a.id}: action ${a.action}`);
+  if (!['return', 'shelter', 'safe_point'].includes(a.action)) err(`alert ${a.id}: action ${a.action}`);
   if (!a.effect) err(`alert ${a.id}: no effect`);
 }
 if (alerts) ok(`alerts.json: ${alerts.map((a) => `${a.type}→${a.action}`).join(', ')}`);

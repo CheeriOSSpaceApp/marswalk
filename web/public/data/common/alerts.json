@@ -17,7 +17,7 @@
       "o2_x": 1.1,
       "visibility": 0.3
     },
-    "action": "return"
+    "action": "safe_point"
   },
   {
     "id": "suit1",

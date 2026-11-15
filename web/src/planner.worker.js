@@ -14,7 +14,7 @@ self.onmessage = async (e) => {
   try {
     let result;
     if (type === 'init') {
-      site = await loadSite(payload.site);
+      site = await loadSite(payload.site, payload.base);
       result = { meta: site.meta, targets: site.targets, alerts: site.alerts };
     } else if (type === 'plan') {
       if (!site) throw new Error('planner not initialized: call init(site) first');

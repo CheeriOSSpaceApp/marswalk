@@ -498,8 +498,17 @@ export function replan(site, req) {
   const habF = site.targets?.features?.find((f) => f.properties?.kind === 'habitat');
   const habitatCandidate = { id: habF?.properties.id ?? 'habitat', kind: 'habitat', name: habF?.properties.name ?? 'Habitat', coords: habitat };
 
+  // Three behaviours (12:10):
+  //   'shelter'    (SPE)          -> fastest RADIATION-SAFE place: habitat or shelter with radiation_shelter: true
+  //   'safe_point' (dust storm)   -> fastest of habitat or ANY shelter / safe point: get out of the storm now
+  //   'return'     (suit failure) -> the habitat only (repair equipment is there)
+  // Every candidate is reported in replan.considered (minutes, eligible, why) so the UI can SHOW the choice.
+  const allShelters = site.targets.features.filter((f) => f.properties.kind === 'shelter');
+  const considered = [];
   let candidates;
-  if (req.alert.action === 'shelter') {
+  if (req.alert.action === 'safe_point') {
+    candidates = [habitatCandidate, ...allShelters.map((f) => ({ id: f.properties.id, kind: 'shelter', name: f.properties.name, coords: f.geometry.coordinates }))];
+  } else if (req.alert.action === 'shelter') {
     // SPE: only places that actually protect from radiation. A shelter must declare
     // properties.radiation_shelter === true (Marco's muster point does NOT -> SPE goes to the habitat).
     candidates = site.targets.features
@@ -513,9 +522,17 @@ export function replan(site, req) {
   let best = null;
   for (const c of candidates) {
     const p = plan(site, { ...base, goal: c.coords });
+    considered.push({ id: c.id, name: c.name, kind: c.kind, eligible: !p.error, minutes: p.error ? null : p.stats.walk_min,
+      why: p.error ? p.error : 'candidate' });
     if (p.error) continue;
-    if (!best || p.stats.duration_min < best.plan.stats.duration_min) best = { plan: p, target: c };
+    if (!best || p.stats.walk_min < best.plan.stats.walk_min) best = { plan: p, target: c };   // by WALKING time (exposure)
   }
+  // Shelters that were NOT eligible for this alert are listed too (e.g. "not radiation-protected" during an SPE)
+  if (req.alert.action === 'shelter') for (const f of allShelters) if (f.properties.radiation_shelter !== true) {
+    const p = plan(site, { ...base, goal: f.geometry.coordinates });
+    considered.push({ id: f.properties.id, name: f.properties.name, kind: 'shelter', eligible: false, minutes: p.error ? null : p.stats.walk_min, why: 'not radiation-protected' });
+  }
+  if (req.alert.action === 'return') for (const f of allShelters) considered.push({ id: f.properties.id, name: f.properties.name, kind: 'shelter', eligible: false, minutes: null, why: 'suit failure: repair needs the habitat' });
   // Tier 1 F (idea #15): 'return' (dust, suit) but the habitat is NOT safely reachable (O2 / daylight) ->
   // go to the fastest SAFE shelter / safe point instead (any kind: it's about getting out of the storm).
   // A safe point is judged by "I reach it without touching the reserve" (that's what it's for), not by the
@@ -531,7 +548,8 @@ export function replan(site, req) {
       if (!alt || p.stats.duration_min < alt.plan.stats.duration_min)
         alt = { plan: p, target: { id: f.properties.id, kind: 'shelter', name: f.properties.name, coords: f.geometry.coordinates } };
     }
-    if (alt) { best = alt; fallback = true; best.plan.stats.reaches_destination_with_reserve = true; }
+    if (alt) { best = alt; fallback = true; best.plan.stats.reaches_destination_with_reserve = true;
+      considered.push({ id: alt.target.id, name: alt.target.name, kind: 'shelter', eligible: true, minutes: alt.plan.stats.walk_min, why: 'fallback: habitat not reachable with O2/daylight' }); }
   }
   if (!best) return { error: 'no_safe_destination', alert: req.alert.id, state };
   return {
@@ -541,6 +559,7 @@ export function replan(site, req) {
       alert: req.alert.id, type: req.alert.type, action: req.alert.action,
       destination: best.target.name, destination_id: best.target.id, destination_kind: best.target.kind,
       candidates: candidates.length, fallback_to_safe_point: fallback,
+      considered: considered.map((c) => ({ ...c, chosen: c.id === best.target.id })).sort((a, b) => (a.minutes ?? 1e9) - (b.minutes ?? 1e9)),
       total_ms: Math.round(performance.now() - t0),
     },
   };

@@ -60,3 +60,10 @@ const a2 = adapt(S, { current: depots.at(-1), stops: sci, o2_used_min: 150 + 40,
 console.log(`  adapt in ${Math.round(performance.now() - t)} ms -> ${a2.adapt.decision}${a2.adapt.dropped.length ? ' dropped ' + a2.adapt.dropped.map((d) => d.name + ' (' + d.reason + ')').join(', ') : ''}; O2 margin ${a2.stats.o2_margin_min} min`);
 const a3 = adapt(S, { current: depots.at(-1), stops: sci, o2_used_min: 330, now_lmst: 12.2 });
 console.log(`  with 330 O2-min already used -> ${a3.adapt.decision}${a3.adapt.dropped.length ? ': dropped ' + a3.adapt.dropped.map((d) => d.name.split(' - ')[0] + ' (' + d.reason + ')').join(', ') : ''}`);
+
+console.log('\n--- Shelters: astronaut at Wildcat Ridge when each alert arrives (three different behaviours)');
+for (const a of S.alerts) {
+  const r = replan(S, { current: sci[0], alert: a, o2_used_min: 150 });
+  console.log(`  ${a.type.padEnd(4)} (${a.action}) -> ${r.replan.destination.split(' - ')[0]}  |  ` +
+    r.replan.considered.map((c) => `${c.name.split(' - ')[0]}: ${c.minutes ?? '–'} min${c.chosen ? ' ✓' : ''}${!c.eligible ? ' ✗ ' + c.why : ''}`).join('  ·  '));
+}

@@ -34,7 +34,7 @@
     const { meta } = site, W = meta.width, H = meta.height;
 
     // background: hillshade + hazard tint
-    const img = new Image(); img.src = `/data/${SITE}/hillshade.png`; await img.decode();
+    const img = new Image(); img.src = `data/${SITE}/hillshade.png`; // relative: works on localhost and on GitHub Pages await img.decode();
     const bg = document.createElement('canvas'); bg.width = W; bg.height = H;
     const b = bg.getContext('2d'); b.drawImage(img, 0, 0, W, H);
     const px = b.getImageData(0, 0, W, H);

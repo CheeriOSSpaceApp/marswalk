@@ -27,7 +27,8 @@ export function createPlanner() {
     });
 
   return {
-    init: (site) => call('init', { site }),
+    // base = absolute app root (e.g. https://…github.io/marswalk/), so the worker finds data/ in production
+    init: (site) => call('init', { site, base: new URL(import.meta.env?.BASE_URL ?? '/', location.href).href }),
     plan: (req) => call('plan', req),
     // req: {current:[lon,lat], alert, state?, o2_used_min?} -> plan + {state, replan:{destination,...}}
     // Keep the returned `state` and pass it in the next call so alerts stack.

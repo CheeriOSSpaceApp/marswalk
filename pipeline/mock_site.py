@@ -225,7 +225,7 @@ def main():
         {"id": "spe1", "type": "SPE", "effect": {"dose_x": 50, "o2_x": 1.0, "visibility": 1.0},
          "action": "shelter"},
         {"id": "dust1", "type": "dust", "effect": {"dose_x": 1.0, "o2_x": 1.1, "visibility": 0.3},
-         "action": "return"},
+         "action": "safe_point"},
         {"id": "suit1", "type": "suit", "effect": {"dose_x": 1.0, "o2_x": 1.5, "visibility": 1.0},
          "action": "return"},
     ])

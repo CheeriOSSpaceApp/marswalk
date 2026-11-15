@@ -9,6 +9,7 @@ export default defineConfig({
     target: 'esnext',   // needed for top-level await
     rollupOptions: {
       input: {
+        index: resolve(__dirname, 'index.html'),
         console: resolve(__dirname, 'console.html'),
         tablet: resolve(__dirname, 'tablet.html'),
         plannerTest: resolve(__dirname, 'planner-test.html'),

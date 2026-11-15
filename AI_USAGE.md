@@ -39,3 +39,4 @@ Format: `- [HH:MM] Name — Tool — What for — What we kept / changed`
 - [11:48] Marco — Copilot — Analyzed repository guidance and created `.github/copilot-instructions.md` for future sessions.
 - [11:54] Marco — Copilot — Created presenter context and video presentation script in `docs/PRESENTATION.md`, grounded in the project architecture and validation docs.
 - [12:00] Eric — Claude — Technical README of the planner (docs/PLANNER.md) and main README restructure; reserve decision 15 % → 18 % analysis (suit.json source updated). All numbers re-measured on the real grid.
+- [12:15] Eric — Claude — Production deploy check (build served under /marswalk/): fixed worker data path bug that broke the planner on GitHub Pages, added index.html; three alert behaviours (shelter / safe_point / return) with replan.considered for the UI; verified NASA SEV fact sheet as a source for a radiation shelter; 56 tests.

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MarsWalk — EVA planner for Jezero Crater</title>
+  <style>
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0b0b0d; color: #eee; font: 16px/1.5 system-ui, sans-serif; }
+    main { max-width: 720px; padding: 32px; }
+    h1 { color: #ff6b3d; margin: 0 0 4px; font-size: 2.2rem; }
+    .sub { color: #aaa; margin: 0 0 24px; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin: 20px 0; }
+    a.card { display: block; padding: 18px; border: 1px solid #333; border-radius: 12px; color: #eee; text-decoration: none; background: #151519; }
+    a.card:hover { border-color: #ff6b3d; }
+    a.card b { display: block; font-size: 1.1rem; color: #fff; }
+    .tip { color: #aaa; font-size: .92rem; }
+    code { background: #222; padding: 1px 6px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>MarsWalk</h1>
+  <p class="sub">Oxygen-aware EVA planner for astronauts at Jezero Crater · NASA Space Apps 2026 · Interplanetary Survival Guide: Martian Map</p>
+  <p>Routes on real HiRISE terrain with oxygen as the cost and "can I still get home?" checked at every step.
+     The habitat console plans; the field tablet guides; alerts and obstacles re-plan in milliseconds.</p>
+  <div class="cards">
+    <a class="card" href="./console.html"><b>🛰 Habitat console</b>Plan the EVA, inject alerts, watch the astronaut.</a>
+    <a class="card" href="./tablet.html"><b>🧑‍🚀 Field tablet</b>Next waypoint, O₂ vs. cost to get home, checklists, alerts.</a>
+    <a class="card" href="./planner-test.html?site=jezero"><b>🧪 Planner test bench</b>Click two points, inject alerts, see the no-return ring.</a>
+  </div>
+  <p class="tip"><b>Demo:</b> open the console and the tablet side by side in the same browser. Click targets on the console map → <b>Plan</b>
+     → on the tablet tick the egress checklist and press ▶ → back on the console press <b>SPE → shelter</b>: the tablet re-routes by itself.</p>
+  <p class="tip">Source and technical docs: <a style="color:#ff6b3d" href="https://github.com/CheeriOSSpaceApp/marswalk">github.com/CheeriOSSpaceApp/marswalk</a></p>
+</main>
+</body>
+</html>

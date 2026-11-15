@@ -145,3 +145,10 @@ download('mission-report.md', reportToMarkdown(report));   // + render `report` 
 The report includes: planned vs actual (distance, time, O₂), battery Wh, dose, minutes per phase, % of the walk on caution
 terrain, max slope, overtime per task, alerts, re-planning decisions, map updates, map corrections and field notes.
 See the sample output: `node test/report.test.mjs`.
+
+## 8.7 Show WHY the destination was chosen (12:10)
+Every `replan` result has `r.replan.considered`: `[{name, kind, minutes, eligible, why, chosen}]`, sorted by minutes. Show it in the
+alert card on the console (and short on the tablet), e.g.
+`Hawksbill Gap 4 min ✓ · Habitat 11 min` (dust) or `Hawksbill Gap 4 min ✗ not radiation-protected · Habitat 11 min ✓` (SPE).
+That's how a judge SEES that the system looks for the nearest refuge and why it sometimes doesn't take it.
+Alert actions: `shelter` (SPE, radiation-safe only) · `safe_point` (dust, nearest of habitat or any safe point) · `return` (suit, habitat only).
