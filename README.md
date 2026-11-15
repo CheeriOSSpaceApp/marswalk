@@ -176,7 +176,7 @@ Alerts stack: `dose_x` and `o2_x` multiply, and visibility takes the lowest valu
 - Hassler, D. M. et al. (2018). Space Weather on the Surface of Mars: Impact of the September 2017 Events. *Space Weather* 16(11).
 - Rafkin, S. C. R. et al. (2014). *J. Geophys. Res. Planets* 119, 1345-1358. doi:10.1002/2013JE004525
 - Guo, J. et al. (2017). *J. Geophys. Res. Planets* 122, 329-341. doi:10.1002/2016JE005206
-- Campbell et al. 2017 (CTSD-ADV-959, NTRS 20170009505)
+- Campbell, C., Rodriggs, L., Blanco, R. (2017). Schematics and Behavioral Description for the Advanced EMU (AEMU) Portable Life Support Subsystem (PLSS). CTSD-ADV-959 Rev A, NASA JSC. NTRS 20170009505. https://ntrs.nasa.gov/citations/20170009505
 - Mars Climate Database v6.2, LMD (with ESA/CNES), https://www-mars.lmd.jussieu.fr/mcd_python/.
 
 ### Planner limitations
