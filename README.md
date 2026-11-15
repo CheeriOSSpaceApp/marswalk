@@ -89,7 +89,7 @@ c = M / (V · 60 · P_nom)   [O₂ min / m]
 
 The cost of a step between neighbouring cells a and b is ½(c_a + c_b) times the step length (cell size, or √2 times it on diagonals). Walking time is the step length divided by the mean speed of the two cells. The planner also treats cells steeper than the suit’s max_slope_deg (15°) as impassable.
 
-The planner keeps two grids. The physical grid (O₂ minutes per meter, times the alert's `o2_x`) gives the reported O₂ use and the return rule. The routing grid only decides which path is preferred: it multiplies cost by 1 + `w_nocomms` without line of sight to the habitat, by 1 + `w_caution` in caution cells, by 1 + `w_obstacle_caution` near caution obstacles, and by the visibility factor above. None of these adds oxygen.
+The planner keeps two grids. The physical grid (O₂ minutes per meter, times the alert's `o2_x`) gives the reported O₂ use and the return rule. The routing grid only decides which path is preferred: it multiplies cost by 1 + `w_nocomms` without line of sight to the habitat, by 1 + `w_caution` in caution cells, by 1 + `w_obstacle_caution` near caution obstacles, and by the visibility factor defined under Alerts. None of these adds oxygen.
 
 Daylight: EVA duration in Earth minutes is converted to Mars hours (1 Mars hour = 61.649 Earth minutes). The EVA is GO if the crew is back at least `night_buffer_min` Earth minutes before sunset, CAUTION if back before sunset but inside that buffer, and NO-GO if back after sunset or if it starts before sunrise.
 
@@ -101,7 +101,7 @@ D_i = rate · (t_i / 60) · dose_x   [mSv]
 where t_i is the segment duration in minutes and dose_x is the multiplier of the active alert (1 when there is none). The route dose is the sum over segments. For a few hours of EVA the GCR dose is small, the real radiation risk is a solar particle event (SPE), which is why an SPE alert sends the crew to the fastest radiation-safe place (the habitat, or a shelter flagged `radiation_shelter: true`).
 
 ### Task time
-Time spent on tasks is added to the walking time, so it counts toward O₂ use and dose. Durations are team estimates informed by Apollo timelines:
+Time spent on tasks is added to the walking time, so it counts toward O₂ use and, with one exception, dose. Durations are team estimates informed by Apollo timelines:
 
 | Task | Minutes |
 |---|---|
