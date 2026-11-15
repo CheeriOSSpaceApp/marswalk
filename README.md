@@ -23,4 +23,4 @@ python pipeline/mock_site.py      # -> web/public/data/mock/
 - Tobler's hiking function was calibrated for unsuited hikers; we use it only
   to slow down on steep slopes.
 - Hazard thresholds, task durations and alert multipliers are team assumptions
-  (see `params.json`).
+  (see `params.json` and `alerts.json`).
