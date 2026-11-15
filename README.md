@@ -102,7 +102,7 @@ O₂ used during a task is its duration times a work metabolic factor of 1.0, i.
 ## References
 - Ogilvie et al. (2026). ICES-2026-127, NASA JSC. https://ntrs.nasa.gov/citations/20260003038 (paper); https://ntrs.nasa.gov/citations/20260005410 (presentation). 
 - Kim et al. (2024). Improving Metabolic Workload Estimation Accuracy for Planning and Analyzing Exploration Traverses. IEEE EMBC. NTRS 20240001423.
-- Pandolf, Kim. B., Givoni, B., Goldman, R. F. (1977). *J. Appl. Physiol.* 43(4).
+- Pandolf, K. B., Givoni, B., Goldman, R. F. (1977). *J. Appl. Physiol.* 43(4).
 - Soule, R. G., Goldman, R. F. (1972). *J. Appl. Physiol.* 32(5). 
 - Tobler, W. (1993). Three presentations on geographical analysis and modeling. NCGIA Technical Report 93-1. 
 - Hassler, D. M. et al. (2014). *Science* 343(6169). doi:10.1126/science.1244797
