@@ -3,10 +3,11 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import path from "node:path";
-const [costPath, dataDir, outPath] = process.argv.slice(2);
+const [costPath, dataDir, outPath, paramsPath] = process.argv.slice(2);
 const { cellCost } = await import(pathToFileURL(path.resolve(costPath)).href);
 const meta = JSON.parse(readFileSync(path.join(dataDir, "meta.json")));
-const params = JSON.parse(readFileSync(path.join(dataDir, "params.json")));
+const params = JSON.parse(
+    readFileSync(paramsPath ?? path.join(dataDir, "params.json"), "utf8"));
 params.cell_m = meta.cell_m;
 const f32 = (f) => { const b = readFileSync(path.join(dataDir, f)); return new Float32Array(b.buffer.slice(b.byteOffset, b.byteOffset + b.length)); };
 const u8 = (f) => { const b = readFileSync(path.join(dataDir, f)); return new Uint8Array(b.buffer.slice(b.byteOffset, b.byteOffset + b.length)); };

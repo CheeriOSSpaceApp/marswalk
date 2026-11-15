@@ -4,6 +4,7 @@ import numpy as np
 from scipy import ndimage
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
+from skimage.graph import MCP_Geometric
 
 def main():
     repo_root = Path(__file__).resolve().parents[1]
@@ -47,7 +48,21 @@ def numtable(meta, params, data_dir):
     print("Reachable cells from habitat:",np.count_nonzero(reachable))
     print("Allowed but disconnected cells:",np.count_nonzero(walkable & ~reachable))
     #graph to maps points
-    plot_reachable(slope,reachable,habitat_row,habitat_col)
+    distance_m = walking_distances(walkable,(habitat_row, habitat_col), meta["cell_m"] )
+
+    coverage_zone = reachable & (distance_m <= 1770.0)
+
+    print("Cells within the 1770 m walkback:",np.count_nonzero(coverage_zone) )
+
+    print("Maximum distance inside coverage:",distance_m[coverage_zone].max(),"m")
+
+    # Abrir la gráfica después de calcular e imprimir.
+    plot_reachable(
+        slope,
+        reachable,
+        habitat_row,
+        habitat_col
+    )
 
 #starting cell for routes
 def habitat_to_cell(meta):
@@ -71,13 +86,12 @@ def habitat_to_cell(meta):
 def find_reachable(walkable, start):
     if not walkable[start]:
         raise ValueError("The habitat is in a blocked cell.")
+
     seed = np.zeros_like(walkable, dtype=bool)
     seed[start] = True
-    neighbors = np.array([
-        [0, 1, 0],
-        [1, 1, 1],
-        [0, 1, 0]
-    ], dtype=bool)
+
+    neighbors = np.ones((3, 3), dtype=bool)
+
     reachable = ndimage.binary_propagation(seed,structure=neighbors,mask=walkable)
 
     return reachable
@@ -106,6 +120,14 @@ def plot_reachable(slope, reachable, habitat_row, habitat_col):
 
     plt.tight_layout()
     plt.show()
+def walking_distances(walkable, start, cell_m):
+    if not walkable[start]:
+        raise ValueError("The habitat is in a blocked cell.")
+    costs = np.where(walkable, 1.0, np.inf)
+    solver = MCP_Geometric(costs,fully_connected=True,sampling=(cell_m, cell_m))
 
+    distances, _ = solver.find_costs(starts=[start])
+
+    return distances
 if __name__ == "__main__":
     main()
