@@ -260,6 +260,8 @@ button.complete:hover { background:#000; color:#6fcf97; }
 #reportConfirm { border-color:#ff2b2b; } #reportConfirm .row button:first-child { background:#ff2b2b; border-color:#ff2b2b; color:#fff; }
 #alertLog .ev.safe { border-color:#6fcf97; } #alertLog .ev.safe b { color:#6fcf97; }
 .stay .lbl b { font-size:14px; text-align:right; max-width:55%; }
+#envCard .lbl { gap:10px; align-items:baseline; }
+#envCard .lbl b { font-size:14px; text-align:right; }   /* "10:44 LMST · sunset 17:37" fits on one line next to the label */
 
 /* ---- Tier 2: stations + O₂ cache inventory + brand line ---- */
 .station { background:#bb86fc; color:#000; border:2px solid #000; font:900 11px/16px system-ui; text-align:center; box-shadow:0 0 0 1px #bb86fc; }

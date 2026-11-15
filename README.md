@@ -47,9 +47,9 @@ Re-plan after an alert: 11–65 ms. Full numbers and method: [docs/PLANNER.md](d
   1770 m walkback, battery, daylight. Details, complexity and verification: [docs/PLANNER.md](docs/PLANNER.md).
 - **Models (Ana).** Pandolf metabolic cost on Mars gravity, Tobler speed capped at 2.2 mph, GCR dose, task times. Every
   constant with its source: [Models](#models) below.
-- **Data pipeline** and caches (Gabriel). Converts HiRISE DTM into elevation, slope, detrended roughness, hazard and map images; climate comes from MCD. Greedy k-center uses the planner's oxygen costs to place up to three caches in an 800 m operating area, covering EVA-1 targets while keeping supplies near Wildcat. The planner retains its 1770 m walkback limit. Exports stations.geojson, CSV metrics and a before/after figure. At 800 m, worst-case cost falls from 34.47 to 28.70 nominal O₂-min; the 10-minute target remains unmet. The 120-minute cache supply is an explicit scenario assumption, pending its technical reference from Marco.
+- **Data pipeline** and caches (Gabriel). Converts HiRISE DTM into elevation, slope, detrended roughness, hazard and map images; climate comes from MCD. Greedy k-center uses the planner's oxygen costs to place up to three caches in an 800 m operating area, covering EVA-1 targets while keeping supplies near Wildcat. The planner retains its 1770 m walkback limit. Exports stations.geojson, CSV metrics and a before/after figure. At 800 m, worst-case cost falls from 34.47 to 28.70 nominal O₂-min; the 10-minute target remains unmet. The 120 O₂-min per cache is a declared scenario assumption (a quarter of the 8 h supply).
 - **Life support, comms and validation (Marco).** Suit limits with NASA sources (`web/public/data/common/suit.json`);
-  line-of-sight viewshed from the habitat antenna; the rover traverse as validation. *Validation results in progress: Marco.*
+  line-of-sight viewshed from the habitat antenna; the rover traverse as validation: [Validation](#validation-against-perseverance) below.
 - **Interface (Santiago).** Leaflet habitat console + field tablet, synced live over BroadcastChannel (same browser).
   Console: route planning with task stops, GO / CAUTION / NO-GO for every start hour, alert injection with the options the
   planner considered (why each was or wasn't chosen), O₂ cache inventory, built-in demo scenarios, mission report export
@@ -60,7 +60,7 @@ Re-plan after an alert: 11–65 ms. Full numbers and method: [docs/PLANNER.md](d
 - **Science and story (Dana).** EVA-1 science objectives (Three Forks depot, Wildcat Ridge), POV photos, video, project page.
 
 ## Repository
-- `pipeline/` — Python: NASA data → contract layers (`export_jezero.py`, `process_rover_traverse.py`, `process_viewshed.py`, `mock_site.py`)
+- `pipeline/` — Python: NASA data → contract layers (`export_jezero.py`, `process_rover_traverse.py`, `process_viewshed.py`, `mock_site.py`, `calcstations.py` O₂ caches); `pipeline/validation/` rover validation scripts
 - `web/src/` — planner (`planner.js`, `heap.js`, worker, client), cost model (`cost.js`, `radiation.js`), UI (`console.js`, `tablet.js`, …), `report.js`
 - `web/public/data/jezero/` real site · `common/` suit, model params, alerts · `mock/` synthetic test terrain
 - `docs/` — [PLANNER](docs/PLANNER.md) · [INTEGRATION](docs/INTEGRATION.md) (frontend ↔ planner) · [HAND_CHECK](docs/HAND_CHECK.md) · [MANUAL_TEST](docs/MANUAL_TEST.md)
@@ -69,13 +69,30 @@ Re-plan after an alert: 11–65 ms. Full numbers and method: [docs/PLANNER.md](d
 ## Tests
 ```bash
 cd web
-node test/planner.test.mjs          # 52 unit tests (optimality, safety rules, alerts, obstacles, adapt, day/night)
+node test/planner.test.mjs          # 87 unit tests (optimality, safety rules, alerts, obstacles, adapt, day/night, caches, O₂ at rest, safe zone)
 node test/hand_check.mjs            # planner vs. calculator, 12 values (docs/HAND_CHECK.md)
 node test/report.test.mjs           # mission report
 node test/validate_data.mjs jezero  # every data file against CONTRACTS.md
-node test/jezero_eva.mjs            # EVA-1 and every alert on real terrain
+node test/jezero_eva.mjs            # EVA-1, every alert and the demo facts on real terrain (exits 1 if one breaks)
+node test/e2e_demo.mjs              # browser: one scenario per alert button (needs `npx vite` + Playwright)
 ```
 Regenerate data: `python pipeline/export_jezero.py` (Jezero, needs internet) · `python pipeline/mock_site.py` (synthetic test site).
+
+## Validation against Perseverance
+The rover is not an astronaut, but it is the only real traverse driven through this terrain. Scripts in
+`pipeline/validation/`, results in `docs/validation/` and [docs/ROVER_VALIDATION.md](docs/ROVER_VALIDATION.md).
+
+| Test | Result |
+|---|---|
+| **1. Does our hazard map agree with where the rover drove?** Every grid cell the rover crossed (sols 401–753, 8.7 km inside our map) vs the whole map | Rover: **93.3 % free, 0.6 % forbidden**, mean slope 4.3°. Whole map: 82.7 % free, 7.3 % forbidden, mean slope 5.9°. The rover avoided almost everything we forbid |
+| **2a. Same start and end as a real drive (sols 538 → 543)** | Planner 474 m vs rover 483 m. **99.7 % of the rover's path is within 20 m of ours, median 5 m** (Hausdorff 22 m); 96.8 % of it lies in the corridor that costs ≤ 5 % more than our optimum |
+| **2b. Same start and end (sols 433 → 455)** | Planner 302 m vs rover 429 m; only 20 % within 20 m. The rover spent 38.6 % of its length on slopes ≥ 10°, our route 8.5 %: a walking astronaut should take the gentler line. 91.5 % of the rover's path is still within 1.5 × our optimal cost |
+| **3. EVA-1 route vs the traverse** | 50.6 % of route points within 20 m of the rover's tracks, median 19.8 m |
+
+![Planner route vs Perseverance traverse](docs/validation/validation_test2_route_map.png)
+
+The hand check ([docs/HAND_CHECK.md](docs/HAND_CHECK.md)) is the other half: it verifies that the planner computes its
+statistics exactly from the model's equations (12/12 values match a calculator).
 
 ## Models
 The models turn NASA-derived terrain layers into the numbers the crew sees: cost per meter for the route planner, O₂ use, radiation dose and alert effects. Every constant is listed with its source in Constants, anything we could not source is marked as an assumption.
@@ -141,7 +158,7 @@ At a cache stop the crew tops up its oxygen: the refill task takes cache_refill 
 | SPE | 50 | 1 | 1 | shelter | MarsWalk planning assumption (deliberately conservative) |
 | Dust | 1 | 1.1 | 0.3 | safe_point | MarsWalk assumption |
 | Suit failure | 1 | 1.5 | 1 | return | MarsWalk assumption |
-| O₂ leak | 1 | 1.3 | 1 | resupply | MarsWalk assumption (Marco to confirm) |
+| O₂ leak | 1 | 1.3 | 1 | resupply | MarsWalk assumption (no published leak rate for a Mars suit) |
 
 Alerts stack: `dose_x` and `o2_x` multiply, and visibility takes the lowest value. Visibility does not change oxygen; it multiplies the routing cost of a cell by 1 + (1 − visibility) · (slope/10 + roughness), with slope in degrees and roughness in meters. Actions: *shelter* goes to the fastest radiation-safe place, *safe_point* to the fastest of the habitat or any shelter, *return* to the habitat, and *resupply* home directly or via the O₂ cache that makes the return safe.
 

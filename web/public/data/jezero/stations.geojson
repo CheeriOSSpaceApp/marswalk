@@ -19,7 +19,7 @@
         "supplies": {
           "o2_min": {
             "value": 120,
-            "source": "EVA-1 scenario design assumption: 120 nominal O2-min per cache; technical reference pending confirmation from Marco.",
+            "source": "MarsWalk scenario assumption: 120 nominal O2-min per cache (one quarter of the 8 h suit supply, enough to get home from anywhere in the 800 m operating area). Refill concept: suit O2 top-off through an umbilical (Campbell et al. 2017, CTSD-ADV-959 Rev A, sec. 3.2.5.5.2).",
             "assumption": true
           }
         },
@@ -45,7 +45,7 @@
         "supplies": {
           "o2_min": {
             "value": 120,
-            "source": "EVA-1 scenario design assumption: 120 nominal O2-min per cache; technical reference pending confirmation from Marco.",
+            "source": "MarsWalk scenario assumption: 120 nominal O2-min per cache (one quarter of the 8 h suit supply, enough to get home from anywhere in the 800 m operating area). Refill concept: suit O2 top-off through an umbilical (Campbell et al. 2017, CTSD-ADV-959 Rev A, sec. 3.2.5.5.2).",
             "assumption": true
           }
         },
@@ -71,7 +71,7 @@
         "supplies": {
           "o2_min": {
             "value": 120,
-            "source": "EVA-1 scenario design assumption: 120 nominal O2-min per cache; technical reference pending confirmation from Marco.",
+            "source": "MarsWalk scenario assumption: 120 nominal O2-min per cache (one quarter of the 8 h suit supply, enough to get home from anywhere in the 800 m operating area). Refill concept: suit O2 top-off through an umbilical (Campbell et al. 2017, CTSD-ADV-959 Rev A, sec. 3.2.5.5.2).",
             "assumption": true
           }
         },

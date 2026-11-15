@@ -87,11 +87,11 @@ Use the real Jezero site for the main presentation:
 
 The expected EVA-1 result on the current Jezero data is approximately:
 
-- **1,430 m** total walking distance;
+- **1,432 m** total walking distance;
 - **190 min** total mission time;
 - **165 min** working/task time;
-- **45%** oxygen used;
-- **191.5 min** oxygen margin;
+- **42%** oxygen used (airlock time at the rest rate);
+- **192 min** oxygen margin;
 - **601 m** maximum walkback distance;
 - **0.075 mSv** radiation dose;
 - **safe: true**.
@@ -267,7 +267,26 @@ testing; a red error should be treated as a failed demo.
 
 # Video presentation script
 
-## Suggested length
+## Submission video: 30 seconds (Space Apps limit, English subtitles required)
+
+The Space Apps project demo is a video of **at most 30 s** (or ≤ 7 slides), and a video **must have English
+subtitles**. Use the long script below for a live pitch only. Record each shot from the built-in demo scenarios
+(`console.html?demo=<id>` + `tablet.html?demo=1`, side by side, ×60) and cut. ~70 words of narration fit in 30 s.
+
+| Time | On screen | Narration / subtitle |
+|---|---|---|
+| 0:00–0:04 | Title card: MarsWalk · Team CheeriOS · Martian Map, over the Jezero hillshade | "We're team CheeriOS. On Mars, every step costs oxygen." |
+| 0:04–0:10 | `?demo=eva1-nominal`: route over real HiRISE terrain, **GO** badge, back 12:04 | "MarsWalk plans spacewalks on real NASA terrain of Jezero Crater, with oxygen as the cost." |
+| 0:10–0:16 | Tablet walking; the **safe zone** (red / amber) closes in as O₂ is used | "At every step it checks one rule: can the crew still get home?" |
+| 0:16–0:24 | `?demo=leak-cache`: O₂ leak → options card (habitat ✗, Cache 1 ✓) → new route in under a second → refill | "Oxygen leak. Home is out of reach, so MarsWalk reroutes to an oxygen cache, instantly." |
+| 0:24–0:30 | `docs/validation/validation_test2_route_map.png` (planner vs Perseverance), then logo | "Validated against Perseverance's real drives. Plan the science. Always keep a way home." |
+
+Checklist: 1080p screen capture · subtitles burned in (English) · only real NASA imagery (HiRISE, Perseverance), no
+AI-generated images that look like NASA photos · state on the project page which tools were AI-assisted (`AI_USAGE.md`).
+
+## Long version (live pitch)
+
+### Suggested length
 
 Approximately **3 to 4 minutes**, with the application visible for most of the
 video. The wording can be shortened if the submission has a strict time limit.
