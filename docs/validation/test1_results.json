@@ -1,0 +1,384 @@
+{
+  "inspection": {
+    "grid": {
+      "width": 1000,
+      "height": 1000,
+      "dx_m": 3.00002244729064,
+      "dy_m": 3.000010991049633,
+      "bbox": [
+        77.381002,
+        18.429168,
+        77.434358,
+        18.47978
+      ]
+    },
+    "slope": {
+      "nan": 0,
+      "inf": 0,
+      "min": 0.002331353724002838,
+      "max": 66.18506622314453
+    },
+    "hazard_values": {
+      "0": 826686,
+      "1": 100253,
+      "2": 73061
+    },
+    "hazard_vs_slope": {
+      "slope_ge_forbidden_and_hazard_lt2": 0,
+      "slope_ge_caution_and_hazard0": 0,
+      "hazard2_with_slope_lt_forbidden (rugosidad)": 349,
+      "hazard1_with_slope_lt_caution (rugosidad)": 13182
+    },
+    "traverse": {
+      "features": 97,
+      "vertices": 6693,
+      "vertices_outside_bbox": 0,
+      "length_m": 8737.55,
+      "sols": [
+        401,
+        753
+      ],
+      "discontinuities_gt_1m": [
+        {
+          "after_sol": 409,
+          "before_sol": 413,
+          "gap_m": 8.02
+        },
+        {
+          "after_sol": 414,
+          "before_sol": 415,
+          "gap_m": 7.87
+        }
+      ],
+      "pieces": 3,
+      "nan": 0
+    }
+  },
+  "test1": {
+    "method": "celdas únicas atravesadas (supercobertura exacta); sensibilidad: ponderado por longitud",
+    "n_cells_traverse": 3234,
+    "length_covered_m": 8737.548432193598,
+    "slope": {
+      "traverse": {
+        "n": 3234,
+        "mean": 4.293957324500438,
+        "median": 3.228614926338196,
+        "std": 3.2415642377549023,
+        "min": 0.049838822335004807,
+        "max": 21.158044815063477,
+        "p25": 1.8384634256362915,
+        "p75": 6.171329617500305,
+        "p90": 8.95327758789063,
+        "p95": 10.678378772735595,
+        "pct_ge10": 6.70995670995671,
+        "pct_ge15": 0.6184291898577613
+      },
+      "aoi": {
+        "n": 1000000,
+        "mean": 5.9174489808434645,
+        "median": 4.1972010135650635,
+        "std": 5.622943516072104,
+        "min": 0.002331353724002838,
+        "max": 66.18506622314453,
+        "p25": 2.1951358914375305,
+        "p75": 7.545516729354858,
+        "p90": 12.941967010498047,
+        "p95": 17.372329616546622,
+        "pct_ge10": 15.9935,
+        "pct_ge15": 7.2712
+      },
+      "traverse_length_weighted": {
+        "mean": 4.394743838706759,
+        "median": 3.4378020763397217
+      }
+    },
+    "hazard": {
+      "traverse": {
+        "0": {
+          "count": 3017,
+          "pct": 93.29004329004329
+        },
+        "1": {
+          "count": 197,
+          "pct": 6.091527520098949
+        },
+        "2": {
+          "count": 20,
+          "pct": 0.6184291898577613
+        }
+      },
+      "aoi": {
+        "0": {
+          "count": 826686,
+          "pct": 82.6686
+        },
+        "1": {
+          "count": 100253,
+          "pct": 10.0253
+        },
+        "2": {
+          "count": 73061,
+          "pct": 7.3061
+        }
+      },
+      "traverse_length_weighted": {
+        "0": {
+          "count": 3017,
+          "pct": 93.2772383476036
+        },
+        "1": {
+          "count": 197,
+          "pct": 5.984507302659391
+        },
+        "2": {
+          "count": 20,
+          "pct": 0.7382543497369984
+        }
+      }
+    },
+    "tests": {
+      "mann_whitney_less_p": 0.0,
+      "chi2_hazard": 292.0239485621871,
+      "chi2_p": 3.870840513942983e-64,
+      "cliffs_delta": -0.1442133333333333,
+      "note": "Celdas vecinas no son independientes: los p-valores sobrestiman la significancia. Usar el modelo nulo."
+    },
+    "forbidden_cells": [
+      {
+        "row": 432,
+        "col": 474,
+        "slope_deg": 15.21,
+        "cause": "pendiente>=15",
+        "length_m": 3.11,
+        "sols": [
+          456
+        ]
+      },
+      {
+        "row": 432,
+        "col": 475,
+        "slope_deg": 15.87,
+        "cause": "pendiente>=15",
+        "length_m": 2.37,
+        "sols": [
+          456
+        ]
+      },
+      {
+        "row": 431,
+        "col": 475,
+        "slope_deg": 18.24,
+        "cause": "pendiente>=15",
+        "length_m": 0.74,
+        "sols": [
+          456
+        ]
+      },
+      {
+        "row": 431,
+        "col": 476,
+        "slope_deg": 18.36,
+        "cause": "pendiente>=15",
+        "length_m": 3.11,
+        "sols": [
+          456
+        ]
+      },
+      {
+        "row": 431,
+        "col": 477,
+        "slope_deg": 18.83,
+        "cause": "pendiente>=15",
+        "length_m": 4.98,
+        "sols": [
+          456
+        ]
+      },
+      {
+        "row": 430,
+        "col": 477,
+        "slope_deg": 17.29,
+        "cause": "pendiente>=15",
+        "length_m": 3.01,
+        "sols": [
+          456
+        ]
+      },
+      {
+        "row": 414,
+        "col": 468,
+        "slope_deg": 16.06,
+        "cause": "pendiente>=15",
+        "length_m": 2.63,
+        "sols": [
+          464,
+          474
+        ]
+      },
+      {
+        "row": 413,
+        "col": 469,
+        "slope_deg": 20.82,
+        "cause": "pendiente>=15",
+        "length_m": 0.02,
+        "sols": [
+          474
+        ]
+      },
+      {
+        "row": 413,
+        "col": 470,
+        "slope_deg": 20.32,
+        "cause": "pendiente>=15",
+        "length_m": 4.09,
+        "sols": [
+          474,
+          477
+        ]
+      },
+      {
+        "row": 413,
+        "col": 471,
+        "slope_deg": 17.57,
+        "cause": "pendiente>=15",
+        "length_m": 6.23,
+        "sols": [
+          477,
+          501
+        ]
+      },
+      {
+        "row": 412,
+        "col": 471,
+        "slope_deg": 19.41,
+        "cause": "pendiente>=15",
+        "length_m": 2.27,
+        "sols": [
+          477,
+          501
+        ]
+      },
+      {
+        "row": 428,
+        "col": 520,
+        "slope_deg": 18.49,
+        "cause": "pendiente>=15",
+        "length_m": 8.96,
+        "sols": [
+          538,
+          700,
+          702
+        ]
+      },
+      {
+        "row": 429,
+        "col": 520,
+        "slope_deg": 21.16,
+        "cause": "pendiente>=15",
+        "length_m": 1.21,
+        "sols": [
+          538,
+          700
+        ]
+      },
+      {
+        "row": 429,
+        "col": 519,
+        "slope_deg": 21.1,
+        "cause": "pendiente>=15",
+        "length_m": 5.88,
+        "sols": [
+          538,
+          700
+        ]
+      },
+      {
+        "row": 430,
+        "col": 519,
+        "slope_deg": 19.13,
+        "cause": "pendiente>=15",
+        "length_m": 5.25,
+        "sols": [
+          538,
+          700
+        ]
+      },
+      {
+        "row": 430,
+        "col": 518,
+        "slope_deg": 20.0,
+        "cause": "pendiente>=15",
+        "length_m": 3.37,
+        "sols": [
+          538,
+          698,
+          700
+        ]
+      },
+      {
+        "row": 431,
+        "col": 519,
+        "slope_deg": 15.77,
+        "cause": "pendiente>=15",
+        "length_m": 0.91,
+        "sols": [
+          538
+        ]
+      },
+      {
+        "row": 435,
+        "col": 522,
+        "slope_deg": 16.37,
+        "cause": "pendiente>=15",
+        "length_m": 0.5,
+        "sols": [
+          538
+        ]
+      },
+      {
+        "row": 427,
+        "col": 519,
+        "slope_deg": 15.37,
+        "cause": "pendiente>=15",
+        "length_m": 3.13,
+        "sols": [
+          702
+        ]
+      },
+      {
+        "row": 400,
+        "col": 483,
+        "slope_deg": 15.6,
+        "cause": "pendiente>=15",
+        "length_m": 2.76,
+        "sols": [
+          708
+        ]
+      }
+    ],
+    "null_model": {
+      "n": 1000,
+      "attempts": 29950,
+      "mean_slope": {
+        "null_mean": 6.095573419332505,
+        "null_p2_5": 3.5694144666194916,
+        "null_p97_5": 9.088067555427552,
+        "frac_null_le_obs": 0.121
+      },
+      "median_slope": {
+        "null_mean": 4.36463771700859,
+        "frac_null_le_obs": 0.17
+      },
+      "pct_free": {
+        "null_mean": 81.86512000863353,
+        "null_p2_5": 63.158021718762896,
+        "null_p97_5": 95.84779259880386,
+        "frac_null_ge_obs": 0.082
+      },
+      "pct_forbidden": {
+        "null_mean": 8.400194854915027,
+        "frac_null_le_obs": 0.024
+      }
+    }
+  }
+}

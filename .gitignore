@@ -12,3 +12,6 @@ node_modules/
 .vite/
 .idea/
 pipeline/_selftest_out/
+docs/validation/*.npy
+docs/validation/cost_grid.f32
+__pycache__/

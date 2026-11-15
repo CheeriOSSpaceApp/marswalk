@@ -1,0 +1,80 @@
+{
+  "433_455": {
+    "optimal_cost_min": 11.212672475919835,
+    "rover_len_in_near_optimal_corridor_pct": {
+      "k1.05": 32.67091239303374,
+      "k1.1": 45.39510845784221,
+      "k1.25": 67.55755015930568,
+      "k1.5": 91.52464455196713
+    },
+    "profile": {
+      "rover": {
+        "slope_mean_lenw": 6.607687824616116,
+        "slope_max": 14.880061149597168,
+        "pct_len_slope_ge10": 38.60600413185083,
+        "pct_len_caution": 38.60600413185083,
+        "rough_mean_lenw": 0.08207981381715337,
+        "cost_per_m_mean": 0.04999106254138579
+      },
+      "planner": {
+        "slope_mean_lenw": 3.0638199011924483,
+        "slope_max": 14.880061149597168,
+        "pct_len_slope_ge10": 8.451938011804549,
+        "pct_len_caution": 8.451938011804549,
+        "rough_mean_lenw": 0.06836016150766071,
+        "cost_per_m_mean": 0.03716427586339546
+      }
+    },
+    "threshold_sensitivity_pct_rover_within": {
+      "10": 13.838389293821841,
+      "20": 19.961214457462038,
+      "30": 25.672042351803732,
+      "50": 38.84731476689987
+    },
+    "threshold_sensitivity_pct_planner_within": {
+      "10": 19.79199977213178,
+      "20": 27.569875897036006,
+      "30": 35.3246023397244,
+      "50": 54.73933631454416
+    }
+  },
+  "538_543": {
+    "optimal_cost_min": 14.801103186991456,
+    "rover_len_in_near_optimal_corridor_pct": {
+      "k1.05": 96.77010688921158,
+      "k1.1": 99.41125668260945,
+      "k1.25": 100.0,
+      "k1.5": 100.0
+    },
+    "profile": {
+      "rover": {
+        "slope_mean_lenw": 2.3326803040175963,
+        "slope_max": 6.868109226226807,
+        "pct_len_slope_ge10": 0.0,
+        "pct_len_caution": 0.0,
+        "rough_mean_lenw": 0.06017586948257724,
+        "cost_per_m_mean": 0.033944954560906807
+      },
+      "planner": {
+        "slope_mean_lenw": 1.4469022085291303,
+        "slope_max": 4.8214430809021,
+        "pct_len_slope_ge10": 0.0,
+        "pct_len_caution": 0.0,
+        "rough_mean_lenw": 0.05191506867963815,
+        "cost_per_m_mean": 0.03122695407570732
+      }
+    },
+    "threshold_sensitivity_pct_rover_within": {
+      "10": 80.0716782107708,
+      "20": 99.74514558366609,
+      "30": 100.0,
+      "50": 100.0
+    },
+    "threshold_sensitivity_pct_planner_within": {
+      "10": 81.10166138813801,
+      "20": 97.89739883667369,
+      "30": 100.0,
+      "50": 100.0
+    }
+  }
+}

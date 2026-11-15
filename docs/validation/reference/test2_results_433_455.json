@@ -1,0 +1,91 @@
+{
+  "waypoints": {
+    "start": {
+      "lon": 77.40842016,
+      "lat": 18.45364754,
+      "source": "fin del manejo del sol 433"
+    },
+    "end": {
+      "lon": 77.40627699,
+      "lat": 18.45789036,
+      "source": "fin del manejo del sol 455"
+    }
+  },
+  "rover_sols": [
+    434,
+    436,
+    437,
+    439,
+    441,
+    443,
+    448,
+    449,
+    455
+  ],
+  "planner_endpoint_offset_m": {
+    "start_m": 1.228141972880976,
+    "end_m": 0.6142257048466163
+  },
+  "length_m": {
+    "rover": 429.1344661816592,
+    "planner": 301.70705687051264,
+    "straight": 278.8711798427967
+  },
+  "rover_vs_planner": {
+    "pct": 19.961214457523894,
+    "length_m": 429.13446618165904,
+    "mean_m": 66.89412248816977,
+    "median_m": 68.91039525668248,
+    "p90_m": 127.73570801329113,
+    "max_m": 140.9493919659478
+  },
+  "planner_vs_rover": {
+    "pct": 27.569875897012253,
+    "length_m": 301.7070568705127,
+    "mean_m": 44.72494932599216,
+    "median_m": 43.74996526049563,
+    "p90_m": 83.95248087638174,
+    "max_m": 87.59551168098226
+  },
+  "hausdorff_m": 140.9493919659478,
+  "threshold_m": 20.0,
+  "cost": {
+    "planner": {
+      "cost_grid_min": 11.212672465713752,
+      "cost_line_min": 11.21272428125823,
+      "chain_cells": 85,
+      "chain_length_m": 301.7056274847714,
+      "infinite_cells": []
+    },
+    "rover": {
+      "cost_grid_min": 22.5993564984032,
+      "cost_line_min": 21.45288788688306,
+      "chain_cells": 139,
+      "chain_length_m": 451.27922061357856,
+      "infinite_cells": []
+    }
+  },
+  "cost_ratio": {
+    "definition": "cost_planner / cost_rover; numerador = ruta calculada, denominador = rover",
+    "value": 0.5226673602351704,
+    "value_grid_rule": 0.49615007695046554,
+    "comparable": true
+  },
+  "planner_engine": "REFERENCIA Dijkstra (contrato del planner); NO es planner.js de Eric",
+  "planner_stats": {
+    "cost_min_O2_nominal": 11.212672475919835,
+    "distance_m": 301.7070568703509,
+    "max_slope_deg": 14.880061149597168,
+    "caution_cells": 9,
+    "comms_pct": 100.0,
+    "n_cells": 85,
+    "start_cell": [
+      516,
+      513
+    ],
+    "goal_cell": [
+      432,
+      473
+    ]
+  }
+}
