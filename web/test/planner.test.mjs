@@ -88,7 +88,7 @@ check('30-min tank: O2 rule fails and gives a turnaround point', r.stats.o2_retu
 // 9. Replanning: astronaut is halfway habitat -> depot when each alert arrives
 const out = plan(S, { start: T.habitat, goal: T.depot });
 const mid = out.path.geometry.coordinates[Math.floor(out.path.geometry.coordinates.length / 2)];
-const A = Object.fromEntries(S.alerts.map((a) => [a.type, a]));
+const A = Object.fromEntries([...S.alerts].reverse().map((a) => [a.type, a]));   // first alert of each type wins
 const end = (res) => res.path.geometry.coordinates.at(-1);
 const near = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]) < 1e-4;
 
@@ -227,5 +227,39 @@ check('SPE with a non-shielded shelter nearby -> habitat, and the UI can say why
   rp.replan.considered.some((c) => c.why === 'not radiation-protected'), rp.replan.considered.map((c) => `${c.name} ${c.minutes} min (${c.why})${c.chosen ? ' ✓' : ''}`).join(' · '));
 rp = replan(S, { current: nearShel, alert: A.SPE });
 check('SPE with a radiation shelter nearby -> that shelter', rp.replan.destination_kind === 'shelter');
+
+console.log('--- Tier 2: emergency caches (O2 refill + inventory)');
+const cacheLL = llOf(540, 400);
+const cacheF = { type: 'Feature', geometry: { type: 'Point', coordinates: cacheLL },
+  properties: { id: 'cache-1', name: 'Cache 1 (mock)', kind: 'shelter', station_type: 'cache', radiation_shelter: false, science_value: 1, supplies: { o2_min: 120 } } };
+const SC = { ...S, targets: { ...S.targets, features: [...S.targets.features, cacheF] } };
+const plainR = plan(SC, { start: T.habitat, stops: [T.sci2], goal: T.habitat, o2_used_min: 200 });
+const viaC = plan(SC, { start: T.habitat, stops: [cacheLL, T.sci2], goal: T.habitat, o2_used_min: 200 });
+check('T2: stopping at a cache refills O2 and raises the return margin', viaC.stats.o2_refilled_min > 0 && viaC.stats.o2_margin_min > plainR.stats.o2_margin_min,
+  `refill ${viaC.stats.o2_refilled_min} min, margin ${plainR.stats.o2_margin_min} -> ${viaC.stats.o2_margin_min}`);
+check('T2: refill never exceeds the cache supply', viaC.refills.every((r) => r.o2_min <= 120));
+const viaC2 = plan(SC, { start: T.habitat, stops: [cacheLL, T.sci2], goal: T.habitat, o2_used_min: 200, state: { cache_used: { 'cache-1': 110 } } });
+check('T2: inventory — a used-up cache gives only what is left', viaC2.stats.o2_refilled_min <= 10.01, `left 10 -> refilled ${viaC2.stats.o2_refilled_min}`);
+const leak = { id: 'leak1', type: 'suit', action: 'resupply', effect: { o2_x: 1.0, dose_x: 1, visibility: 1 } };
+const farP = T.sci2;
+const usableC = usableO2min(S.suit);
+const directHome = plan(SC, { start: farP, goal: T.habitat, start_task_min: 0 });
+rp = replan(SC, { current: farP, alert: leak, o2_used_min: usableC - directHome.stats.o2_used_min + 5 });   // can't make it home directly
+check('T2: O2 emergency -> goes via the cache, refills, and gets home safely', rp.replan.via_cache && rp.stats.o2_return_ok,
+  rp.replan.considered.map((c) => `${c.name}: ${c.why}${c.chosen ? ' ✓' : ''}`).join(' · '));
+ad = adapt(SC, { current: T.habitat, stops: [T.sci2], o2_used_min: 280 });   // direct: margin < 0; via cache (+120): safe
+check('T2: adapt tries a refill detour before dropping science', ad.adapt.decision === 'refill' && ad.adapt.dropped.length === 0 && ad.stats.safe,
+  `${ad.adapt.decision} via ${ad.adapt.via_cache?.name}`);
+rp = replan(SC, { current: cacheLL, alert: A.dust });
+ad = adapt(SC, { current: T.habitat, stops: [T.sci2], o2_used_min: 330 });
+check('T2: when even a refill cannot save it, adapt still drops science (no false hope)', ad.adapt.decision !== 'refill' && ad.adapt.dropped.length > 0);
+const noCache = getGrid(S, S.params, {}).costToHome;
+check('T2: with no caches, cost-to-safety == cost-to-home (old behaviour unchanged)', getCostToHome(S, {}).costToSafety === null);
+check('T2: a cache shrinks the cost-to-safety field (bigger safe exploration zone)', (() => { const f = getCostToHome(SC, {}).costToSafety; let less = 0; for (let i = 0; i < f.length; i += 97) if (f[i] < noCache[i] - 1e-3) less++; return less > 0; })());
+{ const SC2 = { ...S, targets: { ...S.targets, features: [...S.targets.features,
+    { type: 'Feature', geometry: { type: 'Point', coordinates: T.shelter1 }, properties: { id: 'cache-co', name: 'Co-located cache', kind: 'shelter', station_type: 'cache', supplies: { o2_min: 60 } } }] } };
+  const r = plan(SC2, { start: T.habitat, stops: [T.shelter1], goal: T.habitat, o2_used_min: 100 });
+  check('T2: cache placed AT another target is still used (refill)', r.stats.o2_refilled_min > 0, `refilled ${r.stats.o2_refilled_min}`); }
+check('T2: a cache also counts as a safe point in a dust storm', rp.replan.destination_kind === 'shelter');
 
 process.exit(fails ? 1 : 0);

@@ -91,7 +91,7 @@ const params = has('params.json') ? json('params.json') : (err('params.json miss
 const alerts = has('alerts.json') ? json('alerts.json') : (warn('alerts.json missing'), null);
 if (alerts) for (const a of alerts) {
   if (!['SPE', 'dust', 'suit'].includes(a.type)) err(`alert ${a.id}: type ${a.type}`);
-  if (!['return', 'shelter', 'safe_point'].includes(a.action)) err(`alert ${a.id}: action ${a.action}`);
+  if (!['return', 'shelter', 'safe_point', 'resupply'].includes(a.action)) err(`alert ${a.id}: action ${a.action}`);
   if (!a.effect) err(`alert ${a.id}: no effect`);
   if (!a.source) warn(`alert ${a.id}: no source/assumption note`);
 }
@@ -149,6 +149,21 @@ if (targets && L.slope && L.hazard && params) {
     const broken = linked.filter((f) => !ids.has(f.properties.photo_id));
     if (broken.length) err(`photo_id not found in photos.json: ${broken.map((f) => f.properties.photo_id)}`);
     if (!linked.length && photos.length) warn('no target has photo_id set -> tablet can\'t show POV photos per waypoint');
+  }
+}
+
+// ---- stations.geojson (optional, Gabriel's calcstations.py) — merged into targets by data.js
+if (has('stations.geojson')) {
+  console.log('stations.geojson');
+  const st = json('stations.geojson');
+  for (const f of st?.features || []) {
+    const p = f.properties || {}, [lo, la] = f.geometry?.coordinates || [];
+    if (f.geometry?.type !== 'Point') { err(`station ${p.id}: geometry must be a Point`); continue; }
+    if (lo < lonMin || lo > lonMax || la < latMin || la > latMax) err(`station ${p.id} outside bbox`);
+    if (!p.id || !p.name) err('station without id/name');
+    if (p.station_type === 'cache' && !(typeof (p.supplies?.o2_min?.value ?? p.supplies?.o2_min) === 'number')) err(`cache ${p.id}: supplies.o2_min (number or {value, source}) required`);
+    if (p.radiation_shelter === true && !p.source) warn(`station ${p.id}: radiation_shelter without a source`);
+    ok(`station ${p.id} "${p.name}" (${p.station_type ?? 'shelter'}${p.radiation_shelter ? ', radiation shelter' : ''}${p.supplies ? ', O2 ' + JSON.stringify(p.supplies.o2_min?.value ?? p.supplies.o2_min) + ' min' : ''})`);
   }
 }
 

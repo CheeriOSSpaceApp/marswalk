@@ -204,6 +204,55 @@ export function dijkstraFrom(grid, source) {
   return dist;
 }
 
+// Multi-source Dijkstra: seeds = [{cell, value}] (initial cost at each source). Used for the cost-to-SAFETY field.
+export function dijkstraMulti(grid, seeds) {
+  const { cost, W, H, cellM } = grid;
+  const n = W * H, dist = new Float32Array(n).fill(Infinity), closed = new Uint8Array(n), open = new MinHeap(1 << 20);
+  for (const sd of seeds) if (sd.cell >= 0 && cost[sd.cell] < Infinity && sd.value < dist[sd.cell]) { dist[sd.cell] = sd.value; open.push(sd.value, sd.cell); }
+  while (open.size > 0) {
+    const cur = open.pop();
+    if (closed[cur]) continue;
+    closed[cur] = 1;
+    const r = Math.floor(cur / W), c = cur % W, dc = dist[cur];
+    for (let d = 0; d < 8; d++) {
+      const nr = r + DIRS[d][0], nc = c + DIRS[d][1];
+      if (nr < 0 || nr >= H || nc < 0 || nc >= W) continue;
+      const nb = nr * W + nc;
+      if (closed[nb] || !(cost[nb] < Infinity)) continue;
+      const diagonal = d >= 4;
+      if (diagonal && (!(cost[r * W + nc] < Infinity) || !(cost[nr * W + c] < Infinity))) continue;
+      const nd = dc + 0.5 * (cost[cur] + cost[nb]) * (diagonal ? SQRT2 * cellM : cellM);
+      if (nd < dist[nb]) { dist[nb] = nd; open.push(nd, nb); }
+    }
+  }
+  return dist;
+}
+
+// Tier 2: cost to SAFETY (12:45). Safe = the habitat, OR a cache with enough O2 that, after refilling there, the
+// crew can still get home. Seed of a cache c = max(0, refill task O2 + costToHome[c] − O2 available at c):
+// "what I'd still be missing after refilling". One multi-source Dijkstra over the physical O2 grid.
+// Without caches this is exactly costToHome. The O2 rule uses this field.
+function safetyField(site, params, state, e) {
+  const caches = (site.targets?.features || []).filter((f) => f.properties?.station_type === 'cache');
+  const avail = (f) => Math.max(0, (pval(f.properties.supplies?.o2_min) ?? 0) - (state.cache_used?.[f.properties.id] ?? 0));
+  const live = caches.filter((f) => avail(f) > 0);
+  if (!live.length) return e.costToHome;
+  const key = JSON.stringify(live.map((f) => [f.properties.id, avail(f)]));
+  if (e.safetyKey === key) return e.safety;
+  const workFactor = pval(params.work_metabolic_factor) ?? 1, o2x = state.o2_x ?? 1;
+  const refillO2 = (pval(params.task_min?.cache_refill) ?? 10) * workFactor * o2x;
+  const g = { ...e.grid, cost: e.grid.o2 };
+  const seeds = live.map((f) => {
+    const cell = snapToPassable(g, lonLatToCell(site.meta, ...f.geometry.coordinates).i);
+    return { cell, value: cell >= 0 ? Math.max(0, refillO2 + e.costToHome[cell] - avail(f)) : Infinity };
+  });
+  const viaCaches = dijkstraMulti(g, seeds);
+  const out = new Float32Array(viaCaches.length);
+  for (let i = 0; i < out.length; i++) out[i] = Math.min(e.costToHome[i], viaCaches[i]);
+  e.safety = out; e.safetyKey = key;
+  return out;
+}
+
 // O2 the astronaut may spend, in minutes, keeping the mandatory reserve.
 export function usableO2min(suit) {
   const total = (suit?.o2_hours?.value ?? 8) * 60;
@@ -214,9 +263,12 @@ export function usableO2min(suit) {
 //   O2 already used up to k + costToHome[k] <= usable O2
 // margin = worst (smallest) slack along the route, in O2-minutes.
 // Marco's viability rule. turnaround = last point before the rule first fails (-1 if never fails).
-export function walkbackCheck(cells, grid, costToHome, usable, extraO2 = new Map()) {
+// refillAt: Map(path index -> max O2-min available at a cache stop). used0 = O2 already used before the plan.
+// At a cache the crew tops the suit back up: used drops by min(available, total used so far).
+export function walkbackCheck(cells, grid, costToHome, usable, extraO2 = new Map(), refillAt = new Map(), used0 = 0) {
   const W = grid.W;
   let used = 0, margin = Infinity, worstIdx = 0, turnaround = -1;
+  const refills = [];
   for (let k = 0; k < cells.length; k++) {
     const i = cells[k];
     if (k > 0) {
@@ -225,11 +277,15 @@ export function walkbackCheck(cells, grid, costToHome, usable, extraO2 = new Map
       used += 0.5 * (grid.o2[p] + grid.o2[i]) * (diag ? SQRT2 : 1) * grid.cellM; // physical O2
     }
     used += extraO2.get(k) || 0; // task done at this stop: must still be able to get home AFTER it
+    if (refillAt.has(k)) {        // Tier 2: cache refill (after the refill task)
+      const amount = Math.max(0, Math.min(refillAt.get(k), used0 + used));
+      used -= amount; refills.push({ index: k, amount: +amount.toFixed(1) });
+    }
     const slack = usable - (used + costToHome[i]);
     if (slack < margin) { margin = slack; worstIdx = k; }
     if (slack < 0 && turnaround === -1) turnaround = Math.max(0, k - 1);
   }
-  return { ok: margin >= 0, margin_min: +margin.toFixed(1), worst_point: worstIdx, turnaround };
+  return { ok: margin >= 0, margin_min: +margin.toFixed(1), worst_point: worstIdx, turnaround, refills };
 }
 
 // ---------- 3. Stats for a list of cells ----------
@@ -312,7 +368,9 @@ export function plan(site, req) {
   const t0 = performance.now();
   const params = { ...site.params, ...(req.params || {}) };
   const state = req.state || {};
-  const { grid, costToHome, distToHome } = getGrid(site, params, state);
+  const gridEntry = getGrid(site, params, state);
+  const { grid, costToHome, distToHome } = gridEntry;
+  const costToSafety = safetyField(site, params, state, gridEntry);   // == costToHome when there are no caches
   const tCost = performance.now();
 
   const pts = [req.start, ...(req.stops || []), req.goal];
@@ -339,6 +397,8 @@ export function plan(site, req) {
   const taskO2 = taskMin.map((m) => m * workFactor * (state.o2_x ?? 1));
 
   const all = [], segments = [], extraO2 = new Map(); // path index -> task O2 spent there
+  const refillAt = new Map(), refillInfo = new Map();   // Tier 2: caches the route STOPS at (start/end excluded)
+  const cacheLeft = (f) => Math.max(0, (pval(f.properties.supplies?.o2_min) ?? 0) - (state.cache_used?.[f.properties.id] ?? 0));
   if (taskO2[0] > 0) extraO2.set(0, taskO2[0]); // egress at the start (suit O2 already flowing)
   const doseSegs = []; // one per leg (walk + task), for radiation.doseTotal
   // Assumption: egress/ingress happen in the habitat airlock (shielded) -> they cost O2 and time, not dose.
@@ -354,6 +414,10 @@ export function plan(site, req) {
     segments.push({ from: pts[k], to: pts[k + 1], stats: legStats });
     all.push(...(k === 0 ? leg : leg.slice(1)));
     if (taskO2[k + 1] > 0) extraO2.set(all.length - 1, taskO2[k + 1]);
+    if (k + 1 < pts.length - 1) {
+      const f = targetAt(site, pts[k + 1]);
+      if (f?.properties?.station_type === 'cache' && cacheLeft(f) > 0) { refillAt.set(all.length - 1, cacheLeft(f)); refillInfo.set(all.length - 1, f.properties); }
+    }
   }
   const stats = pathStats(all, site, grid, params, state);
   const taskTotal = taskMin.reduce((a, b) => a + b, 0);
@@ -366,7 +430,10 @@ export function plan(site, req) {
   stats.o2_used_pct = +((100 * stats.o2_used_min) / o2Total).toFixed(1); // round ONCE, from exact minutes
   stats.dose_mSv = +doseOf(doseSegs, params).toFixed(4); // Ana's model, per leg (walk + task)
   // req.o2_used_min: O2 already spent before this plan starts (used by replan mid-EVA)
-  const wb = walkbackCheck(all, grid, costToHome, usableO2min(site.suit) - (req.o2_used_min || 0), extraO2);
+  const wb = walkbackCheck(all, grid, costToSafety, usableO2min(site.suit) - (req.o2_used_min || 0), extraO2, refillAt, req.o2_used_min || 0);
+  // Tier 2: what was taken from each cache (the console adds it to state.cache_used -> inventory for resupply planning)
+  const refills = wb.refills.map((r) => ({ id: refillInfo.get(r.index).id, name: refillInfo.get(r.index).name, o2_min: r.amount }));
+  stats.o2_refilled_min = +refills.reduce((s, r) => s + r.o2_min, 0).toFixed(1);
   // Rule 1 (O2): used so far + cheapest return <= usable O2, at every point
   stats.o2_return_ok = wb.ok;
   stats.o2_margin_min = wb.margin_min;
@@ -393,6 +460,7 @@ export function plan(site, req) {
     },
     stats,
     o2_worst_point: cellToLonLat(site.meta, all[wb.worst_point]),
+    refills,
     turnaround_point: wb.turnaround >= 0 ? cellToLonLat(site.meta, all[wb.turnaround]) : null,
     segments,
     timing_ms: { cost_grid: Math.round(tCost - t0), astar: Math.round(performance.now() - tCost) },
@@ -404,13 +472,19 @@ const pval = (x) => (x && typeof x === 'object' ? x.value : x);
 
 // Target feature within ~2.5 cells of a point, or null.
 export function targetAt(site, [lon, lat]) {
+  // Nearest target within ~2.5 cells. If several coincide (e.g. an O2 cache placed AT the Hawksbill safe point),
+  // the cache wins: it's the one that changes the plan (refill). Bug found 12:55.
   const tol = 2.5 * site.meta.cell_m;
   const mPerDegLat = 59270, mPerDegLon = mPerDegLat * Math.cos((lat * Math.PI) / 180);
+  let best = null, bestD = Infinity;
   for (const f of site.targets?.features || []) {
     const [tl, ta] = f.geometry.coordinates;
-    if (Math.hypot((tl - lon) * mPerDegLon, (ta - lat) * mPerDegLat) <= tol) return f;
+    const d = Math.hypot((tl - lon) * mPerDegLon, (ta - lat) * mPerDegLat);
+    if (d > tol) continue;
+    const isCache = f.properties?.station_type === 'cache';
+    if (d < bestD - 0.5 || (Math.abs(d - bestD) <= 0.5 && isCache)) { best = f; bestD = d; }
   }
-  return null;
+  return best;
 }
 
 // Minutes of work at a point. role: 'start' | 'stop' | 'end'. ctx carries depot setup (charged once).
@@ -431,7 +505,9 @@ export function taskMinutesAt(site, params, point, role = 'stop', ctx = {}) {
       return m;
     }
     case 'science': return pval(T.science) ?? 0;
-    case 'shelter': return role === 'stop' || role === 'end' ? pval(T.shelter) ?? 0 : 0;
+    case 'shelter':
+      if (p.station_type === 'cache' && role === 'stop') return pval(T.cache_refill) ?? 10;   // swap/top-up O2 (assumption)
+      return role === 'stop' || role === 'end' ? pval(T.shelter) ?? 0 : 0;
     case 'habitat':
       if (role === 'start') return pval(T.habitat_egress) ?? 0;
       if (role === 'end') return pval(T.habitat_ingress) ?? pval(T.habitat) ?? 0;
@@ -506,6 +582,25 @@ export function replan(site, req) {
   const allShelters = site.targets.features.filter((f) => f.properties.kind === 'shelter');
   const considered = [];
   let candidates;
+  if (req.alert.action === 'resupply') {
+    // O2 emergency: go home directly, or via the cache that makes the return safe. Judged by the O2 rule.
+    const caches = site.targets.features.filter((f) => f.properties.station_type === 'cache');
+    let bestR = null;
+    const tryOne = (stops, target) => {
+      const p = plan(site, { ...base, stops, goal: habitat });
+      considered.push({ id: target.id, name: target.name, kind: target.kind, eligible: !p.error && p.stats.o2_return_ok,
+        minutes: p.error ? null : p.stats.duration_min, why: p.error ? p.error : p.stats.o2_return_ok ? (stops.length ? `refill ${p.stats.o2_refilled_min} min O2 then home` : 'direct') : 'not enough O2' });
+      if (p.error) return;
+      const score = (p.stats.o2_return_ok ? 1e6 : 0) + p.stats.o2_margin_min - p.stats.duration_min / 100;
+      if (!bestR || score > bestR.score) bestR = { plan: p, target, score };
+    };
+    tryOne([], habitatCandidate);
+    for (const f of caches) tryOne([f.geometry.coordinates], { id: f.properties.id, kind: 'cache', name: f.properties.name, coords: f.geometry.coordinates });
+    if (!bestR) return { error: 'no_safe_destination', alert: req.alert.id, state };
+    return { ...bestR.plan, state, replan: { alert: req.alert.id, type: req.alert.type, action: 'resupply', destination: bestR.target.name,
+      destination_id: bestR.target.id, destination_kind: bestR.target.kind, via_cache: bestR.target.kind === 'cache', fallback_to_safe_point: false,
+      considered: considered.map((c) => ({ ...c, chosen: c.id === bestR.target.id })), total_ms: Math.round(performance.now() - t0) } };
+  }
   if (req.alert.action === 'safe_point') {
     candidates = [habitatCandidate, ...allShelters.map((f) => ({ id: f.properties.id, kind: 'shelter', name: f.properties.name, coords: f.geometry.coordinates }))];
   } else if (req.alert.action === 'shelter') {
@@ -603,6 +698,15 @@ export function adapt(site, req) {
   const dropped = [];
   const ok = (r) => !r.error && r.stats.safe;
   let res = mk(kept.map((k) => k.p));
+  // Tier 2: if unsafe only because of O2, first try a detour to a cache (refill) before dropping any science
+  let viaCache = null;
+  if (!ok(res) && !res.error && res.stats.go !== 'NO-GO') {
+    for (const f of site.targets.features.filter((f) => f.properties.station_type === 'cache')) {
+      const r = mk([f.geometry.coordinates, ...kept.map((k) => k.p)]);
+      if (ok(r) && (!viaCache || r.stats.duration_min < viaCache.r.stats.duration_min)) viaCache = { f, r };
+    }
+    if (viaCache) res = viaCache.r;
+  }
   let guard = 0;
   while (!ok(res) && kept.length && guard++ < 50) {
     let victims;
@@ -620,12 +724,13 @@ export function adapt(site, req) {
       reason: res.error ? 'unreachable (map update)' : !res.error && res.stats.go === 'NO-GO' ? 'not enough daylight' : 'not enough O2 / walkback margin' });
     kept = best.trial; res = best.r;
   }
-  const decision = !dropped.length ? 'continue' : kept.length ? 'skip' : 'return';
+  const decision = viaCache ? 'refill' : !dropped.length ? 'continue' : kept.length ? 'skip' : 'return';
   if (res.error) return { error: res.error, adapt: { decision: 'return', dropped, kept: [] } };
   return {
     ...res,
     adapt: {
       decision, dropped, kept: kept.map((k) => ({ id: k.id, name: k.name, science_value: k.value })),
+      via_cache: viaCache ? { id: viaCache.f.properties.id, name: viaCache.f.properties.name } : null,
       safe: res.stats.safe, total_ms: Math.round(performance.now() - t0),
     },
   };
@@ -635,9 +740,11 @@ export function adapt(site, req) {
 // Tablet logic: cell i is beyond no-return if costToHome[i] > O2 remaining now.
 export function getCostToHome(site, req = {}) {
   const params = { ...site.params, ...(req.params || {}) };
-  const { costToHome, distToHome } = getGrid(site, params, req.state || {});
+  const e = getGrid(site, params, req.state || {});
+  const { costToHome, distToHome } = e;
+  const costToSafety = safetyField(site, params, req.state || {}, e);
   return {
-    costToHome: costToHome.slice(), distToHome: distToHome.slice(),
+    costToHome: costToHome.slice(), distToHome: distToHome.slice(), costToSafety: costToSafety === costToHome ? null : costToSafety.slice(),
     usable_o2_min: usableO2min(site.suit), walkback_m: site.suit?.walkback_m?.value ?? null,
   };
 }

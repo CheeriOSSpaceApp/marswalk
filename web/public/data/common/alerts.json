@@ -31,5 +31,18 @@
     },
     "source": "MarsWalk suit-failure contingency assumption; multiplier represents degraded suit efficiency.",
     "action": "return"
+  },
+  {
+    "id": "leak1",
+    "type": "suit",
+    "name": "O2 leak",
+    "effect": {
+      "dose_x": 1.0,
+      "o2_x": 1.3,
+      "visibility": 1.0
+    },
+    "action": "resupply",
+    "source": "MarsWalk contingency assumption (slow O2 leak: consumption ×1.3). Action: get home directly or via the O2 cache that makes the return safe. Marco to confirm the multiplier.",
+    "assumption": true
   }
 ]

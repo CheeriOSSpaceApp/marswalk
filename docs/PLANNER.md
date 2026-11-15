@@ -103,7 +103,7 @@ than 3 × 3 km.
 
 | rule | definition | source |
 |---|---|---|
-| **O₂ return** | at every point *k*: O₂ used up to *k* (walk + tasks) + `costToHome[k]` ≤ usable O₂. The first point where it fails becomes `turnaround_point`. | team rule (Eric + Marco) |
+| **O₂ return** | at every point *k*: O₂ used up to *k* (walk + tasks − refills) + `costToSafety[k]` ≤ usable O₂. *Safety* = the habitat, or an O₂ cache that leaves enough to get home after refilling (multi-source Dijkstra; equals costToHome when there are no caches). The first point where it fails becomes `turnaround_point`. | team rule (Eric + Marco) |
 | **Usable O₂** | 8 h × 60 × (1 − **18 %** reserve) = **393.6 O₂-min** | 8 h: ICES-2026-158; reserve: team decision (below) |
 | **Walkback** | walking distance home ≤ **1770 m** everywhere (30 min at 2.2 mph) | NASA ICES-2026-127 |
 | **Battery** | EVA hours ≤ 1155 Wh / 120 W = 9.6 h (suit electronics, not metabolism) | NASA GRC PLSS target |
@@ -133,7 +133,8 @@ once the job is done). Task durations come from Ana's `params.task_min` (Apollo-
 | **Dust storm** | visibility 0.3: steep or rough ground gets a higher routing cost; return to the habitat. **If O₂ or daylight don't allow it**, go to the fastest safe point that can be reached without touching the reserve. | `replan` |
 | **Suit failure** | O₂ ×1.5 on every cell; return to the habitat | `replan` |
 | **Obstacle reported** (astronaut, rover, drone or console) | circle of radius *r*: blocked = impassable, caution = ×3 routing cost; recompute return fields and route | `state.obstacles` + `adapt` |
-| **Task overtime / "can I still do the rest?"** | re-plan current position → remaining stops → home; if unsafe, **drop stops with the lowest science value first** (ties: keep the larger margin) until safe → `continue` / `skip` / `return` | `adapt` |
+| **O₂ leak** (`resupply`) | home directly, or via the O₂ cache that makes the return safe; every option listed with why | `replan` |
+| **Task overtime / "can I still do the rest?"** | re-plan current position → remaining stops → home; if unsafe, first try a **refill detour to an O₂ cache**; otherwise **drop stops with the lowest science value first** (ties: keep the larger margin) until safe → `continue` / `refill` / `skip` / `return` | `adapt` |
 
 Alerts stack: their multipliers combine, and the returned `state` is sent back on the next call.
 
@@ -166,7 +167,7 @@ All of it runs in a **Web Worker**, so the map never freezes.
 | what | how | result |
 |---|---|---|
 | optimality | A\* cost == Dijkstra cost | equal |
-| safety logic | 52 unit tests: no forbidden cell on any route, slope ≤ 15°, O₂ rule and turnaround, walkback, task time, airlock dose, alert stacking, scaling exactness, obstacles, adapt, day/night, storm fallback | 52/52 |
+| safety logic | 66 unit tests (incl. caches/refill/inventory): no forbidden cell on any route, slope ≤ 15°, O₂ rule and turnaround, walkback, task time, airlock dose, alert stacking, scaling exactness, obstacles, adapt, day/night, storm fallback | 52/52 |
 | **hand calculation** | 2 synthetic routes computed with a calculator (`docs/HAND_CHECK.md`) against the planner | 12/12 values match; **found and fixed 2 real bugs** (a cache that ignored the terrain; double rounding of O₂ %) |
 | real terrain | EVA-1 and each alert on Jezero (`test/jezero_eva.mjs`) | safe, numbers below |
 | full stack | headless Chromium: console plans → tablet receives → walk → position back → SPE → tablet alarm | pass |

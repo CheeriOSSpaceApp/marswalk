@@ -67,3 +67,12 @@ for (const a of S.alerts) {
   console.log(`  ${a.type.padEnd(4)} (${a.action}) -> ${r.replan.destination.split(' - ')[0]}  |  ` +
     r.replan.considered.map((c) => `${c.name.split(' - ')[0]}: ${c.minutes ?? '–'} min${c.chosen ? ' ✓' : ''}${!c.eligible ? ' ✗ ' + c.why : ''}`).join('  ·  '));
 }
+
+console.log('\n--- Tier 2: an emergency cache at Hawksbill (120 O2-min, hypothetical until stations.geojson exists)');
+const hk = S.targets.features.find((f) => f.properties.id === 'shelter-hawksbill-01').geometry.coordinates;
+const SC = { ...S, targets: { ...S.targets, features: [...S.targets.features,
+  { type: 'Feature', geometry: { type: 'Point', coordinates: hk }, properties: { id: 'cache-hk', name: 'Hawksbill O2 cache', kind: 'shelter', station_type: 'cache', supplies: { o2_min: 120 } } }] } };
+const directH = plan(SC, { start: sci[0], goal: hab, start_task_min: 0 });
+const usedHigh = 393.6 - directH.stats.o2_used_min + 8;          // suit leak at Wildcat: can't make it home directly
+const leakR = replan(SC, { current: sci[0], alert: { id: 'leak', type: 'suit', action: 'resupply', effect: { o2_x: 1 } }, o2_used_min: usedHigh });
+console.log(`  O2 leak at Wildcat (${usedHigh.toFixed(0)} O2-min used): ` + leakR.replan.considered.map((c) => `${c.name.split(' - ')[0]}: ${c.why}${c.chosen ? ' ✓' : ''}`).join(' · '));

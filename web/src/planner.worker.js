@@ -29,7 +29,7 @@ self.onmessage = async (e) => {
       if (!site) throw new Error('planner not initialized: call init(site) first');
       result = getCostToHome(site, payload);
       // transfer the 4 MB buffer instead of copying it (zero-copy)
-      self.postMessage({ id, ok: true, result }, [result.costToHome.buffer, result.distToHome.buffer]);
+      self.postMessage({ id, ok: true, result }, [result.costToHome.buffer, result.distToHome.buffer, ...(result.costToSafety ? [result.costToSafety.buffer] : [])]);
       return;
     } else {
       throw new Error('unknown message type: ' + type);

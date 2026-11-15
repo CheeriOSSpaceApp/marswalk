@@ -152,3 +152,15 @@ alert card on the console (and short on the tablet), e.g.
 `Hawksbill Gap 4 min ✓ · Habitat 11 min` (dust) or `Hawksbill Gap 4 min ✗ not radiation-protected · Habitat 11 min ✓` (SPE).
 That's how a judge SEES that the system looks for the nearest refuge and why it sometimes doesn't take it.
 Alert actions: `shelter` (SPE, radiation-safe only) · `safe_point` (dust, nearest of habitat or any safe point) · `return` (suit, habitat only).
+
+## 8.8 Emergency caches / stations (Tier 2, 13:00) — planner DONE
+- Stations come from `data/<site>/stations.geojson` (Gabriel). `loadSite` merges them into `site.targets` (`properties.station: true`).
+  **Your `site.js` loads targets separately: also fetch `stations.geojson` (optional) and draw them** — icon by `station_type` (cache / relay / shelter).
+- **Inventory panel (console):** one row per cache: name, `supplies.o2_min` − used = left. Keep `cacheUsed = {}`; after every plan/replan/adapt
+  result, add `r.refills[] → cacheUsed[id] += o2_min`, and pass `state: { ...alertState, cache_used: cacheUsed }` in every call.
+  That's idea #15's "NASA knows how much is left to restock".
+- **New alert button** comes automatically from `alerts.json`: `O2 leak → resupply`. Show `r.replan.via_cache` ("refill at Hawksbill cache, then home").
+- `adapt` can now return `decision: 'refill'` + `adapt.via_cache` → tablet banner: *"Detour to <cache> to refill O₂ — science kept"*.
+- Stats: `o2_refilled_min`; the plan's `refills: [{id, name, o2_min}]`. Tablet: when the astronaut reaches a cache stop, add a checklist
+  "Connect O₂ line · Refill · Disconnect" and subtract the refill from O₂ used.
+- Optional: `planner.costToHome()` now also returns `costToSafety` (null if no caches). Using it for the ring shows the bigger safe zone.

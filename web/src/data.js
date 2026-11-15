@@ -40,6 +40,15 @@ export async function loadSite(site = 'mock', baseUrl = null) {
     getJSON(COMMONDIR() + 'params.json', {}),
     getJSON(COMMONDIR() + 'alerts.json', []),
   ]);
+  // Optional: stations placed by pipeline/calcstations.py (Gabriel). Merged into targets so the planner treats
+  // caches / safe points like any shelter. Missing file = no stations (Vite dev may answer HTML -> caught).
+  try {
+    const r = await fetch(b + 'stations.geojson');
+    if (r.ok && !(r.headers.get('content-type') || '').includes('text/html')) {
+      const st = await r.json();
+      for (const f of st.features || []) targets.features.push({ ...f, properties: { kind: 'shelter', ...f.properties, station: true } });
+    }
+  } catch { /* no stations */ }
   const n = meta.width * meta.height;
   for (const [k, v] of Object.entries({ elevation, slope, roughness, hazard, viewshed }))
     if (v && v.length !== n) console.error(`${k}: expected ${n} cells, got ${v.length}`);
