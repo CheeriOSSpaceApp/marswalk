@@ -269,6 +269,8 @@ testing; a red error should be treated as a failed demo.
 
 ## Submission video: 30 seconds (Space Apps limit, English subtitles required)
 
+> **Final plan: [docs/VIDEO_PLAN.md](VIDEO_PLAN.md)** (v5, merges Dana's storyboard). The table below is the earlier draft.
+
 The Space Apps project demo is a video of **at most 30 s** (or ≤ 7 slides), and a video **must have English
 subtitles**. Use the long script below for a live pitch only. Record each shot from the built-in demo scenarios
 (`console.html?demo=<id>` + `tablet.html?demo=1`, side by side, ×60) and cut. ~70 words of narration fit in 30 s.
