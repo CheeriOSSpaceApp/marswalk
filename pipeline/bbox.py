@@ -7,16 +7,18 @@ import matplotlib.pyplot as plt
 url_waypoints = "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_waypoints.json"
 sol_start = 640
 sol_end = 700
-url_science = ""
+file_path = "/Users/gabrielburbano/Desktop/hack/targets.geojson"
 
 def main():
     response = requests.get(url_waypoints, timeout=10)
     response.raise_for_status()
     waypoints = pandaconv(response)
+    targets = load_targets(file_path)
     bbox = calcbbox(waypoints)
     print("Bounding box:", bbox)
     checkbbox(waypoints, bbox)
-    plotbbox(waypoints, bbox)
+    plotbbox(waypoints, targets, bbox)
+
 
 
 def pandaconv(response):
@@ -66,7 +68,7 @@ def checkbbox(waypoints, bbox):
     print("Points inside:", points_inside)
     print("Points outside:", points_outside)
 
-def plotbbox(waypoints, bbox):
+def plotbbox(waypoints, targets, bbox):
 
     fig, ax = plt.subplots(figsize=(8, 8))
 
@@ -76,6 +78,28 @@ def plotbbox(waypoints, bbox):
         color="red",
         s=20,
         label="Waypoints"
+    )
+    research = targets[targets["kind"] != "habitat"]
+    habitat = targets[targets["kind"] == "habitat"]
+
+    # Plot research targets
+    ax.scatter(
+        research["lon"],
+        research["lat"],
+        color="blue",
+        marker="D",
+        s=45,
+        label="Research Targets"
+    )
+
+    # Plot habitat
+    ax.scatter(
+        habitat["lon"],
+        habitat["lat"],
+        color="green",
+        marker="*",
+        s=180,
+        label="Habitat"
     )
     ax.plot(
         [bbox[0], bbox[2], bbox[2], bbox[0], bbox[0]],
@@ -92,6 +116,30 @@ def plotbbox(waypoints, bbox):
     ax.grid(True)
 
     plt.show()
+
+
+def load_targets(filename):
+    with open(filename, "r", encoding="utf-8") as file:
+        data = json.load(file)
+
+    df = pd.json_normalize(data["features"])
+
+    coords = pd.DataFrame(
+        df["geometry.coordinates"].tolist(),
+        columns=["lon", "lat"]
+    )
+
+    targets = pd.DataFrame({
+        "id": df["properties.id"],
+        "name": df["properties.name"],
+        "kind": df["properties.kind"],
+        "science_value": df["properties.science_value"],
+        "lon": coords["lon"],
+        "lat": coords["lat"]
+    })
+
+    return targets
+
 
 if __name__ == "__main__":
     main()
