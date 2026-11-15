@@ -82,6 +82,22 @@
         <small class="mut" id="doseNote"></small>
       </div>
 
+      <div class="card stay" id="stayCard" hidden>
+        <div class="lbl">How long you can stay <b id="stayWhere"></b></div>
+        <div id="stayRows"></div>
+        <div class="note" id="stayNote"></div>
+      </div>
+
+      <div class="card report">
+        <div class="lbl">Report emergency</div>
+        <div id="reportBtns" class="reportbtns"></div>
+        <div id="reportConfirm" class="confirm" hidden>
+          <div class="q" id="reportQ"></div>
+          <div class="row"><button id="reportYes">Report</button><button id="reportNo">Cancel</button></div>
+        </div>
+        <div id="reportStatus" class="note"></div>
+      </div>
+
       <div class="card">
         <div class="lbl">POV photo</div>
         <div id="pov" class="pov">No POV photo for this waypoint yet.</div>
@@ -102,6 +118,7 @@
       <h2 id="alarmTitle">ALERT</h2>
       <p id="alarmBody"></p>
       <button id="alarmOk">Acknowledge</button>
+      <div class="alarmbar"><i id="alarmBar"></i></div>
     </div>
   </div>
   <script type="module" src="/src/tablet.js"></script>
