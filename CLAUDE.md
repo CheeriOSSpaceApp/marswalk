@@ -39,7 +39,8 @@ Changing a contract = announce in #general first, then update CONTRACTS.md in th
 node test/planner.test.mjs [mock|jezero]    # unit tests (must all PASS before any PR)
 node test/validate_data.mjs [mock|jezero]   # checks a data folder against CONTRACTS.md
 node test/hand_check.mjs                    # planner stats vs hand calculation (docs/HAND_CHECK.md)
-node test/jezero_eva.mjs                    # EVA-1 + alerts on the real Jezero terrain
+node test/jezero_eva.mjs                    # EVA-1 + alerts + Tier 1 scenarios on the real Jezero terrain
+node test/report.test.mjs                   # mission report from a synthetic log
 python pipeline/export_jezero.py            # (repo root, needs internet) DTM -> jezero/ layers
 npx vite                                    # dev server -> /planner-test.html
 node test/e2e_demo.mjs                      # browser test of the demo (needs: npm i -D playwright && npx playwright install chromium)

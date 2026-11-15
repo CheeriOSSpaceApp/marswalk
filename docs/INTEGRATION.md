@@ -71,3 +71,77 @@ Use `r.replan.destination_kind` ('habitat' | 'shelter') for logic, `destination`
 ## 7. Real numbers to sanity-check the UI (Jezero, `node test/jezero_eva.mjs`)
 EVA-1 (habitat → 10 depot tubes → Wildcat Ridge → habitat): 1430 m, 190 min (165 working), O₂ 45.1 %,
 margin 191.5 min, max walkback 601 m, dose 0.075 mSv, safe. Replan: 11–63 ms. SPE → habitat (Hawksbill isn't a radiation shelter).
+
+---
+# 8. Tier 1 features (11:30) — planner side DONE, UI to wire
+
+All planner pieces are tested (`node test/planner.test.mjs` → 52 PASS, `node test/report.test.mjs`, `node test/jezero_eva.mjs`).
+Same worker, same `plannerClient` — nothing existing breaks.
+
+## 8.1 Mission clock (Mars time) — everyone uses the same one
+- Console: input **"EVA start (LMST)"**, default `09:00` → `startLmst = 9.0` (hours, decimal).
+- Tablet keeps `t_min` (minutes since EVA start, simulated). `nowLmst = startLmst + t_min / 61.649` (1 Mars hour = 61.649 Earth min; sol = 24 h 39 min).
+- Pass it to the planner: `plan({..., start_lmst: startLmst})`, `replan({..., now_lmst})`, `adapt({..., now_lmst})`.
+- New stats when you pass it: `start_lmst_hhmm, end_lmst_hhmm, sunset_lmst_hhmm, daylight_margin_min, go: 'GO'|'CAUTION'|'NO-GO'`.
+  `NO-GO` ⇒ `safe: false`. Show a big GO / CAUTION / NO-GO badge in the console stats and on the tablet.
+
+## 8.2 Live map updates (A, ideas #1 + #13)
+Obstacles live in the planner **state**, next to the alert multipliers:
+```js
+let alertState = {};   // already exists; obstacles go inside it
+// tablet: long-press / "Report obstacle" button on the map
+const ob = { id: crypto.randomUUID(), lon, lat, radius_m: 20, kind: 'blocked' /* or 'caution' */, source: 'astronaut', note: 'boulder field' };
+send('obstacle', ob);                                   // tablet -> console (console can also create them: source 'console' | 'rover' | 'drone')
+// console:
+onMessage(async (m) => { if (m.type !== 'obstacle') return;
+  alertState = { ...alertState, obstacles: [...(alertState.obstacles || []), m.payload] };
+  const r = await planner.adapt({ current: [lastPosition.lon, lastPosition.lat], stops: remainingStops,
+                                  state: alertState, o2_used_min: lastPosition.o2_used_min, now_lmst: nowLmst() });
+  drawObstacle(m.payload); refreshRing();               // ring changes too (costToHome recomputed with the obstacle)
+  publish(r, waypointsFrom(r), { adapt: r.adapt, state: alertState });
+});
+```
+- Draw obstacles as red (blocked) / yellow (caution) circles on BOTH screens.
+- Same message for "a rover/drone photo shows X": just `source: 'rover' | 'drone'`. That's idea #13 without image processing.
+- `remainingStops` = stops not yet reached, in order (console knows them from `position.d` vs. the leg ends, or the tablet sends `next_stop_index` in `position`).
+
+## 8.3 Adaptive mission (B, idea #12)
+```js
+const r = await planner.adapt({ current, stops: remainingStops, state: alertState, o2_used_min, now_lmst });
+// r.adapt = { decision: 'continue'|'skip'|'return', dropped: [{id, name, science_value, reason}], kept: [...], safe }
+```
+Call it: (1) after every `obstacle`, (2) when the tablet reports `task_done` with `actual_min > planned_min`, (3) from a console button **"Re-check remaining plan"**.
+Tablet: if `decision !== 'continue'` show a banner: *"Skip Crater rim (not enough O₂) — new plan sent"* / *"Return to habitat"*.
+Drops the lowest `science_value` first, so targets need meaningful values (Marco/Dana).
+
+## 8.4 Storm → nearest safe point (F, idea #15)
+Nothing to wire: `replan` for a `return` alert now checks if the habitat still fits (O₂ / daylight); if not it goes to the
+fastest safe point. Show `r.replan.fallback_to_safe_point === true` as *"Can't make it home: go to <destination>"*.
+
+## 8.5 Messages, checklist, notes, phases (D + C, ideas #6, #9, #11) — new bus types
+| type | from → to | payload |
+|---|---|---|
+| `msg` | both | `{from: 'console'\|'tablet', text, t_min}` → chat panel on both screens |
+| `checklist` | tablet → console | `{task_id, item, done, t_min}` → console shows live ✓ per task |
+| `note` | tablet → console | `{template, text, t_min, lon, lat}` templates: `geology`, `sample`, `hazard`, `suit`, `free` |
+| `phase` | tablet → console | `{phase, t_min}` — phases: `prep` (egress) · `outbound` · `working` · `transit` · `returning` · `ingress` · `done` |
+| `obstacle` | both | see 8.2 |
+| `map_correction` | tablet → console | `{lon, lat, was: 'free'\|'caution', now: 'blocked'\|'caution'\|'free', note}` → also creates an obstacle if `now !== 'free'` |
+| `report` | tablet → console | the object from `buildReport()` at the end |
+
+## 8.6 Mission report (C, ideas #2 + #9 + #11 + #12)
+The tablet records a log while the EVA runs and builds the report at the end:
+```js
+import { buildReport, reportToMarkdown } from './report.js';
+const log = { mission_id: 'EVA-1', site: name, crew: ['…'], start_lmst: startLmst, planned: firstPlan, events: [] };
+const ev = (type, payload) => log.events.push({ t_min, type, ...payload });
+// call ev(...) for: phase, position (every ~30 s mission time), arrive, task_done {name, planned_min, actual_min},
+//                   alert, adapt, obstacle, map_correction, note, msg, checklist
+// at 'done':
+const report = buildReport(log, site);            // site = what loadSite() returned
+send('report', report);
+download('mission-report.md', reportToMarkdown(report));   // + render `report` as a page/modal
+```
+The report includes: planned vs actual (distance, time, O₂), battery Wh, dose, minutes per phase, % of the walk on caution
+terrain, max slope, overtime per task, alerts, re-planning decisions, map updates, map corrections and field notes.
+See the sample output: `node test/report.test.mjs`.

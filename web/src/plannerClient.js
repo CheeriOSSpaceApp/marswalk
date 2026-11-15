@@ -32,6 +32,9 @@ export function createPlanner() {
     // req: {current:[lon,lat], alert, state?, o2_used_min?} -> plan + {state, replan:{destination,...}}
     // Keep the returned `state` and pass it in the next call so alerts stack.
     replan: (req) => call('replan', req),
+    // req: {current, stops (remaining), goal?, state?, o2_used_min?, now_lmst?} -> plan + {adapt:{decision, dropped[], kept[]}}
+    // Use after a task overtime or a map update (obstacle): "can I still do the rest?"
+    adapt: (req) => call('adapt', req),
     // -> {costToHome: Float32Array (O2-min per cell), usable_o2_min}. For the no-return ring.
     costToHome: (req = {}) => call('costToHome', req),
     terminate: () => worker.terminate(),

@@ -50,7 +50,23 @@ export function buildBaseO2(layers, meta, params, cellCost = defaultCellCost, su
     if (!(c >= 0)) c = Infinity; // NaN or negative (bad data / bug) -> impassable
     o2[i] = c;
   }
-  return { o2, W: meta.width, H: meta.height, cellM: meta.cell_m };
+  return { o2, W: meta.width, H: meta.height, cellM: meta.cell_m, meta };
+}
+
+// ---------- Live map updates (Tier 1 A, 11:30) ----------
+// state.obstacles: [{id, lon, lat, radius_m, kind: 'blocked'|'caution', source: 'astronaut'|'rover'|'drone'|'console', note}]
+// 'blocked' -> impassable (O2 and routing = Infinity). 'caution' -> routing ×(1 + w_obstacle_caution), O2 unchanged.
+// The same mechanism serves an astronaut report, a rover/drone image, or a console edit (idea #1 + #13).
+function obstacleCells(meta, ob) {
+  const { row: r0, col: c0 } = lonLatToCell(meta, ob.lon, ob.lat);
+  const R = Math.max(0, Math.ceil((ob.radius_m ?? 10) / meta.cell_m));
+  const out = [];
+  for (let dr = -R; dr <= R; dr++) for (let dc = -R; dc <= R; dc++) {
+    const r = r0 + dr, c = c0 + dc;
+    if (r < 0 || r >= meta.height || c < 0 || c >= meta.width) continue;
+    if ((dr * dr + dc * dc) * meta.cell_m * meta.cell_m <= (ob.radius_m ?? 10) ** 2 + 1e-9) out.push(r * meta.width + c);
+  }
+  return out;
 }
 
 export function applyState(base, layers, params, state = {}) {
@@ -58,19 +74,32 @@ export function applyState(base, layers, params, state = {}) {
   const o2x = state.o2_x ?? 1;          // suit failure: consumption ×1.5
   const vis = state.visibility ?? 1;    // dust: 1 = clear, 0.3 = poor
   const wNoComms = params?.w_nocomms ?? 0.2;
-  const o2 = o2x === 1 ? base.o2 : new Float32Array(n);
+  // Avoid yellow (hazard = 1) zones: routing-only penalty, NOT oxygen (Pandolf already charges slope/terrain).
+  // params.w_caution (Ana) or state.w_caution (UI toggle) overrides the default.
+  const wCaution = state.w_caution ?? pval(params?.w_caution) ?? 0.5;
+  const obstacles = state.obstacles || [];
+  const o2 = o2x === 1 && !obstacles.length ? base.o2 : new Float32Array(n);
+  const copyO2 = o2 !== base.o2;
   const cost = new Float32Array(n);
   let minCost = Infinity;
   for (let i = 0; i < n; i++) {
-    const phys = o2x === 1 ? base.o2[i] : (o2[i] = base.o2[i] * o2x);
+    const phys = copyO2 ? (o2[i] = base.o2[i] * o2x) : base.o2[i];
     let r = phys;
     if (r < Infinity) {
       if (layers.viewshed && layers.viewshed[i] === 0) r *= 1 + wNoComms;
+      if (wCaution && layers.hazard[i] === 1) r *= 1 + wCaution;
       if (vis < 1) r *= 1 + (1 - vis) * (layers.slope[i] / 10 + layers.roughness[i]); // avoid steep/rough when you can't see
     }
     cost[i] = r;
-    if (r < minCost) minCost = r;
   }
+  if (obstacles.length && base.meta) {
+    const wObs = pval(params?.w_obstacle_caution) ?? 2.0;
+    for (const ob of obstacles) for (const i of obstacleCells(base.meta, ob)) {
+      if ((ob.kind ?? 'blocked') === 'blocked') { cost[i] = Infinity; o2[i] = Infinity; }
+      else if (cost[i] < Infinity) cost[i] *= 1 + wObs;
+    }
+  }
+  for (let i = 0; i < n; i++) if (cost[i] < minCost) minCost = cost[i];
   return { cost, o2, minCost, W: base.W, H: base.H, cellM: base.cellM };
 }
 
@@ -253,7 +282,7 @@ export function getGrid(site, params, state) {
     const g0 = applyState(base, site.layers, params, {});
     const home = snapToPassable(g0, lonLatToCell(site.meta, ...site.meta.habitat).i);
     c = {
-      baseKey, base, byState: new Map(),
+      baseKey, base, home, byState: new Map(),
       costToHomeBase: dijkstraFrom({ ...g0, cost: g0.o2 }, home), // physical O2-min home
       distToHome: dijkstraFrom(unitGrid(g0), home),               // meters home (state-independent)
     };
@@ -266,9 +295,13 @@ export function getGrid(site, params, state) {
   if (!e) {
     const grid = applyState(c.base, site.layers, params, state || {});
     const o2x = state?.o2_x ?? 1;
-    let costToHome = c.costToHomeBase;
-    if (o2x !== 1) { costToHome = new Float32Array(c.costToHomeBase.length); for (let i = 0; i < costToHome.length; i++) costToHome[i] = c.costToHomeBase[i] * o2x; }
-    e = { grid, costToHome, distToHome: c.distToHome };
+    let costToHome = c.costToHomeBase, distToHome = c.distToHome;
+    if (state?.obstacles?.length) {
+      // Obstacles change WHICH cells are walkable -> scaling isn't enough, recompute (~2 × 150 ms)
+      costToHome = dijkstraFrom({ ...grid, cost: grid.o2 }, c.home);
+      distToHome = dijkstraFrom(unitGrid(grid), c.home);
+    } else if (o2x !== 1) { costToHome = new Float32Array(c.costToHomeBase.length); for (let i = 0; i < costToHome.length; i++) costToHome[i] = c.costToHomeBase[i] * o2x; }
+    e = { grid, costToHome, distToHome };
     if (c.byState.size >= 8) c.byState.clear();
     c.byState.set(sk, e);
   }
@@ -288,8 +321,9 @@ export function plan(site, req) {
   const outside = pts.findIndex(([lon, lat]) => !(lon >= lonMin && lon <= lonMax && lat >= latMin && lat <= latMax));
   if (outside >= 0) return { error: 'point_outside_map', point: pts[outside], bbox: site.meta.bbox };
   // Snap clicks/GPS positions that land on a forbidden cell (e.g. a rock) to the nearest walkable one
-  const cellsOf = pts.map(([lon, lat]) => snapToPassable(grid, lonLatToCell(site.meta, lon, lat).i));
-  if (cellsOf.some((c) => c < 0)) return { error: 'point_in_forbidden_zone' };
+  const cellsOf = pts.map(([lon, lat], k) => snapToPassable(grid, lonLatToCell(site.meta, lon, lat).i, k === 0 ? 40 : 10));
+  const bad = cellsOf.findIndex((c) => c < 0);
+  if (bad >= 0) return { error: 'point_in_forbidden_zone', point: bad, coords: pts[bad] }; // point: 0 = start, k = stop k-1
 
   // Work time at each stop/goal (the real limit of EVA-1 per Marco): minutes standing at a target
   // doing the task. Source, in priority: req.task_min[k-1] > target.properties.task_min > params.task_min[kind].
@@ -346,6 +380,11 @@ export function plan(site, req) {
   const battH = (site.suit?.battery_Wh?.value ?? Infinity) / (site.suit?.base_power_W?.value ?? 1);
   stats.battery_used_pct = +((100 * stats.duration_min) / 60 / battH).toFixed(1);
   stats.safe = stats.o2_return_ok && stats.walkback_ok && stats.battery_used_pct <= 100;
+  // Day/night (idea #3 + #10): only if the caller says when the EVA starts (Mars local time, LMST hours)
+  if (typeof req.start_lmst === 'number') {
+    Object.assign(stats, daylightCheck(params, req.start_lmst, stats.duration_min));
+    if (stats.go === 'NO-GO') stats.safe = false;
+  }
   return {
     path: {
       type: 'Feature',
@@ -453,7 +492,7 @@ export function replan(site, req) {
   const t0 = performance.now();
   const state = applyAlert(req.state, req.alert);
   // start_task_min 0: a replan starts where the astronaut IS; it's not a new egress even if standing at the habitat
-  const base = { start: req.current, stops: [], params: req.params, state, o2_used_min: req.o2_used_min, start_task_min: 0 };
+  const base = { start: req.current, stops: [], params: req.params, state, o2_used_min: req.o2_used_min, start_task_min: 0, start_lmst: req.now_lmst };
   const habitat = site.meta.habitat;
   // Same identity for the habitat whatever the alert (UI should use destination_id / destination_kind, not the name)
   const habF = site.targets?.features?.find((f) => f.properties?.kind === 'habitat');
@@ -477,6 +516,23 @@ export function replan(site, req) {
     if (p.error) continue;
     if (!best || p.stats.duration_min < best.plan.stats.duration_min) best = { plan: p, target: c };
   }
+  // Tier 1 F (idea #15): 'return' (dust, suit) but the habitat is NOT safely reachable (O2 / daylight) ->
+  // go to the fastest SAFE shelter / safe point instead (any kind: it's about getting out of the storm).
+  // A safe point is judged by "I reach it without touching the reserve" (that's what it's for), not by the
+  // reach-home-from-everywhere rule. Only triggers when the habitat itself doesn't fit (O2 or daylight).
+  let fallback = false;
+  const usable = usableO2min(site.suit), used0 = req.o2_used_min || 0;
+  const fits = (p) => !p.error && used0 + p.stats.o2_used_min <= usable && p.stats.go !== 'NO-GO';
+  if (req.alert.action !== 'shelter' && (!best || !fits(best.plan))) {
+    let alt = null;
+    for (const f of site.targets.features.filter((f) => f.properties.kind === 'shelter')) {
+      const p = plan(site, { ...base, goal: f.geometry.coordinates });
+      if (!fits(p)) continue;
+      if (!alt || p.stats.duration_min < alt.plan.stats.duration_min)
+        alt = { plan: p, target: { id: f.properties.id, kind: 'shelter', name: f.properties.name, coords: f.geometry.coordinates } };
+    }
+    if (alt) { best = alt; fallback = true; best.plan.stats.reaches_destination_with_reserve = true; }
+  }
   if (!best) return { error: 'no_safe_destination', alert: req.alert.id, state };
   return {
     ...best.plan,
@@ -484,8 +540,74 @@ export function replan(site, req) {
     replan: {
       alert: req.alert.id, type: req.alert.type, action: req.alert.action,
       destination: best.target.name, destination_id: best.target.id, destination_kind: best.target.kind,
-      candidates: candidates.length,
+      candidates: candidates.length, fallback_to_safe_point: fallback,
       total_ms: Math.round(performance.now() - t0),
+    },
+  };
+}
+
+// ---------- Day / night (Tier 1 E) ----------
+// Mars solar day (sol) = 88 775 s = 24 Mars hours of 61.65 Earth minutes. Times are LMST (local mean solar time).
+// sunrise/sunset come from params (Ana/Gabriel, from the Mars Climate Database at Jezero for the chosen Ls).
+export const EARTH_MIN_PER_MARS_HOUR = 88775.244 / 24 / 60; // 61.649
+const fmtLmst = (h) => { const x = ((h % 24) + 24) % 24; return `${String(Math.floor(x)).padStart(2, '0')}:${String(Math.floor((x % 1) * 60)).padStart(2, '0')}`; };
+export function daylightCheck(params, startLmst, durationMin) {
+  const sunrise = pval(params?.sunrise_lmst) ?? 6.0, sunset = pval(params?.sunset_lmst) ?? 18.0;
+  const buffer = pval(params?.night_buffer_min) ?? 30;                 // Earth minutes before sunset we want to be home
+  const endLmst = startLmst + durationMin / EARTH_MIN_PER_MARS_HOUR;
+  const marginMin = (sunset - endLmst) * EARTH_MIN_PER_MARS_HOUR;      // + = home before sunset
+  let go = marginMin >= buffer ? 'GO' : marginMin >= 0 ? 'CAUTION' : 'NO-GO';
+  if (startLmst < sunrise) go = 'NO-GO';                                 // leaving in the dark
+  return {
+    start_lmst: +startLmst.toFixed(3), end_lmst: +endLmst.toFixed(3),
+    start_lmst_hhmm: fmtLmst(startLmst), end_lmst_hhmm: fmtLmst(endLmst), sunset_lmst_hhmm: fmtLmst(sunset),
+    daylight_margin_min: Math.round(marginMin), go,
+  };
+}
+
+// ---------- Adaptive mission (Tier 1 B, idea #12; also used after a map update, idea #1/#13) ----------
+// "Something took longer / the map changed: can I still do the rest?"
+// req: { current:[lon,lat], stops:[[lon,lat]...] (remaining, in order), goal?:[lon,lat] (default habitat),
+//        state?, o2_used_min?, now_lmst?, params? }
+// Plans current -> remaining stops -> goal. If not safe (O2 rule, walkback, battery, daylight) or a stop became
+// unreachable, drops stops one at a time — lowest science_value first; among ties the one whose removal leaves
+// the biggest O2 margin — until the plan is safe. decision: 'continue' | 'skip' | 'return'.
+export function adapt(site, req) {
+  const t0 = performance.now();
+  const goal = req.goal ?? site.meta.habitat;
+  const mk = (stops) => plan(site, { start: req.current, stops, goal, params: req.params, state: req.state, o2_used_min: req.o2_used_min,
+    start_task_min: 0, start_lmst: req.now_lmst });
+  let kept = (req.stops || []).map((p, i) => {
+    const f = targetAt(site, p);
+    return { p, i, id: f?.properties.id ?? `stop-${i}`, name: f?.properties.name ?? 'Custom point', value: f?.properties.science_value ?? 3 };
+  });
+  const dropped = [];
+  const ok = (r) => !r.error && r.stats.safe;
+  let res = mk(kept.map((k) => k.p));
+  let guard = 0;
+  while (!ok(res) && kept.length && guard++ < 50) {
+    let victims;
+    if (res.error === 'unreachable' && res.leg < kept.length) victims = [kept[res.leg]];   // that stop is cut off
+    else if (res.error === 'point_in_forbidden_zone' && res.point >= 1 && res.point <= kept.length) victims = [kept[res.point - 1]]; // obstacle on top of it
+    else { const minV = Math.min(...kept.map((k) => k.value)); victims = kept.filter((k) => k.value === minV); }
+    let best = null;
+    for (const v of victims) {
+      const trial = kept.filter((k) => k !== v);
+      const r = mk(trial.map((k) => k.p));
+      const score = r.error ? -Infinity : (r.stats.safe ? 1e6 : 0) + r.stats.o2_margin_min + (r.stats.daylight_margin_min ?? 0);
+      if (!best || score > best.score) best = { v, trial, r, score };
+    }
+    dropped.push({ id: best.v.id, name: best.v.name, science_value: best.v.value,
+      reason: res.error ? 'unreachable (map update)' : !res.error && res.stats.go === 'NO-GO' ? 'not enough daylight' : 'not enough O2 / walkback margin' });
+    kept = best.trial; res = best.r;
+  }
+  const decision = !dropped.length ? 'continue' : kept.length ? 'skip' : 'return';
+  if (res.error) return { error: res.error, adapt: { decision: 'return', dropped, kept: [] } };
+  return {
+    ...res,
+    adapt: {
+      decision, dropped, kept: kept.map((k) => ({ id: k.id, name: k.name, science_value: k.value })),
+      safe: res.stats.safe, total_ms: Math.round(performance.now() - t0),
     },
   };
 }

@@ -1,7 +1,7 @@
 // Run from web/:  node test/planner.test.mjs [site]
 // Loads the contract files from disk (no browser) and checks the planner.
 import fs from 'node:fs';
-import { plan, replan, astar, buildCostGrid, dijkstraFrom, getCostToHome, getGrid } from '../src/planner.js';
+import { plan, replan, adapt, astar, buildCostGrid, dijkstraFrom, getCostToHome, getGrid, usableO2min } from '../src/planner.js';
 
 const site = process.argv[2] || 'mock';
 const dir = new URL(`../public/data/${site}/`, import.meta.url);
@@ -156,5 +156,62 @@ check('airlock time (egress/ingress) has no dose', Math.abs(r.stats.dose_mSv - w
 // 16. Replan while still at the habitat: no second egress (bug seen in the console, 11:10)
 rp = replan(S, { current: T.habitat, alert: A.SPE });
 check('replan at habitat charges no egress', rp.stats.task_min === S.params.task_min.habitat_ingress.value, `task ${rp.stats.task_min} min`);
+
+// ===== Tier 1 (11:30) =====
+const cellOf = (ll) => Math.floor((latMax - ll[1]) / (latMax - latMin) * meta.height) * W + Math.floor((ll[0] - lonMin) / (lonMax - lonMin) * W);
+const llOf = (r, c) => [lonMin + (c + 0.5) / W * (lonMax - lonMin), latMax - (r + 0.5) / meta.height * (latMax - latMin)];
+console.log('--- A. live map updates (obstacles)');
+const base0 = plan(S, { start: T.habitat, goal: T.depot });
+const pc = base0.path.geometry.coordinates, obPt = pc[Math.floor(pc.length / 2)];
+const ob = { id: 'ob1', lon: obPt[0], lat: obPt[1], radius_m: 40, kind: 'blocked', source: 'astronaut', note: 'rock fall' };
+const withOb = plan(S, { start: T.habitat, goal: T.depot, state: { obstacles: [ob] } });
+const obCells = new Set(getGrid(S, S.params, { obstacles: [ob] }).grid.cost.map((v, i) => (v === Infinity ? i : -1)).filter((i) => i >= 0));
+check('A: route avoids a reported obstacle', !withOb.error && withOb.path.geometry.coordinates.every((ll) => {
+  const d = Math.hypot((ll[0] - ob.lon) * 59270 * Math.cos(ob.lat * Math.PI / 180), (ll[1] - ob.lat) * 59270); return d > ob.radius_m - 3; }),
+  `${base0.stats.distance_m} -> ${withOb.stats.distance_m} m`);
+const cthOb = getCostToHome(S, { state: { obstacles: [ob] } }).costToHome;
+check('A: costToHome is Infinity inside the obstacle', cthOb[cellOf(obPt)] === Infinity);
+const cautionOb = plan(S, { start: T.habitat, goal: T.depot, state: { obstacles: [{ ...ob, kind: 'caution' }] } });
+check('A: caution obstacle keeps the route possible', !cautionOb.error);
+const onStop = plan(S, { start: T.habitat, stops: [T.sci2], goal: T.habitat, state: { obstacles: [{ ...ob, lon: T.sci2[0], lat: T.sci2[1], radius_m: 60 }] } });
+check('A: obstacle on top of a stop -> error names the stop', onStop.error === 'point_in_forbidden_zone' && onStop.point === 1);
+
+console.log('--- B. adaptive mission');
+let ad = adapt(S, { current: T.habitat, stops: [T.shelter1, T.sci2], o2_used_min: 0 });
+check('B: nothing wrong -> continue', ad.adapt.decision === 'continue' && ad.stats.safe, `${ad.adapt.total_ms} ms`);
+ad = adapt(S, { current: T.habitat, stops: [T.shelter1, T.sci2], o2_used_min: 330 });
+check('B: overtime (330 O2-min used) -> drops low-value stops until safe', ad.adapt.decision !== 'continue' && ad.stats.safe && ad.adapt.dropped.length >= 1,
+  `${ad.adapt.decision}, dropped ${ad.adapt.dropped.map((d) => d.name + ' (v' + d.science_value + ')').join(', ')}`);
+check('B: drops the LOWEST science value first (shelter v1 before crater rim v3)', ad.adapt.dropped[0].science_value === 1);
+ad = adapt(S, { current: T.habitat, stops: [T.shelter1, T.sci2], state: { obstacles: [{ ...ob, lon: T.sci2[0], lat: T.sci2[1], radius_m: 60 }] } });
+check('B: stop buried by an obstacle -> dropped as unreachable', ad.adapt.dropped.some((d) => d.reason.startsWith('unreachable')) && ad.stats.safe, ad.adapt.dropped.map((d) => d.name + ': ' + d.reason).join('; '));
+
+console.log('--- E. day / night');
+r = plan(S, { start: T.habitat, stops: [T.shelter1], goal: T.habitat, start_lmst: 9 });
+check('E: 09:00 start, short EVA -> GO', r.stats.go === 'GO', `${r.stats.start_lmst_hhmm} -> ${r.stats.end_lmst_hhmm}, margin ${r.stats.daylight_margin_min} min`);
+r = plan(S, { start: T.habitat, stops: [T.shelter1], goal: T.habitat, start_lmst: 16.5 });
+check('E: 16:30 start, home 17:46 (< 30 min before sunset) -> CAUTION, still safe', r.stats.go === 'CAUTION' && r.stats.safe, `end ${r.stats.end_lmst_hhmm}, margin ${r.stats.daylight_margin_min} min`);
+r = plan(S, { start: T.habitat, stops: [T.shelter1], goal: T.habitat, start_lmst: 17.2 });
+check('E: 17:12 start -> home after sunset -> NO-GO, not safe', r.stats.go === 'NO-GO' && r.stats.safe === false, `end ${r.stats.end_lmst_hhmm}`);
+r = plan(S, { start: T.habitat, stops: [T.shelter1], goal: T.habitat, start_lmst: 5 });
+check('E: leaving before sunrise -> NO-GO', r.stats.go === 'NO-GO');
+ad = adapt(S, { current: T.habitat, stops: [T.shelter1, T.sci2], now_lmst: 16.6 });
+check('E+B: late in the sol -> adapt drops stops to be home before sunset', ad.adapt.decision !== 'continue' && ad.stats.go !== 'NO-GO', `${ad.adapt.decision}: ${ad.adapt.dropped.map((d) => d.reason).join('; ')}, home ${ad.stats.end_lmst_hhmm}`);
+const g0 = getGrid(S, S.params, {}).grid, gNo = getGrid(S, S.params, { w_caution: 0 }).grid;
+let yc = 0; for (let i = 0; i < g0.cost.length; i++) if (S.layers.hazard[i] === 1 && g0.cost[i] < Infinity) { yc++; if (!(g0.cost[i] > gNo.cost[i])) { yc = -1e9; break; } }
+check('E: yellow (caution) cells cost more to route through; O2 unchanged', yc > 0 && g0.o2.every((v, i) => v === gNo.o2[i] || (isNaN(v) && isNaN(gNo.o2[i]))));
+
+console.log('--- F. storm -> nearest safe point');
+const P = llOf(520, 420);
+const dust = A.dust;
+const toShel = plan(S, { start: P, goal: T.shelter1, state: { visibility: dust.effect.visibility, o2_x: dust.effect.o2_x }, start_task_min: 0 });
+const toHab = plan(S, { start: P, goal: T.habitat, state: { visibility: dust.effect.visibility, o2_x: dust.effect.o2_x }, start_task_min: 0 });
+const usable = usableO2min(S.suit);
+const used = usable - (toShel.stats.o2_used_min + toHab.stats.o2_used_min) / 2;   // enough for the shelter, not for home
+rp = replan(S, { current: P, alert: dust, o2_used_min: used });
+check('F: dust, not enough O2 for home -> nearest safe point', rp.replan.fallback_to_safe_point && rp.replan.destination_kind === 'shelter',
+  `shelter ${toShel.stats.o2_used_min} vs home ${toHab.stats.o2_used_min} O2-min, used ${used.toFixed(0)} -> ${rp.replan.destination}`);
+rp = replan(S, { current: P, alert: dust, o2_used_min: 0 });
+check('F: dust with plenty of O2 -> still the habitat', !rp.replan.fallback_to_safe_point && rp.replan.destination_kind === 'habitat');
 
 process.exit(fails ? 1 : 0);
