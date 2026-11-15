@@ -1,13 +1,13 @@
 {
-  "slope_caution_deg": 15.0,
-  "slope_forbidden_deg": 25.0,
+  "slope_forbidden_deg": 15.0,
+  "slope_caution_deg": 10.0,
+  "slope_threshold_source": "Forbidden = suit.json max_slope_deg (15 deg, Martian Map assumption, see its source). Caution at 10 deg: team proposal",
   "rough_caution_m": 0.25,
   "rough_forbidden_m": 0.6,
   "w_slope": 1.0,
   "w_rough": 1.0,
   "w_nocomms": 0.2,
   "base_speed_ms": 1.0,
-  "gcr_mSv_per_h": 0.028,
   "V_cap": 0.98,
   "V_source": "ICES-2026-127 slide 9: 2.2 mph, maximum nominal Apollo walking speed",
   "W": 82,
@@ -27,5 +27,10 @@
   "tobler_a": 6,
   "tobler_b": 3.5,
   "tobler_offset": 0.05,
-  "tobler_source": "Tobler 1993 hiking function (km/h). Designed for unsuited hikers, we use it only to slow down on steep slopes. Our assumption for suited Mars EVA"
+  "tobler_source": "Tobler 1993 hiking function (km/h). Designed for unsuited hikers, we use it only to slow down on steep slopes. Our assumption for suited Mars EVA",
+  "gcr_mSv_per_h": 0.0279,
+  "gcr_mSv_per_h_source": "Hassler et al. 2014, Science 343: MSL/RAD average GCR dose equivalent of 0.67 mSv/day at Gale Crater (sols 1-300), divided by 24 h",
+  "gcr_assumption": "RAD's 0.67 mSv/day is as per Earth day (24 h).",
+  "gcr_uncertainty_mSv_per_day": 0.12,
+  "gcr_uncertainty_source": "Hassler et al. 2014 as cited in SWSC 2016 reports 0.64 +/- 0.12 mSv/day, applied here to the 0.67 mSv/day rate as an approximation (our assumption)"
 }
