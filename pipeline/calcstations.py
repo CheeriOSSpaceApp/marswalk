@@ -26,43 +26,41 @@ def numtable(meta, params, data_dir):
     max_slope = params["slope_forbidden_deg"]
     slope_allowed = (np.isfinite(slope)& (slope <= max_slope))
 
-    print("Cells within slope limit:", np.count_nonzero(slope_allowed))
-    print("Cells excluded:", np.count_nonzero(~slope_allowed))
-
     roughness_path = data_dir / "jezero/roughness.f32"
     roughness = np.fromfile(roughness_path,dtype="<f4").reshape(height, width)
     max_roughness = params["rough_forbidden_m"]
     terrain_allowed = (slope_allowed & np.isfinite(roughness)& (roughness <= max_roughness))
-    print("Cells within both limits:",np.count_nonzero(terrain_allowed) )
-    print("Cells excluded by terrain limits:",np.count_nonzero(~terrain_allowed))
+
 
     hazard = np.fromfile(data_dir / "jezero/hazard.u8",dtype="u1").reshape(height, width)
     walkable = terrain_allowed & (hazard < 2)
-    print("Cells allowed by all terrain filters:",np.count_nonzero(walkable))
 
     habitat_row, habitat_col = habitat_to_cell(meta)
-    print("Habitat cell (row, column):",(habitat_row, habitat_col))
-    print("Habitat passes terrain filters:",bool(walkable[habitat_row, habitat_col]))
 
     reachable = find_reachable(walkable,(habitat_row, habitat_col))
-    print("Reachable cells from habitat:",np.count_nonzero(reachable))
-    print("Allowed but disconnected cells:",np.count_nonzero(walkable & ~reachable))
     #graph to maps points
     distance_m = walking_distances(walkable,(habitat_row, habitat_col), meta["cell_m"] )
 
     coverage_zone = reachable & (distance_m <= 1770.0)
+    cost_grid = load_cost_grid(meta)
 
-    print("Cells within the 1770 m walkback:",np.count_nonzero(coverage_zone) )
-
-    print("Maximum distance inside coverage:",distance_m[coverage_zone].max(),"m")
-
+    print("Cost grid shape:", cost_grid.shape)
+    print("Cost at habitat:", cost_grid[habitat_row, habitat_col])
     # Abrir la gráfica después de calcular e imprimir.
-    plot_reachable(
-        slope,
-        reachable,
-        habitat_row,
-        habitat_col
+    stations, history, before, after = greedy_stations(
+        cost_grid,
+        coverage_zone,
+        (habitat_row, habitat_col),
+        meta["cell_m"],
+        max_stations=3,
+        threshold=10.0
     )
+
+    print("Caches (row, column):", stations)
+
+    for entry in history:
+        print(f"k={entry['k']}: "f"{entry['worst_o2_min']:.2f} nominal O2 min")
+    plot_reachable(slope,reachable,habitat_row,habitat_col)
 
 #starting cell for routes
 def habitat_to_cell(meta):
@@ -129,5 +127,60 @@ def walking_distances(walkable, start, cell_m):
     distances, _ = solver.find_costs(starts=[start])
 
     return distances
+
+#loasts de oxygen cost file
+def load_cost_grid(meta):
+    cost_path = (Path(__file__).resolve().parent/ "validation"/ "cost_grid.f32")
+    costs = np.fromfile(cost_path, dtype="<f4")
+    expected = meta["height"] * meta["width"]
+    if costs.size != expected:
+        raise ValueError(f"Expected {expected} costs, found {costs.size}.")
+    return costs.reshape(meta["height"], meta["width"])
+
+
+def cost_to_safety(cost_grid, sources, cell_m):
+    for source in sources:
+        if not np.isfinite(cost_grid[source]):
+            raise ValueError("A safety source is in blocked terrain.")
+    solver = MCP_Geometric(cost_grid,fully_connected=True,sampling=(cell_m, cell_m))
+
+    cost_field, _ = solver.find_costs(starts=sources)
+
+    return cost_field
+
+def choose_station(cost_field, coverage_zone):
+    if not coverage_zone.any():
+        raise ValueError("The coverage zone is empty.")
+    candidates = np.where(coverage_zone,cost_field,-np.inf)
+    flat_index = np.argmax(candidates)
+    row, col = np.unravel_index(flat_index, cost_field.shape )
+
+    return int(row), int(col)
+def greedy_stations(cost_grid,
+    coverage_zone,
+    habitat_cell,
+    cell_m,
+    max_stations=3,
+    threshold=10.0):
+    if not coverage_zone.any():
+        raise ValueError("The coverage zone is empty.")
+    sources = [habitat_cell]
+    stations = []
+    history = []
+    field = cost_to_safety(cost_grid, sources, cell_m)
+    before = field.copy()
+    for k in range(max_stations + 1):
+        if not np.isfinite(field[coverage_zone]).all():
+            raise ValueError("Some coverage cells cannot reach a source.")
+
+        worst = float(field[coverage_zone].max())
+        history.append({"k": k,"worst_o2_min": worst})
+        if worst <= threshold or k == max_stations:
+            break
+        station = choose_station(field, coverage_zone)
+        stations.append(station)
+        sources.append(station)
+        field = cost_to_safety(cost_grid, sources, cell_m)
+    return stations, history, before, field
 if __name__ == "__main__":
     main()
