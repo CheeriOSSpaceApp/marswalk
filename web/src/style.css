@@ -221,3 +221,13 @@ button.complete:hover { background:#000; color:#6fcf97; }
 .opt b { text-align:center; } .opt em { font-style:normal; font-weight:700; } .opt small { grid-column:2 / 4; color:#888; font-size:11px; }
 .opt.chosen b, .opt.chosen span, .opt.chosen em { color:#6fcf97; } .opt.no b, .opt.no span { color:#ff6b6b; } .opt.no em { color:#888; }
 #alarm p { white-space:pre-line; }
+
+/* ---- start-hour verdict + test bench configuration note ---- */
+.verdict { font-size:12px; padding:5px 8px; margin:2px 0 4px; border-left:4px solid; background:#0b0b0b; }
+.verdict b { margin-right:4px; }
+.verdict.go-GO { border-color:#6fcf97; } .verdict.go-GO b { color:#6fcf97; }
+.verdict.go-CAUTION { border-color:#ffd400; } .verdict.go-CAUTION b { color:#ffd400; }
+.verdict.go-NO-GO { border-color:#ff2b2b; } .verdict.go-NO-GO b { color:#ff2b2b; }
+#startHour { font-family:ui-monospace, SFMono-Regular, Consolas, monospace; }
+.cfg { margin-top:10px; font-size:12px; color:#ddd; border:1px solid #56ccf2; border-left-width:4px; padding:8px; background:#06121a; }
+.cfg b { color:#56ccf2; } .cfg button { width:auto; margin:6px 0 0; padding:4px 10px; border-radius:0; display:block; }

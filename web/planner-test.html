@@ -20,6 +20,10 @@
     #alerts button { margin-top:6px; text-align:left; border-radius:0; border-color:#ff2b2b; color:#ff8080; }
     #alerts button:hover { background:#ff2b2b; color:#fff; }
     #eva { margin-top:0; }
+    .sendrow { display:flex; justify-content:space-between; gap:8px; font-size:13px; padding:4px 0; border-bottom:1px solid #222; }
+    .sendrow b { text-align:right; font-weight:600; }
+    .openlink { display:block; margin-top:8px; font-size:12px; color:#56ccf2; }
+    .sendstatus { margin-top:6px; font-size:12px; color:#bbb; } .sendstatus.ok { color:#6fcf97; } .sendstatus.warn { color:#ffd400; }
     #out { margin:0; background:#0b0b0b; border:1px solid #333; padding:8px; font:12px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
            white-space:pre-wrap; word-break:break-word; max-height:42vh; overflow:auto; color:#ddd; }
     .steps { margin:0; padding-left:18px; font-size:13px; color:#ddd; line-height:1.6; }
@@ -67,6 +71,19 @@
       <div id="alerts"></div>
     </section>
 
+    <section class="card"><h2>Send to console</h2>
+      <div class="sendrow"><span>Route</span><b id="sRoute">none yet: plan one above</b></div>
+      <label class="evastart">EVA start (LMST) <select id="sHour"></select></label>
+      <div class="layer o2row">
+        <div class="o2head"><span>O₂ at EVA start</span><b><span id="sO2v">100</span> % · <span id="sO2m">480</span> min</b></div>
+        <input id="sO2" type="range" min="10" max="100" step="5" value="100" />
+      </div>
+      <div class="sendrow"><span>Conditions</span><b id="sCond">normal</b></div>
+      <button id="sendBtn">Send to console</button>
+      <a id="openConsole" class="openlink" target="_blank" rel="noopener">Open the console in a new tab ↗</a>
+      <div id="sendStatus" class="sendstatus"></div>
+    </section>
+
     <section class="card"><h2>Planner output</h2>
       <pre id="out">loading…</pre>
     </section>
@@ -74,6 +91,7 @@
   <script type="module">
     import { createPlanner } from './src/plannerClient.js';
     import { loadSite, lonLatToCell } from './src/data.js';
+    import { send, onMessage } from './src/bus.js';
 
     const SITE = new URLSearchParams(location.search).get('site') || 'mock';
     const cv = document.getElementById('c'), ctx = cv.getContext('2d'), out = document.getElementById('out');
@@ -157,7 +175,9 @@
       };
       alertsBox.appendChild(btn);
     }
-    async function run(req) {
+    let lastReq = null, lastLabel = '';
+    async function run(req, label = '2-point route') {
+      lastReq = req; lastLabel = label; updateSend();
       out.textContent = 'planning…';
       const t = performance.now();
       const res = await planner.plan({ ...req, state: state() });
@@ -178,7 +198,7 @@
     const T = Object.fromEntries(site.targets.features.map((f) => [f.properties.id, f.geometry.coordinates]));
     // Generic EVA (works for any site): habitat -> every depot -> every science target -> habitat
     const byKind = (k) => site.targets.features.filter((f) => f.properties.kind === k).map((f) => f.geometry.coordinates);
-    document.getElementById('eva').onclick = () => run({ start: site.meta.habitat, stops: [...byKind('depot'), ...byKind('science')], goal: site.meta.habitat });
+    document.getElementById('eva').onclick = () => run({ start: site.meta.habitat, stops: [...byKind('depot'), ...byKind('science')], goal: site.meta.habitat }, 'EVA preset');
 
     const refreshRing = async () => {
       document.getElementById('o2v').textContent = document.getElementById('o2').value;
@@ -191,6 +211,41 @@
     const o2el = document.getElementById('o2'), paintRange = () => o2el.style.setProperty('--p', (o2el.value / o2el.max * 100) + '%');
     o2el.addEventListener('input', paintRange); paintRange();
     document.getElementById('siteLbl').textContent = `site: ${SITE}`;
+    // ---------- Send to console: the console takes this route, start time, O2 and conditions ----------
+    const $ = (id) => document.getElementById(id);
+    const O2_TOTAL = (site.suit?.o2_hours?.value ?? 8) * 60;
+    const fmtH = (h) => `${String(Math.floor(h)).padStart(2, '0')}:${h % 1 ? '30' : '00'}`;
+    for (let h = 0; h < 24; h += 0.5) { const o = document.createElement('option'); o.value = h; o.textContent = fmtH(h); if (h === 9) o.selected = true; $('sHour').appendChild(o); }
+    $('openConsole').href = `./console.html?site=${SITE}`;
+    function benchConfig() {
+      const pts = lastReq ? [lastReq.start, ...(lastReq.stops || []), lastReq.goal] : [];
+      return { site: SITE, stops: pts, start_hour: +$('sHour').value, o2_start_min: Math.round(O2_TOTAL * $('sO2').value / 100),
+               state: state(), route_label: lastReq ? `${lastLabel} (${pts.length} points)` : 'no route', t: Date.now() };
+    }
+    function updateSend() {
+      const c = benchConfig();
+      $('sRoute').textContent = lastReq ? c.route_label : 'none yet: plan one above';
+      $('sO2v').textContent = $('sO2').value; $('sO2m').textContent = c.o2_start_min;
+      $('sO2').style.setProperty('--p', (($('sO2').value - 10) / 90 * 100) + '%');
+      const st = c.state; $('sCond').textContent = [st.o2_x && 'suit failure', st.visibility && 'dust storm'].filter(Boolean).join(' + ') || 'normal';
+    }
+    for (const id of ['sHour', 'sO2', 'suit', 'dust']) $(id).addEventListener('input', updateSend);
+    for (const id of ['suit', 'dust']) $(id).addEventListener('change', updateSend);
+    let ackTimer = null;
+    $('sendBtn').onclick = () => {
+      if (!lastReq) { $('sendStatus').className = 'sendstatus warn'; $('sendStatus').textContent = 'Plan a route first (click two points or press EVA).'; return; }
+      const c = benchConfig();
+      try { localStorage.setItem('marswalk:config', JSON.stringify(c)); } catch {}
+      send('config', c);
+      $('sendStatus').className = 'sendstatus'; $('sendStatus').textContent = 'Sent. Waiting for an open console…';
+      clearTimeout(ackTimer);
+      ackTimer = setTimeout(() => { $('sendStatus').className = 'sendstatus warn';
+        $('sendStatus').textContent = 'No console open. It will load this configuration when you open it (link below).'; }, 4000);
+    };
+    onMessage((m) => { if (m.type !== 'config_ack') return; clearTimeout(ackTimer);
+      $('sendStatus').className = 'sendstatus ok'; $('sendStatus').textContent = `Console configured and planned (${m.payload.stops} stops).`; });
+    updateSend();
+
     draw(null, []);
     out.textContent = `site: ${SITE}, ${W}×${H}, cell ${meta.cell_m} m. Click to plan.`;
   </script>

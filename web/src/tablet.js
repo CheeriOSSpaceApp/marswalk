@@ -94,7 +94,7 @@ function showAlarm(msg) {                         // HIGH: msg = {alert, destina
   const a = msg.alert || msg, e = a.effect || {};
   const where = msg.fallback ? `Can't make it home: go to ${msg.destination} now.` : msg.destination ? `Go to ${msg.destination_kind === 'habitat' ? 'the habitat' : msg.destination} now.` : a.action === 'return' ? 'Return to the habitat now.' : 'Go to the nearest safe place now.';
   lowQueue.length = 0;
-  openAlarm('high', a.type, `${where}  O₂ use ×${e.o2_x ?? 1} · dose ×${e.dose_x ?? 1}` +
+  openAlarm('high', a.name || a.type, `${where}  O₂ use ×${e.o2_x ?? 1} · dose ×${e.dose_x ?? 1}` +
     (e.visibility != null && e.visibility < 1 ? ` · visibility ${Math.round(e.visibility * 100)} %` : '') +
     (msg.considered ? `\nOptions: ${msg.considered}` : ''));
 }
@@ -163,14 +163,15 @@ function setPlan(payload) {
   const replanned = !!payload.replan, wasPlaying = playing;
   if (!replanned && payload.start_hour != null) startHour = +payload.start_hour;
   const m = routeModel(payload.plan, site);
-  P = { ...m, base: replanned ? { ...spentNow } : { o2_min: 0, dose_mSv: 0, time_min: 0 }, extra: { o2_min: 0, dose_mSv: 0, time_min: 0 } };
+  P = { ...m, base: replanned ? { ...spentNow } : { o2_min: payload.o2_start_used || 0, dose_mSv: 0, time_min: 0 }, extra: { o2_min: 0, dose_mSv: 0, time_min: 0 } };
   const wps = (payload.waypoints || []).slice(0, m.legEnd.length);
   while (wps.length < m.legEnd.length) wps.push({ name: 'Waypoint', ll: m.c[m.legEnd[wps.length]] });
   P.wps = wps.map((w, k) => ({ ...w, idx: m.legEnd[k] }));
   P.tasks = buildTasks(m, P.wps, replanned);
   P.sunset = payload.plan.stats?.sunset_lmst_hhmm || null;
-  eff = { o2_x: 1, dose_x: 1, visibility: 1, ...(replanned ? payload.state : {}) };
-  refreshRing(replanned ? payload.state : {});
+  const st = replanned ? payload.state : payload.base_state;   // fresh plan: starting conditions from the test bench, if any
+  eff = { o2_x: 1, dose_x: 1, visibility: 1, ...(st || {}) };
+  refreshRing(st || {});
   routeLine.setLatLngs(m.c.map(p => [p[1], p[0]]));
   if (m.total > 1) map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
   d = 0; playing = !!(replanned && wasPlaying); shownWp = null; shownTask = null; $('playBtn').textContent = playing ? '⏸ Pause' : walkLabel();
@@ -382,7 +383,7 @@ onMessage(m => {
   if (m.type === 'alert') {                         // {alert, destination, destination_kind}; the replanned route follows as a 'plan'
     const a = m.payload.alert || m.payload, e = a.effect || {};
     showAlarm(m.payload);
-    setBanner('high', `HIGH · ${ALERT_NAMES[a.type] || a.type}: → ${m.payload.destination || (a.action === 'return' ? 'habitat' : 'safe place')} · O₂ ×${e.o2_x ?? 1} · dose ×${e.dose_x ?? 1}`);
+    setBanner('high', `HIGH · ${a.name || ALERT_NAMES[a.type] || a.type}: → ${m.payload.destination || (a.action === 'return' ? 'habitat' : 'safe place')} · O₂ ×${e.o2_x ?? 1} · dose ×${e.dose_x ?? 1}`);
   }
   if (m.type === 'sim') simulate(m.payload.kind);
   if (m.type === 'task_done_cmd') completeTask(m.payload.name);   // habitat confirmed it from the console   // demo only: console simulates a low-priority event

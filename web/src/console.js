@@ -36,9 +36,33 @@ layerList.forEach((e, i) => {
 L.circleMarker([habitat[1], habitat[0]], { radius: 8, color: '#000', weight: 2, fillColor: '#fff', fillOpacity: 1, bubblingMouseEvents: false })
   .bindTooltip('Habitat (start & end)').addTo(map);
 
-// ---------- EVA start time (for env.json weather) ----------
-for (let h = 5; h <= 18; h += 0.5) { const o = document.createElement('option'); o.value = h; o.textContent = ltst(h); if (h === 9) o.selected = true; $('startHour').appendChild(o); }
+// ---------- EVA start time (LMST) — any hour; each option says if the current route works at that hour ----------
+for (let h = 0; h < 24; h += 0.5) { const o = document.createElement('option'); o.value = h; o.textContent = ltst(h); if (h === 9) o.selected = true; $('startHour').appendChild(o); }
 const startHour = () => +$('startHour').value;
+const pv = x => (x && typeof x === 'object' && 'value' in x) ? x.value : x;
+const SUNRISE = pv(site.params?.sunrise_lmst) ?? 6, SUNSET = pv(site.params?.sunset_lmst) ?? 18, NIGHT_BUF = pv(site.params?.night_buffer_min) ?? 30;
+const MARS_H = 88775.244 / 24 / 60;                       // Earth min per Mars hour (same as planner daylightCheck)
+// Same rule as Eric's daylightCheck + the planner's O2 / walkback / battery verdict (which doesn't depend on the hour)
+function verdictAt(h, st) {
+  if (!st.o2_return_ok || !st.walkback_ok || st.battery_used_pct > 100) return { go: 'NO-GO', why: !st.o2_return_ok ? 'not enough O₂ to get back (any hour)' : !st.walkback_ok ? 'too far to walk back (any hour)' : 'suit battery runs out (any hour)' };
+  if (h < SUNRISE) return { go: 'NO-GO', why: `leaves before sunrise (${ltst(SUNRISE)})` };
+  const end = h + st.duration_min / MARS_H, margin = (SUNSET - end) * MARS_H;
+  if (margin < 0) return { go: 'NO-GO', why: `back at ${ltst(end)}, after sunset (${ltst(SUNSET)})`, end };
+  if (margin < NIGHT_BUF) return { go: 'CAUTION', why: `back at ${ltst(end)}, only ${Math.round(margin)} min before sunset`, end };
+  return { go: 'GO', why: `back at ${ltst(end)}, ${Math.round(margin)} min before sunset`, end };
+}
+let baseStats = null;                                     // stats of the last fresh plan (not replans)
+const SYM = { GO: '✓', CAUTION: '!', 'NO-GO': '✗' };
+function annotateHours() {
+  for (const o of $('startHour').options) {
+    const h = +o.value;
+    if (!baseStats) { o.textContent = ltst(h); continue; }
+    const v = verdictAt(h, baseStats); o.textContent = `${ltst(h)}   ${SYM[v.go]} ${v.go}`;
+  }
+  const v = baseStats && verdictAt(startHour(), baseStats), el = $('hourVerdict');
+  el.hidden = !v; if (v) { el.className = 'verdict go-' + v.go; el.innerHTML = `<b>${SYM[v.go]} ${v.go}</b> ${v.why}`; }
+}
+$('startHour').onchange = () => { annotateHours(); if (stops.length && baseStats) planRoute(); };
 
 // ---------- Stops ----------
 // task = true  -> "task to do": the walk stops there and the tablet shows a checklist (custom points: TASK_DEFAULT min)
@@ -120,6 +144,12 @@ function weatherRows(res) {                   // env.json (MCD model) at the sta
   return row(`Weather ${ltst(t0)} (${sc})`, `<small>${fmtEnv(a)}</small>`) + row(`Weather ${ltst(b.hour)} (end)`, `<small>${fmtEnv(b)}</small>`) +
     '<div class="est">Weather: Mars Climate Database model (not observations), env.json</div>';
 }
+function goBadge(res) {                       // one verdict for the mission: O2 / walkback / battery + daylight
+  const st = res.stats;
+  if (res.replan) return st.go ? `<div class="go go-${st.go}">${st.go}<small>home ${st.end_lmst_hhmm} LMST · sunset ${st.sunset_lmst_hhmm}</small></div>` : '';
+  const v = verdictAt(startHour(), st);
+  return `<div class="go go-${v.go}">${v.go}<small>start ${ltst(startHour())} LMST · ${v.why}</small></div>`;
+}
 function drawRoute(res, title = null) {
   const m = routeModel(res, site);
   if (routeGroup) map.removeLayer(routeGroup);
@@ -143,7 +173,7 @@ function drawRoute(res, title = null) {
   if (routeGroup.getLayers().length) map.fitBounds(routeGroup.getBounds(), { padding: [40, 40], maxZoom: 16 }); // tiny routes: don't zoom into a blur
   const st = res.stats, ok = v => v ? '✓' : '✗';
   $('stats').innerHTML = (title ? `<div class="est">${title}</div>` : '') +
-    (st.go ? `<div class="go go-${st.go}">${st.go}<small>home ${st.end_lmst_hhmm} LMST · sunset ${st.sunset_lmst_hhmm} · ${st.go === 'NO-GO' && st.daylight_margin_min >= 0 ? 'leaves before sunrise' : `${st.daylight_margin_min >= 0 ? '+' : ''}${st.daylight_margin_min} min of daylight`}</small></div>` : '') +
+    goBadge(res) +
     row('Safe', st.safe ? '✓ yes' : '✗ NO') +
     row('Distance', (st.distance_m / 1000).toFixed(2) + ' km') +
     row('Duration', `${st.duration_min} min <small>(${st.walk_min} walk + ${st.task_min} work)</small>`) +
@@ -174,6 +204,8 @@ const plannerReady = planner.init(name).then(() => { $('planBtn').disabled = fal
   .catch(e => { $('status').textContent = 'Planner failed to load: ' + e.message; throw e; });
 
 let alertState = {};                 // alerts stack: keep what replan() returns
+let baseState = {};                  // starting conditions set from the test bench (suit failure / dust)
+let baseUsed = 0;                    // O2-min already used at EVA start (test bench: tank not full)
 let lastPosition = null;             // from the tablet: {lon, lat, o2_used_min, ...}
 let ingressMin = 0;                  // pending habitat ingress of the current plan (O2-min reserved for it)
 async function refreshRing() {       // costToHome depends on the alert state -> fetch once per state
@@ -183,32 +215,34 @@ async function refreshRing() {       // costToHome depends on the alert state ->
 }
 function updateRing(force = false) {
   if (!ring.ready) return;
-  const used = lastPosition?.o2_used_min ?? 0;
+  const used = lastPosition?.o2_used_min ?? baseUsed;
   ring.update(ring.usable - used - ingressMin * (alertState.o2_x ?? 1), force);
 }
 refreshRing();
 
 function publish(res, waypoints, extra = {}) {
-  const payload = { plan: res, stops: waypoints.map(w => w.ll), waypoints, start_hour: startHour(), ...extra };
+  const payload = { plan: res, stops: waypoints.map(w => w.ll), waypoints, start_hour: startHour(), o2_start_used: baseUsed, base_state: baseState, ...extra };
   send('plan', payload);
   try { localStorage.setItem('marswalk:plan', JSON.stringify(payload)); } catch {}
 }
 
-$('planBtn').onclick = async () => {
+async function planRoute() {
   if (!stops.length) { $('status').textContent = 'Add at least one stop (click the map or a target).'; return; }
   $('status').textContent = 'Planning…';
   await plannerReady;
   // req.task_min[k] overrides the planner's task time at stop k (null = planner default from targets / params)
   const task_min = [...stops.map(s => s.task === true ? (s.kind ? null : s.task_min) : s.task === false ? 0 : null), null];
-  const res = await planner.plan({ start: habitat, stops: stops.map(s => s.ll), goal: habitat, task_min, start_lmst: startHour() });
+  const res = await planner.plan({ start: habitat, stops: stops.map(s => s.ll), goal: habitat, task_min, start_lmst: startHour(), state: baseState, o2_used_min: baseUsed });
   if (res.error) return showError(res);
   $('status').textContent = '';
-  if (Object.keys(alertState).length) { alertState = {}; refreshRing(); }   // a fresh plan starts with no alerts
+  if (JSON.stringify(alertState) !== JSON.stringify(baseState)) { alertState = { ...baseState }; refreshRing(); }   // a fresh plan starts with no alerts (only the bench conditions)
+  baseStats = res.stats; annotateHours();
   const m = drawRoute(res);
   ingressMin = m.legTask[m.legTask.length - 1] || 0; updateRing(true);
   publish(res, [...stops.map(s => ({ name: s.name, ll: s.ll, photo_id: s.photo_id, kind: isTask(s) ? (s.kind || 'task') : null })), { name: 'Habitat', ll: habitat, kind: 'habitat' }]);
-};
-$('clearBtn').onclick = () => { stops.length = 0; renderStops(); if (routeGroup) map.removeLayer(routeGroup); routeGroup = null;
+}
+$('planBtn').onclick = planRoute;
+$('clearBtn').onclick = () => { stops.length = 0; renderStops(); if (routeGroup) map.removeLayer(routeGroup); routeGroup = null; baseStats = null; annotateHours();
   $('stats').innerHTML = '<div class="empty">No route yet.</div>'; $('seg').innerHTML = '<div class="empty">Click a route segment on the map.</div>'; };
 
 // ---------- Astronaut position coming from the tablet ----------
@@ -237,7 +271,8 @@ onMessage(msg => {
 // ---------- Alerts (docs/INTEGRATION.md §4): console owns replanning, tablet only renders ----------
 const alertBox = $('alerts');
 const ALERT_NAMES = { SPE: 'Solar particle event', dust: 'Dust storm', suit: 'Suit failure', los: 'Loss of line of sight', deviation: 'Route deviation' };
-const ACTION_LABEL = { shelter: 'radiation shelter', safe_point: 'nearest safe point', return: 'habitat' };
+const ACTION_LABEL = { shelter: 'radiation shelter', safe_point: 'nearest safe point', return: 'habitat', resupply: 'resupply O₂' };
+const aname = a => a.name || ALERT_NAMES[a.type] || a.type;          // alerts.json may give its own name (e.g. 'O2 leak')
 // INTEGRATION §8.7: every replan says which places it considered, how many walking minutes each, and why
 function consideredHtml(list = []) {
   if (!list.length) return '';
@@ -256,7 +291,7 @@ function logAlert(priority, text) {
 head('high', '<b>■ High priority</b> · replans the route');
 (site.alerts || []).forEach(a => {
   const b = document.createElement('button'); b.className = 'high';
-  b.textContent = `${ALERT_NAMES[a.type] || a.type} → ${ACTION_LABEL[a.action] || a.action}`;
+  b.textContent = `${aname(a)} → ${ACTION_LABEL[a.action] || a.action}`;
   b.title = `O₂ ×${a.effect?.o2_x ?? 1} · dose ×${a.effect?.dose_x ?? 1} · visibility ${a.effect?.visibility ?? 1}`;
   b.onclick = async () => {
     if (!routeGroup) { setStatus('warn', 'Plan a route first (Route → Plan), then inject an alert.', 'alertStatus'); return; }
@@ -269,9 +304,9 @@ head('high', '<b>■ High priority</b> · replans the route');
     const fallback = !!r.replan.fallback_to_safe_point;      // §8.4: habitat doesn't fit (O₂ / daylight) -> nearest safe point
     const considered = r.replan.considered || [];
     send('alert', { alert: a, destination, destination_kind, fallback, considered: shortConsidered(considered) });
-    logAlert('high', `${ALERT_NAMES[a.type] || a.type} → ${destination}`);
+    logAlert('high', `${aname(a)} → ${destination}`);
     if (r.stats.distance_m < 5) {               // the astronaut is already there (e.g. still in the habitat): keep the route, just alert
-      setStatus('high', `${ALERT_NAMES[a.type] || a.type}: the astronaut is already at ${destination}. Stay there (EVA on hold). Alert sent to the tablet.`, 'alertStatus');
+      setStatus('high', `${aname(a)}: the astronaut is already at ${destination}. Stay there (EVA on hold). Alert sent to the tablet.`, 'alertStatus');
       $('alertStatus').insertAdjacentHTML('beforeend', consideredHtml(considered));
       return;
     }
@@ -281,7 +316,7 @@ head('high', '<b>■ High priority</b> · replans the route');
     const dest = (site.targets?.features || []).find(f => f.properties.id === destination_id);
     publish(r, [{ name: destination, ll: r.path.geometry.coordinates.at(-1), kind: destination_kind, photo_id: dest?.properties.photo_id ?? null }],
       { replan: true, state: r.state });
-    setStatus('high', `${fallback ? `Can't make it home: go to ${destination}. ` : ''}${ALERT_NAMES[a.type] || a.type} sent → new route to ${destination} (${(r.stats.distance_m / 1000).toFixed(2)} km, ${r.replan.total_ms} ms) is on the tablet.`, 'alertStatus');
+    setStatus('high', `${fallback ? `Can't make it home: go to ${destination}. ` : ''}${aname(a)} sent → new route to ${destination} (${(r.stats.distance_m / 1000).toFixed(2)} km, ${r.replan.total_ms} ms) is on the tablet.${r.replan.via_cache ? ` Refill at ${r.replan.via_cache.name || r.replan.via_cache}.` : ''}`, 'alertStatus');
     $('alertStatus').insertAdjacentHTML('beforeend', consideredHtml(considered));
   };
   alertBox.appendChild(b);
@@ -309,3 +344,37 @@ $('tcBtn').onclick = () => { $('tcBtn').hidden = true; $('tcConfirm').hidden = f
 $('tcNo').onclick = () => { $('tcConfirm').hidden = true; $('tcBtn').hidden = false; };
 $('tcYes').onclick = () => { if (tcTask) send('task_done_cmd', { name: tcTask }); $('tcConfirm').hidden = true; $('tcBtn').hidden = false; };
 onMessage(msg => { if (msg.type === 'task_done') logAlert('done', `Task complete: ${msg.payload.name}`); });
+
+// ---------- Configuration from the planner test bench (planner-test.html → "Send to console") ----------
+// {site, stops:[[lon,lat]], start_hour, o2_start_min, state:{o2_x?, visibility?}, route_label}
+const O2_TOTAL = (pv(site.suit?.o2_hours) ?? 8) * 60;
+function targetNear(ll) {
+  let best = null, bd = 20;                // within 20 m of a target -> use its name / kind / photo
+  for (const f of site.targets?.features || []) { const c = f.geometry.coordinates;
+    const d = Math.hypot((c[0] - ll[0]) * Math.cos(c[1] * Math.PI / 180), c[1] - ll[1]) * Math.PI / 180 * 3396190;
+    if (d < bd) { bd = d; best = f; } }
+  return best;
+}
+async function applyConfig(cfg, fromLive = false) {
+  if (!cfg) return;
+  if (cfg.site && cfg.site !== name) { setStatus('warn', `The test bench sent a ${cfg.site} configuration; this console shows ${name}. Open console.html?site=${cfg.site}.`); return; }
+  stops.length = 0;
+  for (const ll of cfg.stops || []) {
+    const f = targetNear(ll);
+    if (f?.properties.kind === 'habitat') continue;         // the console adds the habitat at both ends
+    if (f) addStop(f.geometry.coordinates, f.properties.name, f.properties.photo_id, f.properties.kind); else addStop(ll);
+  }
+  if (cfg.start_hour != null) $('startHour').value = String(Math.round(cfg.start_hour * 2) / 2);
+  baseUsed = cfg.o2_start_min != null ? Math.max(0, O2_TOTAL - cfg.o2_start_min) : 0;
+  baseState = cfg.state || {};
+  const conds = [baseState.o2_x > 1 && 'suit failure (O₂ ×' + baseState.o2_x + ')', baseState.visibility < 1 && 'dust (visibility ' + baseState.visibility + ')'].filter(Boolean);
+  $('cfgNote').hidden = false;
+  $('cfgNote').innerHTML = `<b>Configured from the test bench</b> · ${cfg.route_label || stops.length + ' stops'} · O₂ at start ${Math.round(O2_TOTAL - baseUsed)} min (${Math.round((O2_TOTAL - baseUsed) / O2_TOTAL * 100)} %)` +
+    `${conds.length ? ' · ' + conds.join(', ') : ''} · start ${ltst(startHour())} <button id="cfgReset">Reset</button>`;
+  $('cfgReset').onclick = () => { baseUsed = 0; baseState = {}; $('cfgNote').hidden = true; try { localStorage.removeItem('marswalk:config'); } catch {} if (stops.length) planRoute(); };
+  await plannerReady;
+  if (stops.length) await planRoute();
+  if (fromLive) send('config_ack', { stops: stops.length, ok: !!routeGroup });
+}
+onMessage(msg => { if (msg.type === 'config') applyConfig(msg.payload, true); });
+try { const c = JSON.parse(localStorage.getItem('marswalk:config') || 'null'); if (c && Date.now() - (c.t || 0) < 12 * 3600e3) applyConfig(c); } catch {}
