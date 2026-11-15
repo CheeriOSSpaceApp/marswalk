@@ -32,5 +32,5 @@
   "gcr_mSv_per_h_source": "Hassler et al. 2014, Science 343: MSL/RAD average GCR dose equivalent of 0.67 mSv/day at Gale Crater (sols 1-300), divided by 24 h",
   "gcr_assumption": "RAD's 0.67 mSv/day is as per Earth day (24 h).",
   "gcr_uncertainty_mSv_per_day": 0.12,
-  "gcr_uncertainty_source": "Hassler et al. 2014 as cited in SWSC 2016 reports 0.64 +/- 0.12 mSv/day, applied here to the 0.67 mSv/day rate as an approximation (our assumption)"
+  "gcr_uncertainty_source": "Hassler et al. 2014 as cited in SWSC 2016 reports 0.67 +/- 0.12 mSv/day, applied here to the 0.67 mSv/day rate as an approximation (our assumption)"
 }
