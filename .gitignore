@@ -10,3 +10,5 @@ __pycache__/
 web/test/screens/
 node_modules/
 .vite/
+.idea/
+pipeline/_selftest_out/

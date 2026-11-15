@@ -293,18 +293,30 @@ export function plan(site, req) {
 
   // Work time at each stop/goal (the real limit of EVA-1 per Marco): minutes standing at a target
   // doing the task. Source, in priority: req.task_min[k-1] > target.properties.task_min > params.task_min[kind].
-  const taskMin = pts.map((p, k) => (k === 0 ? 0 : taskMinutesAt(site, params, p, req.task_min?.[k - 1])));
-  const taskO2 = taskMin.map((m) => m * ((params.task_W ?? params.P_nom ?? 351.7) / (params.P_nom ?? 351.7)) * (state.o2_x ?? 1));
+  const ctx = {};
+  const last = pts.length - 1;
+  const taskMin = pts.map((p, k) => {
+    if (k > 0 && typeof req.task_min?.[k - 1] === 'number') return req.task_min[k - 1]; // explicit override
+    if (k === 0 && typeof req.start_task_min === 'number') return req.start_task_min;
+    return taskMinutesAt(site, params, p, k === 0 ? 'start' : k === last ? 'end' : 'stop', ctx);
+  });
+  // Work metabolic rate relative to P_nom (Ana: work_metabolic_factor = 1.0, conservative)
+  const workFactor = pval(params.work_metabolic_factor) ?? (params.task_W ? params.task_W / (params.P_nom ?? 351.7) : 1);
+  const taskO2 = taskMin.map((m) => m * workFactor * (state.o2_x ?? 1));
 
   const all = [], segments = [], extraO2 = new Map(); // path index -> task O2 spent there
+  if (taskO2[0] > 0) extraO2.set(0, taskO2[0]); // egress at the start (suit O2 already flowing)
   const doseSegs = []; // one per leg (walk + task), for radiation.doseTotal
+  // Assumption: egress/ingress happen in the habitat airlock (shielded) -> they cost O2 and time, not dose.
+  const inAirlock = pts.map((p) => targetAt(site, p)?.properties?.kind === 'habitat');
   for (let k = 0; k < cellsOf.length - 1; k++) {
     const leg = astar(grid, cellsOf[k], cellsOf[k + 1]);
     if (!leg) return { error: 'unreachable', leg: k, from: pts[k], to: pts[k + 1] };
     const legStats = pathStats(leg, site, grid, params, state);
     legStats.task_min = taskMin[k + 1];
-    legStats.dose_mSv = +doseOf([{ minutes: legStats.walk_min_exact + taskMin[k + 1], doseX: state.dose_x }], params).toFixed(4);
-    doseSegs.push({ minutes: legStats.walk_min_exact + taskMin[k + 1], doseX: state.dose_x });
+    const exposedMin = legStats.walk_min_exact + (inAirlock[k + 1] ? 0 : taskMin[k + 1]);
+    legStats.dose_mSv = +doseOf([{ minutes: exposedMin, doseX: state.dose_x }], params).toFixed(4);
+    doseSegs.push({ minutes: exposedMin, doseX: state.dose_x });
     segments.push({ from: pts[k], to: pts[k + 1], stats: legStats });
     all.push(...(k === 0 ? leg : leg.slice(1)));
     if (taskO2[k + 1] > 0) extraO2.set(all.length - 1, taskO2[k + 1]);
@@ -348,19 +360,45 @@ export function plan(site, req) {
   };
 }
 
-// Task minutes at a point: matches a target within ~2 cells.
-export function taskMinutesAt(site, params, [lon, lat], override) {
-  if (typeof override === 'number') return override;
+// ---------- Task time (Ana's params.task_min, each entry {value, source, assumption}) ----------
+const pval = (x) => (x && typeof x === 'object' ? x.value : x);
+
+// Target feature within ~2.5 cells of a point, or null.
+export function targetAt(site, [lon, lat]) {
   const tol = 2.5 * site.meta.cell_m;
   const mPerDegLat = 59270, mPerDegLon = mPerDegLat * Math.cos((lat * Math.PI) / 180);
   for (const f of site.targets?.features || []) {
     const [tl, ta] = f.geometry.coordinates;
-    if (Math.hypot((tl - lon) * mPerDegLon, (ta - lat) * mPerDegLat) <= tol) {
-      const p = f.properties || {};
-      return p.task_min ?? params.task_min?.[p.kind] ?? 0;
-    }
+    if (Math.hypot((tl - lon) * mPerDegLon, (ta - lat) * mPerDegLat) <= tol) return f;
   }
-  return 0;
+  return null;
+}
+
+// Minutes of work at a point. role: 'start' | 'stop' | 'end'. ctx carries depot setup (charged once).
+//   depot   -> depot_per_tube (+ depot_setup the first time the EVA reaches the depot)
+//   science -> science;  shelter -> shelter
+//   habitat -> habitat_egress if the EVA starts there, habitat_ingress if it ends there
+// A target's own properties.task_min (number) overrides the defaults.
+export function taskMinutesAt(site, params, point, role = 'stop', ctx = {}) {
+  const f = targetAt(site, point);
+  if (!f) return 0;
+  const p = f.properties || {};
+  if (typeof p.task_min === 'number') return p.task_min;
+  const T = params.task_min || {};
+  switch (p.kind) {
+    case 'depot': {
+      let m = pval(T.depot_per_tube) ?? pval(T.depot) ?? 0;
+      if (!ctx.depotSetupDone) { m += pval(T.depot_setup) ?? 0; ctx.depotSetupDone = true; }
+      return m;
+    }
+    case 'science': return pval(T.science) ?? 0;
+    case 'shelter': return role === 'stop' || role === 'end' ? pval(T.shelter) ?? 0 : 0;
+    case 'habitat':
+      if (role === 'start') return pval(T.habitat_egress) ?? 0;
+      if (role === 'end') return pval(T.habitat_ingress) ?? pval(T.habitat) ?? 0;
+      return 0;
+    default: return 0;
+  }
 }
 
 // Dose via Ana's radiation.js. segments: [{minutes, doseX}]. Never crash the UI on bad params.
