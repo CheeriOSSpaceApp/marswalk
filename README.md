@@ -153,7 +153,7 @@ Alerts stack: `dose_x` and `o2_x` multiply, and visibility takes the lowest valu
 | `w_caution` | 0.5 | n/a | Tunable weight (team default); adjusted with the rover validation | Yes |
 | `w_obstacle_caution` | 2.0 | n/a | Tunable weight (team default); adjusted with the rover validation | Yes |
 | `task_min.cache_refill` | 10 | min | O₂ top-off at a pre-positioned surface cache via an umbilical (concept: suit Service and Cooling Umbilical, Campbell et al. 2017, sec. 3.2.5.5.2); duration is a MarsWalk assumption | Yes |
-| `w_comms`| 0.2 | n/a | Tunable weight (team default) | Yes |
+| `w_nocomms`| 0.2 | n/a | Tunable weight (team default) | Yes |
 
 ### Model limitations
 - Slope is an unsigned magnitude, so descending costs the same as ascending. This is conservative; a signed-grade model (e.g. a Santee-type downhill correction) is future work.
@@ -165,7 +165,7 @@ Alerts stack: `dose_x` and `o2_x` multiply, and visibility takes the lowest valu
 - The hand check verifies that the planner computes its statistics correctly from these equations; it does not validate the model itself. That is done against the real rover traverse.
 - The dependence of GCR dose on atmospheric pressure (Rafkin et al. 2014; Guo et al. 2017) is not modeled; a constant rate is used.
 
-### References
+## References
 - Ogilvie et al. (2026). ICES-2026-127, NASA JSC. https://ntrs.nasa.gov/citations/20260003038 (paper); https://ntrs.nasa.gov/citations/20260005410 (presentation). 
 - Kim et al. (2024). Improving Metabolic Workload Estimation Accuracy for Planning and Analyzing Exploration Traverses. IEEE EMBC. NTRS 20240001423.
 - Pandolf, K. B., Givoni, B., Goldman, R. F. (1977). *J. Appl. Physiol.* 43(4).
