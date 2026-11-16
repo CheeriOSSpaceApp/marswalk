@@ -55,7 +55,7 @@ Columns: what you see · what's happening (action in the app) · what's said (EN
 
 | # | Time | Guide block | What you see | What's happening | Narration (EN) | On-screen text | Audio |
 |---|---|---|---|---|---|---|---|
-| 1 | 0:00–0:02 | Name + team | **ph-tf-11** (Navcam sol 658: plain with rover tracks), push-in ≤ 8% | Presenter intro | "I'm [NAME], with team CheeriOS." | **Team CheeriOS** · [first names of the 6] · [Local Event], Mexico | Real Mars wind + low pad |
+| 1 | 0:00–0:02 | Name + team | **ph-tf-11** (Navcam sol 658: plain with rover tracks), push-in ≤ 8% | Presenter intro | "I'm Dana, with team CheeriOS." | **Team CheeriOS** · Dana · Eric · Santiago · Gabriel · Ana · Marco · *NASA Space Apps Saltillo, Mexico* | Real Mars wind + low pad |
 | 2 | 0:02–0:05.5 | Challenge + inspiration | **S70-29540** (Apollo in El Pinacate, 1970) → 12-frame crossfade → **ph-hab-01** (habitat site, Jezero) | Why this challenge | "Apollo trained in Sonora. Our challenge: the first Marswalk." | Top: *Challenge: Interplanetary Survival Guide — Martian Map* · bottom: *Pinacate, Sonora · 1970 → Jezero Crater, Mars* | Synth pulse comes in |
 | 3 | 0:05.5–0:10 | Title + tagline | Console hillshade (3 × 3 km) with the targets as pins coming in one by one | Name + promise | "MarsWalk. *(pause)* Plan the walk. Come home." | **MARSWALK** / *Plan the walk. Come home.* / *EVA routes computed from NASA data* | Music hit on the title |
 | 4 | 0:10–0:13 | How it works + data | **Real capture, console** (`?demo=eva1-nominal`): slope → hazard → line of sight (0.5 s each) → route draws itself with the **safe zone** (red) and the **GO** badge | NASA data → oxygen cost → route | "NASA terrain sets the oxygen cost of every step." | Left chips (cyan): *HiRISE DTM · USGS/NASA* → *Slope · Hazard · Line of sight* → *O₂ minutes per 3 m cell* → *Sunset & weather: Mars Climate Database (ESA/CNES)* | Soft UI clicks |
@@ -74,7 +74,7 @@ Never cut 1, 3, 4, 5, 7: they carry the name, the title, the NASA data, the vali
 
 **TTS (only if no team voice):**
 ```
-<speak>I'm [NAME], with team CheeriOS. <break time="250ms"/>
+<speak>I'm Dana, with team CheeriOS. <break time="250ms"/>
 Apollo trained in Sonora. <break time="150ms"/> Our challenge: the first Marswalk. <break time="400ms"/>
 MarsWalk. <break time="300ms"/> Plan the walk. <break time="300ms"/> Come home. <break time="400ms"/>
 NASA terrain sets the oxygen cost of every step. <break time="200ms"/>
@@ -160,7 +160,7 @@ O₂ caches and pressurized rover are mission concepts · Navcam images color-ad
 
 - [ ] Eric: push to `main` and confirm the Pages deploy in incognito (before Santiago records).
 - [ ] Santiago: takes A–F (section 4).
-- [ ] Voice: a team member (preferred) or TTS with the label; measure ≤ 27 s.
+- [ ] Voice: **Dana** records the narration (section 2); measure ≤ 27 s. No TTS, so no "AI-generated voice" label.
 - [ ] Editing per sections 2 and 5; subtitles; credits.
 - [ ] Review: Dana (science and wording, section 6) and Eric (numbers that match the app).
 - [ ] Export ≤ 29.5 s → YouTube → incognito test → link to the project page.
