@@ -131,6 +131,20 @@ Leave 1 s before and after each take. Large cursor. Don't touch anything during 
 
 ---
 
+### 5b. Audio sources (all legal; keep a screenshot of each license or source page)
+
+| Layer | Scenes | Source | License / credit |
+|---|---|---|---|
+| Narration | 1–8 | **Dana's own voice** | Ours. No "AI voice" label needed |
+| Mars wind (Perseverance SuperCam, rover sounds removed) | 1, 8 (and quietly under 2) | NASA *Sounds from Beyond* → https://www.nasa.gov/sounds-from-beyond/ · SoundCloud `soundcloud.com/nasa/perseverance-mars-supercam-sounds-of-mars` | NASA media guidelines: free use, credit NASA, no endorsement. Copy the exact credit line from the page (NASA/JPL-Caltech/…) |
+| Perseverance wheels on Jezero (optional) | 4 (under the route drawing) | NASA, "Sounds of Perseverance Mars Rover Driving – Sol 16" (same NASA pages) | Same as above |
+| Quindar tone (Apollo radio beep, 2525 Hz, 0.25 s) | 2 (Apollo → Jezero), 6 (telemetry beep) | Make it in Audacity: *Generate → Tone*, sine, 2525 Hz, 0.25 s. Alternative: Freesound "Intro Quindar Tone" (CC0) | Ours, or CC0 (no attribution) |
+| Alert alarm (two tones) | 7 | Make it in Audacity: 880 Hz 0.25 s + 660 Hz 0.25 s, square wave, ×2 | Ours |
+| UI clicks / title hit / soft whoosh | 3, 4, 5 | Pixabay Sound Effects (pixabay.com/sound-effects, search "ui click", "cinematic hit", "whoosh") or YouTube Studio → Audio Library → *Sound effects* | Pixabay Content License (no attribution) / YouTube Audio Library |
+| Music bed (ambient electronic, 90–100 BPM, no lyrics, ≥ 35 s) | 1–8 | **YouTube Studio → Audio Library → Free music**, filter *License type: no attribution required*, moods *Calm / Inspirational*, genre *Ambient / Cinematic*. Alternative: Pixabay Music, search "space ambient" or "cinematic technology" | YouTube Audio Library license (safe for YouTube hosting) / Pixabay Content License. Write the track name and author in the References field |
+
+**Do not use:** movie or game soundtracks, popular songs, "NASA-style" tracks from random YouTube channels, Apollo/Artemis **voice** clips (identifiable people), anything AI-generated without the label.
+
 ## 6. Rules (rule out anything that disqualifies)
 
 - **Duration:** ≤ 30 s.
