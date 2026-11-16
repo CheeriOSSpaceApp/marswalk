@@ -11,12 +11,21 @@ export function createRing(map, bounds, meta) {
   const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d'), img = ctx.createImageData(W, H);
   if (!map.getPane('ringPane')) { map.createPane('ringPane').style.zIndex = 450; map.getPane('ringPane').style.pointerEvents = 'none'; }  // above the image layers (overlay pane = 400), below markers
-  // The canvas itself is the map layer (Leaflet's svgOverlay positions any element): repainting = putImageData, no image
-  // swap. The old PNG/blob swap left a blank frame between two images, so the zone flickered in screen recordings.
-  const layer = L.svgOverlay(canvas, bounds, { opacity: 0.55, interactive: false, pane: 'ringPane' });
-  let data = null, lastLeft = null, busy = false, live = false;
+  const layer = L.imageOverlay(canvas.toDataURL(), bounds, { opacity: 0.55, interactive: false, pane: 'ringPane' });
+  let data = null, lastLeft = null, busy = false, url = null, live = false;
 
-  function flush() { ctx.putImageData(img, 0, 0); busy = false; }
+  function flush() {
+    ctx.putImageData(img, 0, 0);
+    // free the previous image only once the new one is on screen (no blank frame between the two)
+    canvas.toBlob(b => {
+      if (!b) { busy = false; return; }
+      const u = URL.createObjectURL(b), old = url; url = u;
+      let done = false;
+      const fin = () => { if (done) return; done = true; if (old) URL.revokeObjectURL(old); busy = false; };
+      layer.once('load', fin); setTimeout(fin, 1000);   // fallback: layer switched off (no load event) or slow decode
+      layer.setUrl(u);
+    });
+  }
   // Live safe zone (Eric's planner.safeZone, INTEGRATION §9.2): 0 no-return = dark red · 1 tight (< 30 min margin) = amber · 2 safe = clear
   function paintZone(zone) {
     const d = img.data;
