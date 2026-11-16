@@ -265,9 +265,11 @@ const hm = min => `${Math.floor(min / 60)}:${String(Math.floor(min % 60)).padSta
 onMessage(msg => {
   if (msg.type !== 'position') return;
   const p = msg.payload, ll = [p.lat, p.lon];
-  segs.forEach(g => {                         // segments already walked turn blue
-    g.done = g.s.cum - g.s.distance_m / 2 <= p.d;
-    if (selected?.line !== g.line) g.line.setStyle(g.done ? { color: DONE, weight: 5 } : g.base);
+  segs.forEach(g => {                         // segments already walked turn blue (restyle only when it changes: positions arrive ~60/s)
+    const done = g.s.cum - g.s.distance_m / 2 <= p.d;
+    if (done === g.done) return;
+    g.done = done;
+    if (selected?.line !== g.line) g.line.setStyle(done ? { color: DONE, weight: 5 } : g.base);
   });
   lastPosition = p;
   if (!astro) astro = L.marker(ll, { icon: helmetIcon(), zIndexOffset: 1000, interactive: false }).addTo(map);
