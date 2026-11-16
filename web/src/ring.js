@@ -16,7 +16,15 @@ export function createRing(map, bounds, meta) {
 
   function flush() {
     ctx.putImageData(img, 0, 0);
-    canvas.toBlob(b => { if (!b) return; const u = URL.createObjectURL(b); layer.setUrl(u); if (url) URL.revokeObjectURL(url); url = u; busy = false; });
+    // free the previous image only once the new one is on screen (no blank frame between the two)
+    canvas.toBlob(b => {
+      if (!b) { busy = false; return; }
+      const u = URL.createObjectURL(b), old = url; url = u;
+      let done = false;
+      const fin = () => { if (done) return; done = true; if (old) URL.revokeObjectURL(old); busy = false; };
+      layer.once('load', fin); setTimeout(fin, 1000);   // fallback: layer switched off (no load event) or slow decode
+      layer.setUrl(u);
+    });
   }
   // Live safe zone (Eric's planner.safeZone, INTEGRATION §9.2): 0 no-return = dark red · 1 tight (< 30 min margin) = amber · 2 safe = clear
   function paintZone(zone) {
