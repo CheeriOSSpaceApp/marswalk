@@ -362,7 +362,12 @@ function render() {
   if (offR > DEVIATION_M && !devAlerted) { devAlerted = true; lowAlert('deviation', `Off route by ${offR.toFixed(0)} m. Head back to the planned route.`); }
   if (offR < DEVIATION_M / 2) devAlerted = false;
   astro.setLatLng([pos[1], pos[0]]);
-  if (follow) map.panTo([pos[1], pos[0]], { animate: true, duration: 0.25 });
+  // Follow camera: re-centre without animation. An animated pan restarted every frame (60/s) fought itself and made the
+  // astronaut flicker in screen recordings; per frame the move is a few pixels, so an instant pan already looks smooth.
+  if (follow) {
+    const ll = astro.getLatLng(), p = map.latLngToContainerPoint(ll), c = map.getSize().divideBy(2);
+    if (p.distanceTo(c) > 1) map.panTo(ll, { animate: false });
+  }
   if (dist(P.c[k], P.c[k + 1]) > 0.01) { const h = bearing(P.c[k], P.c[k + 1]); $('hdgTxt').textContent = h; $('needle').style.transform = `rotate(${parseFloat(h)}deg)`; }   // direction of travel
   const ll = p => [p[1], p[0]];
   doneLine.setLatLngs([...P.c.slice(0, k + 1).map(ll), ll(pathPos)]);
